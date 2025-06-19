@@ -1,0 +1,75 @@
+name: 카카오톡 오픈채팅방 자동 미션 전송
+
+on:
+  schedule:
+    # 월-금 09:00 KST (00:00 UTC) - 아침 인사
+    - cron: '0 0 * * 1-5'
+    
+    # 월-금 09:30-23:30 KST - 30분 간격 (피크타임 제외)
+    - cron: '30 0,1,2,3,4,5,7,8,9,10,11,14,15,16,17,18,19,20,21,22,23 * * 1-5'
+    
+    # 월-금 06:00-13:00, 17:00-20:00 KST - 피크타임 15분 간격
+    - cron: '0,15,30,45 21,22,23,0,1,2,3,4,8,9,10,11 * * 1-5'
+    
+    # 토일공휴일 09:00 KST (00:00 UTC) - 아침 인사
+    - cron: '0 0 * * 0,6'
+    
+    # 토일공휴일 09:30-23:30 KST - 30분 간격 (피크타임 제외)
+    - cron: '30 0,1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 * * 0,6'
+    
+    # 토일공휴일 06:00-14:00, 17:00-20:00 KST - 피크타임 15분 간격
+    - cron: '0,15,30,45 21,22,23,0,1,2,3,4,5,8,9,10,11 * * 0,6'
+    
+    # 매일 자정 00:00 KST (15:00 UTC 이전날) - 마무리 인사
+    - cron: '0 15 * * *'
+    
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  send-mission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: 🛒 코드 체크아웃
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Python 설정
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: 📦 의존성 설치
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 🕐 현재 시간 확인 (한국시간)
+      run: |
+        echo "GitHub Actions 실행 시간 (UTC): $(date -u)"
+        echo "한국 시간 (KST): $(TZ='Asia/Seoul' date)"
+        
+    - name: 🚀 카카오톡 메시지 전송
+      env:
+        KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+        KAKAO_CHANNEL_ID: ${{ secrets.KAKAO_CHANNEL_ID }}
+        KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
+        OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+        WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        DEBUG_MODE: 'false'
+      run: |
+        echo "🎯 카카오톡 자동 전송 시작..."
+        python github_actions_sender.py
+        echo "✅ 카카오톡 자동 전송 완료!"
+        
+    - name: 📊 실행 결과 로깅
+      if: always()
+      run: |
+        echo "=== 실행 결과 ==="
+        echo "워크플로우 상태: ${{ job.status }}"
+        echo "한국 시간: $(TZ='Asia/Seoul' date)"
+        echo "실행 완료!" 
