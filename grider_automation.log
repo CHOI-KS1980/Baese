@@ -1,5 +1,0 @@
-2025-06-21 18:36:42,425 - INFO - 🎯 심플 배민 플러스 카카오톡 자동화 시작
-2025-06-21 18:36:42,425 - ERROR - ❌ 설정 파일이 없습니다: config.txt
-2025-06-21 18:36:42,425 - INFO - 📝 config.txt 파일을 생성하고 다음 내용을 입력하세요:
-2025-06-21 18:36:42,425 - INFO - REST_API_KEY=your_rest_api_key_here
-2025-06-21 18:36:42,425 - INFO - REFRESH_TOKEN=your_refresh_token_here

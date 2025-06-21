@@ -1,0 +1,69 @@
+# 로그 파일들
+*.log
+logs/
+semiauto/grider_automation.log
+grider_automation.log
+kakao_automation.log
+kakao_memo_automation.log
+kakao_scheduler.log
+
+# 디버깅/임시 파일들
+debug_*.html
+semiauto/debug_grider_page.html
+*.html.tmp
+*.debug
+
+# Python 관련
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 가상환경
+venv/
+env/
+ENV/
+.venv
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 운영체제
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 개인 설정/토큰
+kakao_access_token.txt
+kakao_tokens.txt
+*.pid
+config.txt
+
+# 캐시 파일
+*.cache
+cache/ 
