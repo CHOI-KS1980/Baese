@@ -35,21 +35,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
+    # 동시 실행 방지 (Git 충돌 방지)
+    concurrency:
+      group: log-cleanup
+      cancel-in-progress: false
+    
+    if: github.repository == github.event.repository.full_name
+    
     steps:
     - name: 🛒 저장소 체크아웃
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # 전체 히스토리 가져오기
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: 🐍 Python 환경 설정
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
         cache: 'pip'
+        cache-dependency-path: 'requirements.txt'
     
     - name: 📦 의존성 설치
       run: |
         python -m pip install --upgrade pip
+        pip install --no-deps -r requirements.txt
         pip install schedule pathlib
     
     - name: 🕐 시간 정보 출력

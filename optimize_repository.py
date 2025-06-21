@@ -426,6 +426,104 @@ class RepositoryOptimizer:
             'stats': self.optimization_stats
         }
 
+    def optimize_github_actions(self):
+        """GitHub Actions 워크플로우 최적화"""
+        print("\n🚀 GitHub Actions 워크플로우 최적화 중...")
+        
+        workflows_dir = Path('.github/workflows')
+        if not workflows_dir.exists():
+            return
+            
+        optimizations = []
+        
+        for workflow_file in workflows_dir.glob('*.yml'):
+            try:
+                with open(workflow_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                original_size = len(content)
+                
+                # 1. 중복 단계 제거
+                content = self._remove_duplicate_steps(content)
+                
+                # 2. 캐시 최적화 추가
+                content = self._optimize_caching(content)
+                
+                # 3. 타임아웃 최적화
+                content = self._optimize_timeouts(content)
+                
+                # 4. 조건부 실행 최적화
+                content = self._optimize_conditions(content)
+                
+                new_size = len(content)
+                
+                if new_size != original_size:
+                    with open(workflow_file, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    
+                    optimizations.append({
+                        'file': workflow_file.name,
+                        'original_size': original_size,
+                        'new_size': new_size,
+                        'saved': original_size - new_size
+                    })
+                    
+            except Exception as e:
+                print(f"⚠️ {workflow_file.name} 최적화 중 오류: {e}")
+        
+        if optimizations:
+            print(f"✅ {len(optimizations)}개 워크플로우 최적화 완료")
+            for opt in optimizations:
+                print(f"   📄 {opt['file']}: {opt['saved']}바이트 절약")
+        else:
+            print("✅ 모든 워크플로우가 이미 최적화되어 있습니다")
+    
+    def _remove_duplicate_steps(self, content):
+        """중복 단계 제거"""
+        lines = content.split('\n')
+        seen_steps = set()
+        result_lines = []
+        
+        for line in lines:
+            if 'name:' in line and 'steps:' not in line:
+                step_name = line.strip()
+                if step_name not in seen_steps:
+                    seen_steps.add(step_name)
+                    result_lines.append(line)
+                else:
+                    continue
+            else:
+                result_lines.append(line)
+        
+        return '\n'.join(result_lines)
+    
+    def _optimize_caching(self, content):
+        """캐시 최적화"""
+        if 'cache: \'pip\'' in content and 'cache-dependency-path:' not in content:
+            content = content.replace(
+                'cache: \'pip\'',
+                'cache: \'pip\'\n        cache-dependency-path: \'requirements.txt\''
+            )
+        return content
+    
+    def _optimize_timeouts(self, content):
+        """타임아웃 최적화"""
+        if 'timeout-minutes:' not in content and 'runs-on: ubuntu-latest' in content:
+            content = content.replace(
+                'runs-on: ubuntu-latest',
+                'runs-on: ubuntu-latest\n    timeout-minutes: 10'
+            )
+        return content
+    
+    def _optimize_conditions(self, content):
+        """조건부 실행 최적화"""
+        if 'if: github.repository ==' not in content and 'jobs:' in content:
+            content = content.replace(
+                'steps:',
+                'if: github.repository == github.event.repository.full_name\n    \n    steps:'
+            )
+        return content
+
 def main():
     """메인 실행 함수"""
     print("🚀 GitHub 리포지토리 통합 최적화 시스템")
@@ -461,8 +559,12 @@ def main():
             print("✅ 전체 최적화 완료!")
             print(f"📋 리포트: {results['report_file']}")
             
+        elif command == 'actions':
+            # GitHub Actions 워크플로우 최적화
+            optimizer.optimize_github_actions()
+            
         else:
-            print("사용법: python optimize_repository.py [analyze|python|clean|deps|full]")
+            print("사용법: python optimize_repository.py [analyze|python|clean|deps|full|actions]")
     
     else:
         # 기본: 전체 최적화 실행

@@ -356,6 +356,149 @@ class LogCleanupManager:
             logger.info(f"📋 주간 리포트 생성: {report_file}")
         except Exception as e:
             logger.error(f"❌ 리포트 저장 실패: {e}")
+    
+    def smart_compress_logs(self):
+        """스마트 로그 압축 (내용 기반)"""
+        print("\n🗜️ 스마트 로그 압축 중...")
+        
+        compressed_count = 0
+        total_saved = 0
+        
+        for log_file in self.logs_dir.rglob('*.log'):
+            if log_file.stat().st_size > 5 * 1024 * 1024:  # 5MB 이상
+                try:
+                    # 중복 라인 제거 후 압축
+                    with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = f.readlines()
+                    
+                    # 중복 라인 제거 (연속된 동일한 라인)
+                    unique_lines = []
+                    prev_line = None
+                    duplicate_count = 0
+                    
+                    for line in lines:
+                        if line == prev_line:
+                            duplicate_count += 1
+                        else:
+                            if duplicate_count > 0:
+                                unique_lines.append(f"... (위 라인이 {duplicate_count}회 반복됨)\n")
+                                duplicate_count = 0
+                            unique_lines.append(line)
+                            prev_line = line
+                    
+                    # 임시 파일에 정리된 내용 저장
+                    temp_file = log_file.with_suffix('.tmp')
+                    with open(temp_file, 'w', encoding='utf-8') as f:
+                        f.writelines(unique_lines)
+                    
+                    original_size = log_file.stat().st_size
+                    temp_size = temp_file.stat().st_size
+                    
+                    # 20% 이상 절약되면 압축
+                    if temp_size < original_size * 0.8:
+                        # gzip 압축
+                        import gzip
+                        with open(temp_file, 'rb') as f_in:
+                            with gzip.open(log_file.with_suffix('.log.gz'), 'wb') as f_out:
+                                f_out.writelines(f_in)
+                        
+                        # 원본 파일 삭제
+                        log_file.unlink()
+                        temp_file.unlink()
+                        
+                        compressed_size = log_file.with_suffix('.log.gz').stat().st_size
+                        saved = original_size - compressed_size
+                        total_saved += saved
+                        compressed_count += 1
+                        
+                        print(f"   📦 {log_file.name}: {self._format_size(saved)} 절약")
+                    else:
+                        temp_file.unlink()
+                        
+                except Exception as e:
+                    print(f"⚠️ {log_file.name} 압축 중 오류: {e}")
+        
+        if compressed_count > 0:
+            print(f"✅ {compressed_count}개 파일 스마트 압축 완료")
+            print(f"💾 총 절약 공간: {self._format_size(total_saved)}")
+        else:
+            print("✅ 압축이 필요한 파일이 없습니다")
+    
+    def optimize_git_history(self):
+        """Git 히스토리 최적화"""
+        print("\n🔄 Git 히스토리 최적화 중...")
+        
+        try:
+            # Git 가비지 컬렉션
+            subprocess.run(['git', 'gc', '--aggressive', '--prune=now'], 
+                         capture_output=True, text=True, check=True)
+            
+            # 리팩 최적화
+            subprocess.run(['git', 'repack', '-ad'], 
+                         capture_output=True, text=True, check=True)
+            
+            print("✅ Git 히스토리 최적화 완료")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"⚠️ Git 최적화 중 오류: {e}")
+    
+    def analyze_repository_health(self):
+        """리포지토리 건강도 분석"""
+        print("\n📊 리포지토리 건강도 분석 중...")
+        
+        health_score = 100
+        issues = []
+        
+        # 1. 대용량 파일 체크
+        large_files = []
+        for file_path in Path('.').rglob('*'):
+            if file_path.is_file() and file_path.stat().st_size > 10 * 1024 * 1024:  # 10MB
+                large_files.append((file_path, file_path.stat().st_size))
+        
+        if large_files:
+            health_score -= min(20, len(large_files) * 5)
+            issues.append(f"🔴 대용량 파일 {len(large_files)}개 발견")
+            for file_path, size in large_files[:3]:  # 상위 3개만 표시
+                issues.append(f"   📄 {file_path}: {self._format_size(size)}")
+        
+        # 2. 로그 파일 체크
+        log_count = len(list(Path('.').rglob('*.log')))
+        if log_count > 10:
+            health_score -= min(15, log_count - 10)
+            issues.append(f"🟡 로그 파일 {log_count}개 (권장: 10개 이하)")
+        
+        # 3. 의존성 파일 체크
+        req_files = list(Path('.').rglob('requirements*.txt'))
+        if len(req_files) > 2:
+            health_score -= 10
+            issues.append(f"🟡 requirements 파일 {len(req_files)}개 (권장: 1-2개)")
+        
+        # 4. README 파일 체크
+        readme_files = list(Path('.').rglob('README*.md'))
+        if len(readme_files) > 3:
+            health_score -= 5
+            issues.append(f"🟡 README 파일 {len(readme_files)}개 (권장: 1-3개)")
+        
+        # 건강도 등급 결정
+        if health_score >= 90:
+            grade = "🟢 우수"
+        elif health_score >= 70:
+            grade = "🟡 양호"
+        elif health_score >= 50:
+            grade = "🟠 보통"
+        else:
+            grade = "🔴 개선 필요"
+        
+        print(f"📈 리포지토리 건강도: {health_score}/100 ({grade})")
+        
+        if issues:
+            print("\n⚠️ 발견된 문제점:")
+            for issue in issues:
+                print(f"   {issue}")
+        else:
+            print("✅ 문제점이 발견되지 않았습니다!")
+        
+        return health_score, issues
 
 def main():
     """메인 실행 함수"""
@@ -386,8 +529,28 @@ def main():
             success = manager.github_cleanup()
             print(f"GitHub 정리: {'성공' if success else '실패'}")
             
+        elif command == 'smart_compress':
+            # 스마트 로그 압축
+            manager.smart_compress_logs()
+            
+        elif command == 'optimize_git':
+            # Git 히스토리 최적화
+            manager.optimize_git_history()
+            
+        elif command == 'analyze_repo':
+            # 리포지토리 건강도 분석
+            health_score, issues = manager.analyze_repository_health()
+            print(f"리포지토리 건강도: {health_score}/100 ({'🟢 우수' if health_score >= 90 else '🟡 양호' if health_score >= 70 else '🟠 보통' if health_score >= 50 else '🔴 개선 필요'})")
+            
+            if issues:
+                print("\n⚠️ 발견된 문제점:")
+                for issue in issues:
+                    print(f"   {issue}")
+            else:
+                print("✅ 문제점이 발견되지 않았습니다!")
+            
         else:
-            print("사용법: python log_cleanup_system.py [cleanup|report|monitor|github]")
+            print("사용법: python log_cleanup_system.py [cleanup|report|monitor|github|smart_compress|optimize_git|analyze_repo]")
     
     else:
         # 기본: 즉시 정리 후 모니터링 시작
