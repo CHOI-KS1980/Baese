@@ -12,7 +12,7 @@ import json
 import schedule
 import time
 from datetime import datetime, timedelta
-import pyperclip  # pip install pyperclip
+# pyperclip은 조건부 import (GitHub Actions 환경에서는 사용 불가)
 import logging
 import os
 import re
@@ -1314,15 +1314,16 @@ class GriderAutoSender:
                 link_url="https://grider.co.kr"  # 실제 링크로 변경
             )
             
-            # 4. 클립보드에도 복사 (수동 붙여넣기용)
-            pyperclip.copy(message)
+            # 4. 클립보드에도 복사 (로컬 실행시에만)
+            try:
+                import pyperclip
+                pyperclip.copy(message)
+                logger.info("📋 클립보드에 복사됨 - 오픈채팅방에 붙여넣기하세요!")
+            except Exception as e:
+                logger.info("📋 클립보드 복사 생략 (GitHub Actions 환경)")
             
             if result.get('result_code') == 0:
                 logger.info(f"✅ {datetime.now()} - 메시지 전송 성공!")
-                logger.info("📋 클립보드에 복사됨 - 오픈채팅방에 붙여넣기하세요!")
-                
-                # 성공 알림 메시지 제거 (중복 방지)
-                
                 return True
             else:
                 logger.error(f"❌ 메시지 전송 실패: {result}")
