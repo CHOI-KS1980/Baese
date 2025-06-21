@@ -1,0 +1,156 @@
+name: 🧹 자동 로그 정리 및 리포지토리 최적화
+
+on:
+  schedule:
+    # 매일 새벽 2시 (한국시간 11시 = UTC 02시)
+    - cron: '0 2 * * *'
+    
+    # 매주 일요일 새벽 3시 (전체 정리)
+    - cron: '0 3 * * 0'
+  
+  # 수동 실행 지원
+  workflow_dispatch:
+    inputs:
+      cleanup_type:
+        description: '정리 유형 선택'
+        required: true
+        default: 'normal'
+        type: choice
+        options:
+        - normal
+        - aggressive
+        - report_only
+      
+      auto_commit:
+        description: '자동 커밋 여부'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+
+jobs:
+  cleanup-logs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 🛒 저장소 체크아웃
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 전체 히스토리 가져오기
+    
+    - name: 🐍 Python 환경 설정
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: 📦 의존성 설치
+      run: |
+        python -m pip install --upgrade pip
+        pip install schedule pathlib
+    
+    - name: 🕐 시간 정보 출력
+      run: |
+        echo "🚀 로그 정리 시작"
+        echo "⏰ UTC 시간: $(date -u)"
+        echo "🇰🇷 한국 시간: $(TZ='Asia/Seoul' date)"
+        echo "🎯 정리 유형: ${{ github.event.inputs.cleanup_type || 'scheduled' }}"
+    
+    - name: 📊 정리 전 상태 확인
+      run: |
+        echo "=== 정리 전 상태 ==="
+        echo "📁 전체 파일 수: $(find . -type f | wc -l)"
+        echo "📊 로그 파일 수: $(find . -name "*.log" -o -name "debug_*.html" | wc -l)"
+        echo "💾 로그 파일 크기: $(find . -name "*.log" -o -name "debug_*.html" -exec ls -lh {} \; | awk '{sum+=$5} END {print sum/1024/1024 " MB"}')"
+        echo "🗂️ 리포지토리 크기: $(du -sh . | cut -f1)"
+    
+    - name: 🧹 로그 파일 정리 실행
+      run: |
+        if [ "${{ github.event.inputs.cleanup_type }}" = "report_only" ]; then
+          echo "📋 리포트만 생성합니다..."
+          python log_cleanup_system.py report
+                 elif [ "${{ github.event.inputs.cleanup_type }}" = "aggressive" ]; then
+           echo "🔥 강력 정리 모드..."
+           # 더 엄격한 설정으로 정리
+           echo '{"max_file_size_mb":5,"max_age_days":3,"keep_compressed_days":14,"log_directories":[".","logs/","semiauto/","autoinfo/","kakao/"],"log_patterns":["*.log","debug_*.html","*.debug","*.tmp","*.cache"],"github_cleanup":{"enabled":true,"auto_commit":true}}' > log_cleanup_config.json
+           python log_cleanup_system.py cleanup
+        else
+          echo "📝 일반 정리 모드..."
+          python log_cleanup_system.py cleanup
+        fi
+    
+    - name: 📊 정리 후 상태 확인
+      run: |
+        echo "=== 정리 후 상태 ==="
+        echo "📁 전체 파일 수: $(find . -type f | wc -l)"
+        echo "📊 남은 로그 파일: $(find . -name "*.log" -o -name "debug_*.html" | wc -l)"
+        echo "🗂️ 리포지토리 크기: $(du -sh . | cut -f1)"
+        echo ""
+        echo "🗜️ 압축된 파일: $(find . -name "*.gz" | wc -l)개"
+        echo "📋 정리 리포트:"
+        python log_cleanup_system.py report
+    
+    - name: 🔄 Git 상태 확인
+      id: git-status
+      run: |
+        git status --porcelain > git_changes.txt
+        if [ -s git_changes.txt ]; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "📝 변경사항 감지됨:"
+          cat git_changes.txt
+        else
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "✅ 변경사항 없음"
+        fi
+    
+    - name: 📤 변경사항 커밋 및 푸시
+      if: steps.git-status.outputs.has_changes == 'true' && (github.event.inputs.auto_commit != 'false')
+      run: |
+        # Git 사용자 설정
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # .gitignore 업데이트 확인
+        git add .gitignore
+        git add log_cleanup_system.py
+        git add .github/workflows/log-cleanup.yml
+        
+        # 로그 파일들이 실수로 추가되지 않도록 제거
+        git rm --cached *.log 2>/dev/null || true
+        git rm --cached debug_*.html 2>/dev/null || true
+        git rm --cached semiauto/*.log 2>/dev/null || true
+        git rm --cached semiauto/debug_*.html 2>/dev/null || true
+        
+        # 커밋 메시지 생성
+        CLEANUP_TYPE="${{ github.event.inputs.cleanup_type || 'scheduled' }}"
+        COMMIT_MSG="🧹 자동 로그 정리 ($CLEANUP_TYPE) - $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M')"
+        
+        # 커밋 및 푸시
+        git commit -m "$COMMIT_MSG" || echo "커밋할 변경사항 없음"
+        git push origin main || echo "푸시 실패 - 충돌 가능성"
+    
+    - name: 📈 정리 결과 요약
+      if: always()
+      run: |
+        echo "::notice::🧹 로그 정리 작업 완료"
+        
+        if [ "${{ steps.git-status.outputs.has_changes }}" = "true" ]; then
+          echo "::notice::📝 변경사항이 자동으로 커밋되었습니다"
+        else
+          echo "::notice::✅ 정리할 항목이 없었습니다"
+        fi
+        
+        echo ""
+        echo "📊 최종 상태:"
+        echo "• 실행 시간: $(TZ='Asia/Seoul' date)"
+        echo "• 정리 유형: ${{ github.event.inputs.cleanup_type || 'scheduled' }}"
+        echo "• 자동 커밋: ${{ github.event.inputs.auto_commit || 'true' }}"
+    
+    - name: 🚨 실패시 알림
+      if: failure()
+      run: |
+        echo "::error::❌ 로그 정리 작업 실패"
+        echo "::error::상세 로그를 확인하여 문제를 파악하세요" 

@@ -13,6 +13,12 @@ semiauto/debug_grider_page.html
 *.html.tmp
 *.debug
 
+# 로그 관리 시스템
+log_cleanup.log
+log_cleanup_config.json
+log_report_*.txt
+*.gz
+
 # Python 관련
 __pycache__/
 *.py[cod]
