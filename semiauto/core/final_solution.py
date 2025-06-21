@@ -730,7 +730,6 @@ class GriderDataCollector:
         """
         물량 점수관리 테이블에서 미션 데이터를 파싱합니다. (main_(2).py와 동일)
         """
-        from bs4 import BeautifulSoup
         
         # html.parser 파서 사용으로 속도 향상
         soup = BeautifulSoup(html, 'html.parser')

@@ -1170,8 +1170,6 @@ def quick_test():
         print(f"   ❌ 테스트 중 오류: {e}")
         logger.error(f"테스트 실패: {e}")
 
-
-
 # 카카오 오픈빌더 웹훅 서버 클래스
 class KakaoOpenBuilderServer:
     """카카오 오픈빌더 웹훅 서버"""

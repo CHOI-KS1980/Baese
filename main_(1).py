@@ -14,7 +14,6 @@ import re
 import matplotlib
 import datetime
 import numpy as np
-import matplotlib
 matplotlib.rcParams['font.family'] = 'AppleGothic'
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -336,10 +335,6 @@ def draw_peak_graph(data, save_path='mission_graph.png'):
     plt.close()
 
 def draw_rider_contribution_table(data, save_path='rider_contribution_table.png'):
-    import matplotlib
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
     matplotlib.rcParams['font.family'] = 'AppleGothic'
     plt.rcParams['axes.unicode_minus'] = False

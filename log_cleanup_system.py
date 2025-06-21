@@ -74,7 +74,7 @@ class LogCleanupManager:
                 "commit_threshold_mb": 5  # 5MB 이상 정리시 자동 커밋
             },
             "monitoring": {
-                "check_interval_minutes": 60,  # 1시간마다 체크
+                "check_interval_minutes": 73,  # 73분마다 체크 (메시지 시간 회피)
                 "alert_threshold_mb": 50,      # 50MB 이상시 알림
                 "max_total_log_size_mb": 100   # 전체 로그 100MB 제한
             }
@@ -329,13 +329,13 @@ class LogCleanupManager:
         interval = self.config['monitoring']['check_interval_minutes']
         schedule.every(interval).minutes.do(self.cleanup_logs)
         
-        # 매일 자정에 GitHub 정리
-        schedule.every().day.at("00:30").do(self.github_cleanup)
+        # 매일 오전 7시30분에 GitHub 정리 (메시지 시간 완전 회피)
+        schedule.every().day.at("07:30").do(self.github_cleanup)
         
-        # 매주 일요일에 전체 리포트 생성
-        schedule.every().sunday.at("23:00").do(self.generate_weekly_report)
+        # 매주 일요일 오전 7시에 전체 리포트 생성 (메시지 시간 완전 회피)
+        schedule.every().sunday.at("07:00").do(self.generate_weekly_report)
         
-        logger.info(f"⏰ 스케줄 설정 완료: {interval}분마다 정리, 매일 00:30 GitHub 정리")
+        logger.info(f"⏰ 스케줄 설정 완료: {interval}분마다 정리, 매일 07:30 GitHub 정리")
         
         try:
             while True:

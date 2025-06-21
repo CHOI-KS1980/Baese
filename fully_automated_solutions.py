@@ -206,11 +206,7 @@ jobs:
 GitHub Actions용 G라이더 미션 자동 전송
 """
 
-import os
 import sys
-import requests
-import json
-from datetime import datetime
 from kakao_scheduled_sender import KakaoOpenChatSender
 
 def main():
@@ -287,8 +283,6 @@ if __name__ == "__main__":
         """AWS Lambda 함수 생성"""
         lambda_content = '''import json
 import boto3
-import requests
-from datetime import datetime
 
 def lambda_handler(event, context):
     """AWS Lambda 핸들러"""
@@ -376,8 +370,6 @@ import telebot
 import schedule
 import time
 import threading
-from datetime import datetime
-from kakao_scheduled_sender import KakaoOpenChatSender
 
 # 텔레그램 봇 토큰 (BotFather에서 생성)
 BOT_TOKEN = "YOUR_BOT_TOKEN"

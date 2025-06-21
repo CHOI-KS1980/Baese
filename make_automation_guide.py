@@ -273,9 +273,7 @@ Make.com에서 전송된 데이터를 받아 카카오톡으로 전송
 """
 
 from flask import Flask, request, jsonify
-import requests
 import os
-from datetime import datetime
 
 app = Flask(__name__)
 
