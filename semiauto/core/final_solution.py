@@ -1121,7 +1121,9 @@ class GriderDataCollector:
             data['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             logger.info(f"✅ 전체 데이터 파싱 완료: 기본정보, 미션 {len(peak_data)}개, 라이더 {len(riders)}명")
-            logger.info(f"라이더별 기여도 계산 완료: {[f'{r['name']}({r['contribution']}%)' for r in riders[:3]]}")
+            # 라이더별 기여도 로그 (f-string 오류 방지)
+            rider_contributions = [f"{r['name']}({r['contribution']:.1f}%)" for r in riders[:3]]
+            logger.info(f"라이더별 기여도 계산 완료: {rider_contributions}")
             return data
             
         except Exception as e:
