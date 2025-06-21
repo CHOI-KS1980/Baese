@@ -17,6 +17,8 @@ import logging
 import os
 import re
 import datetime as dt
+import pytz  # 한국시간 설정을 위해 추가
+from bs4 import BeautifulSoup  # BeautifulSoup import 추가
 
 # 로깅 설정
 logging.basicConfig(
@@ -28,6 +30,9 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# 한국시간 설정
+KST = pytz.timezone('Asia/Seoul')
 
 class TokenManager:
     """카카오톡 토큰 관리 클래스"""
@@ -188,6 +193,8 @@ class GriderDataCollector:
     def get_grider_data(self):
         """심플 배민 플러스 데이터 수집 (main_(2).py와 동일한 로직)"""
         try:
+            logger.info("🔄 실제 심플 배민 플러스 데이터 수집 시작...")
+            
             # main_(2).py의 검증된 크롤링 로직 사용
             html = self._crawl_jangboo(max_retries=3, retry_delay=5)
             
@@ -195,20 +202,65 @@ class GriderDataCollector:
                 logger.info("✅ 크롤링 성공, 데이터 파싱 시작")
                 data = self._parse_data(html)
                 
-                if data:
+                if data and self._validate_data(data):
                     logger.info("✅ 실제 심플 배민 플러스 데이터 수집 완료")
+                    logger.info(f"📊 수집된 데이터: 총점={data.get('총점', 0)}, 완료={data.get('총완료', 0)}")
                     return data
                 else:
-                    logger.warning("파싱 실패 - 샘플 데이터 사용")
-                    return self._get_sample_data()
+                    logger.error("❌ 파싱된 데이터가 유효하지 않음")
+                    logger.error("🚨 실제 데이터 수집 실패 - 크롤링 로직 점검 필요")
+                    return self._get_error_data("데이터 파싱 실패")
             else:
-                logger.warning("크롤링 실패 - 샘플 데이터 사용")
-                return self._get_sample_data()
+                logger.error("❌ 크롤링 실패 - HTML을 가져올 수 없음")
+                logger.error("🚨 로그인 실패 또는 네트워크 오류 가능성")
+                return self._get_error_data("크롤링 실패")
                     
         except Exception as e:
-            logger.error(f"데이터 수집 실패: {e}")
-            logger.info("샘플 데이터로 대체합니다")
-            return self._get_sample_data()
+            logger.error(f"❌ 데이터 수집 중 예외 발생: {e}")
+            logger.error("🚨 심각한 오류 발생 - 시스템 점검 필요")
+            return self._get_error_data(f"예외 발생: {str(e)}")
+
+    def _validate_data(self, data):
+        """수집된 데이터가 유효한지 검증"""
+        if not data:
+            return False
+        
+        # 필수 필드 확인
+        required_fields = ['총점', '총완료', '수락률']
+        for field in required_fields:
+            if field not in data:
+                logger.warning(f"필수 필드 누락: {field}")
+                return False
+        
+        # 데이터 범위 확인 (비정상적인 값 체크)
+        if data.get('총점', 0) < 0 or data.get('총점', 0) > 200:
+            logger.warning(f"비정상적인 총점: {data.get('총점')}")
+            return False
+            
+        if data.get('수락률', 0) < 0 or data.get('수락률', 0) > 100:
+            logger.warning(f"비정상적인 수락률: {data.get('수락률')}")
+            return False
+        
+        return True
+
+    def _get_error_data(self, error_reason):
+        """크롤링 실패 시 오류 메시지가 포함된 데이터"""
+        return {
+            '총점': 0,
+            '물량점수': 0,
+            '수락률점수': 0,
+            '총완료': 0,
+            '총거절': 0,
+            '수락률': 0.0,
+            '아침점심피크': {"current": 0, "target": 0},
+            '오후논피크': {"current": 0, "target": 0},
+            '저녁피크': {"current": 0, "target": 0},
+            '심야논피크': {"current": 0, "target": 0},
+            'riders': [],
+            'error': True,
+            'error_reason': error_reason,
+            'timestamp': datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+        }
     
     def _crawl_jangboo(self, max_retries=3, retry_delay=5):
         """최적화된 크롤링 함수 (main_(2).py와 동일한 로직)"""
@@ -1141,7 +1193,7 @@ class GriderAutoSender:
         """깔끔하고 읽기 좋은 메시지 포맷 (시간대별 인사말 포함)"""
         
         # 현재 시간 확인 (한국시간)
-        now = datetime.now()
+        now = datetime.now(KST)
         current_hour = now.hour
         current_minute = now.minute
         
@@ -1276,24 +1328,42 @@ class GriderAutoSender:
             greeting,  # 시간대별 인사말 추가
             "",
             "📊 심플 배민 플러스 미션 알리미",
-            "",
-            "\n".join(mission_parts),
-            "",
-            weather_info,
-            "",
-            mission_summary,
-            "",
-            "\n".join(summary_parts),
-            "",
-            "\n".join(rider_parts)
+            ""
         ]
         
-        if lacking_missions:
+        # 오류 데이터인 경우 오류 메시지 추가
+        if data.get('error', False):
+            error_reason = data.get('error_reason', '알 수 없는 오류')
+            message_parts.extend([
+                f"🚨 데이터 수집 오류 발생",
+                f"오류 원인: {error_reason}",
+                f"⏰ 오류 발생 시간: {data.get('timestamp', 'N/A')}",
+                "",
+                "❗ 관리자에게 문의하여 시스템을 점검해주세요.",
+                "📞 시스템 복구 후 정상 데이터가 전송됩니다.",
+                "",
+                "🤖 자동화 시스템에 의해 전송됨 (오류 상태)"
+            ])
+        else:
+            # 정상 데이터인 경우 기존 메시지 구성
+            message_parts.extend([
+                "\n".join(mission_parts),
+                "",
+                weather_info,
+                "",
+                mission_summary,
+                "",
+                "\n".join(summary_parts),
+                "",
+                "\n".join(rider_parts)
+            ])
+            
+            if lacking_missions:
+                message_parts.append("")
+                message_parts.append(f"⚠️ 미션 부족: {', '.join(lacking_missions)}")
+            
             message_parts.append("")
-            message_parts.append(f"⚠️ 미션 부족: {', '.join(lacking_missions)}")
-        
-        message_parts.append("")
-        message_parts.append("🤖 자동화 시스템에 의해 전송됨")
+            message_parts.append("🤖 자동화 시스템에 의해 전송됨")
         
         return "\n".join(message_parts)
     
@@ -1350,7 +1420,7 @@ class GriderAutoSender:
         """날씨 정보 가져오기 (오전/오후 요약 버전)"""
         try:
             # 간단한 날씨 정보 (실제 API 연동 가능)
-            now = datetime.now()
+            now = datetime.now(KST)
             return f"""🌍 오늘의 날씨 (기상청)
 🌅 오전: ☀️ 18~22°C
 🌇 오후: ☀️ 20~24°C"""
@@ -1381,7 +1451,7 @@ class GriderAutoSender:
                 logger.info("📋 클립보드 복사 생략 (GitHub Actions 환경)")
             
             if result.get('result_code') == 0:
-                logger.info(f"✅ {datetime.now()} - 메시지 전송 성공!")
+                logger.info(f"✅ {datetime.now(KST)} - 메시지 전송 성공!")
                 return True
             else:
                 logger.error(f"❌ 메시지 전송 실패: {result}")
@@ -1399,7 +1469,7 @@ class GriderAutoSender:
             access_token = self.token_manager.get_valid_token()
             self.sender = KakaoSender(access_token)
             
-            test_message = f"🧪 심플 배민 플러스 자동화 테스트\n시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n✅ 연결 성공!"
+            test_message = f"🧪 심플 배민 플러스 자동화 테스트\n시간: {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}\n✅ 연결 성공!"
             
             result = self.sender.send_text_message(test_message)
             
@@ -1450,7 +1520,7 @@ class GriderAutoSender:
         logger.info("💡 Ctrl+C로 중지 가능")
         
         # 즉시 실행 여부 확인
-        now = datetime.now()
+        now = datetime.now(KST)
         current_hour = now.hour
         is_service_time = 10 <= current_hour <= 23
         
@@ -1463,7 +1533,7 @@ class GriderAutoSender:
         try:
             while True:
                 # 현재 시간이 서비스 시간인지 확인
-                current_time = datetime.now()
+                current_time = datetime.now(KST)
                 if 10 <= current_time.hour <= 23:
                     schedule.run_pending()
                 time.sleep(60)  # 1분마다 확인
@@ -1474,7 +1544,7 @@ class GriderAutoSender:
     
     def _scheduled_send(self):
         """스케줄된 전송 (시간 체크 포함)"""
-        now = datetime.now()
+        now = datetime.now(KST)
         current_hour = now.hour
         
         # 운영 시간 체크 (10:00~00:00)
@@ -1492,7 +1562,7 @@ class GriderAutoSender:
             
             start_message = f"""🌅 심플 배민 플러스 자동 모니터링 시작!
             
-📅 {datetime.now().strftime('%Y년 %m월 %d일')} 오전 10시
+📅 {datetime.now(KST).strftime('%Y년 %m월 %d일')} 오전 10시
 🚀 오늘 하루 미션 현황을 실시간으로 모니터링합니다
 
 ⏰ 운영 시간: 10:00 ~ 00:00 (14시간)
@@ -1523,7 +1593,7 @@ class GriderAutoSender:
             
             end_message = f"""🌙 심플 배민 플러스 자동 모니터링 종료
             
-📅 {datetime.now().strftime('%Y년 %m월 %d일')} 자정
+📅 {datetime.now(KST).strftime('%Y년 %m월 %d일')} 자정
 ✅ 오늘 하루 모니터링이 완료되었습니다
 
 📊 오늘의 최종 현황이 위 메시지에 포함되어 있습니다
