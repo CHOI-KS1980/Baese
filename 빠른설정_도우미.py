@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+REST API 키 복사 (KAKAO_ACCESS_TOKEN)#!/usr/bin/env python3
 """
 🍕 배민 G라이더 완전 자동화 시스템 빠른 설정 도우미
 

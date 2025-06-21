@@ -1,0 +1,4428 @@
+<html lang="ko"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>배달 장부</title>
+
+    <link rel="stylesheet" href="/public/common_assets/css/jquery-ui.min.1.13.2.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@xpressengine/xeicon@2.3.3/xeicon.min.css">
+    <link rel="stylesheet" href="/public/common_assets/css/sumoselect.min.css">
+    <link rel="stylesheet" href="/public/common_assets/css/jquery-datepicker.css">
+    <link rel="stylesheet" href="/public/common_assets/css/MonthPicker.css">
+    <link rel="stylesheet" href="/public/common_assets/css/timepicki.css" type="text/css">
+    <link rel="stylesheet" href="https://gcore.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css">
+
+    <link rel="stylesheet" href="/public/common_assets/css/font.css">
+    <link rel="stylesheet" href="/public/common_assets/css/reset.css">
+    <link rel="stylesheet" href="/public/common_assets/css/common.css">
+
+        <link rel="stylesheet" href="/public/common_assets/css/style.css?v=0">
+    <!--<link rel="stylesheet" href="/public/common_assets/css/style.css?v=20250616">-->
+
+    <script src="/public/common_assets/js/jquery.min.3.7.js"></script>
+    <script src="/public/common_assets/js/jquery-ui.min.1.13.2.js"></script>
+
+    <script src="/public/common_assets/js/jquery.sumoselect.min.js"></script>
+    <script src="/public/common_assets/js/jquery-datepicker.js"></script>
+    <script src="/public/common_assets/js/inko.min.js"></script>
+    <script src="/public/common_assets/js/MonthPicker.js"></script>
+    <script src="/public/common_assets/js/timepicki.js"></script>
+    <script src="https://gcore.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+    <script src="/public/common_assets/js/util.js"></script>
+    <script src="/public/common_assets/js/common.js"></script>
+    <script src="/public/common_assets/js/new_common.js"></script>
+
+
+                <link href="/public/common_assets/css/swiper.css" rel="stylesheet" type="text/css">
+                    <link href="/public/assets/client/css/settlement/withdrawal_list.css" rel="stylesheet" type="text/css">
+                    <link href="/public/assets/client/css/contractors_dashboard.css" rel="stylesheet" type="text/css">
+                        <script src="/public/common_assets/js/swiper.min.js"></script>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                    <script src="/public/assets/client/js/contractors_dashboard.js?v=1750509916"></script>
+                    <script src="/public/assets/client/js/settlement/withdrawal_list.js?v=1750509916"></script>
+        </head>
+
+<body>
+<div id="wrap">
+            <main id="main">
+            <header id="header">
+                <div class="header">
+    <a href="/dashboard" class="fr_st gap-2">
+        <h1 class="header_logo"></h1>
+    </a>
+    <!-- 모바일 메뉴 버튼 -->
+    <div class="mo_h_btn">
+        <a class="m"><i class="xi-bars"></i></a>
+    </div>
+    <div class="h_utill">
+        <button type="button" class="flex_center_layout btn_profile">
+            <div class="title_small fr_st gap-4">
+                                <span class="user_name">경기안산단원1D</span>
+                    협력사 님                            </div>
+            <i class="btn_info xi-caret-down"></i>
+        </button>
+        <button id="logoutBtn" class="flex_center_layout">
+            <span class="xi-power-off xi-icon"></span>
+            <span class="title_small">로그아웃</span>
+        </button>
+    </div>
+</div>
+<div class="mo_header">
+    
+<div class="mo_h_container hide">
+    <span class="m_pop_close"></span>
+    <div class="m_h_in">
+        <div class="fc_st">
+            <div class="m_header">
+                <div class="fc_st gap-8">
+                    <span class="logo_partner"></span>
+                    <button type="button" class="flex_center_layout btn_profile">
+                        <div class="title_large">
+                                                            <span class="user_name">경기안산단원1D</span> 님
+                                                    </div>
+                        <span class="i_info"></span>
+                    </button>
+
+            </div>
+
+                <a href="/settlement/withdrawal/list">
+                    <div class="card">
+                        <div class="card_wrap fr_st align-items-center gap-16 flex_wrap">
+                            <span class="i_cash"></span>
+                            <div class="fc_st">
+                                <div class="card_sub_tit">출금 가능 캐시</div>
+                                <h4 class="title_large">
+                                                                            0원
+                                                                    </h4>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="mo_side_menu client">
+                <ul class="category">
+                    <li class="on">
+                        <a href="/dashboard" class="main">
+                            <span class="sub_logo home"></span>
+                            <span style="margin-top: 3px;">홈</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="m">정산</a>
+                        <ul class="sub">
+                            <li><a href="/settlement/withdrawal/list">출금 관리</a></li>
+                                                            <li><a href="/settlement/earnings/list">수익 현황</a></li>
+                                <li><a href="/settlement/weekly/list">주 정산 현황</a></li>
+                                <li><a href="/settlement/contractors-payment/list">일차감 관리</a></li>
+                                                                                    <!--                <li><a href="/settlement/remittance">송금 요청 현황</a></li>-->
+                        </ul>
+                    </li>
+                    <li>
+                        <a class="m">주문</a>
+                        <ul class="sub">
+                            
+                                                            <li><a href="/orders/delivery-summaries">배달 정보 조회</a></li>
+                                <li><a href="/orders/sla/list">SLA 관리</a></li>
+                                                    </ul>
+                    </li>
+                                            <li>
+                            <a class="m">라이더</a>
+                            <ul class="sub">
+                                <li><a href="/partners/riders">라이더 관리</a></li>
+                            </ul>
+                        </li>
+                                        <li>
+                        <a class="m">MY</a>
+                        <ul class="sub">
+                            <li><a href="/user/profile">내 정보</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="m_bottom">
+            <button class="btn_logout">
+                <span class="xi-power-off xi-icon"></span>
+                <span class="btn_txt" id="mobLogoutBtn">로그아웃</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    //로그아웃
+    $("#mobLogoutBtn").on('click', function () {
+        let res = HttpPostJson('/logout');
+        if (res.data.isSuccess) {
+            window.location.href = "/login";
+        } else {
+            customAlert2(res.data.message);
+            return false;
+        }
+    });
+
+</script></div>
+
+<style>
+    .contractor_list{
+        max-height: 500px;
+        overflow: auto;
+    }
+    .btn_contractor_change{
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+        padding: 15px;
+        border: 1px solid var(--bg-border-default);
+        border-radius: 2px;
+        margin: 5px;
+    }
+    .btn_contractor_change:hover{
+        color: var(--primary);
+        border: 1px solid var(--primary);
+    }
+
+</style>
+
+<!-- (팝업) 가상계좌 발급 -->
+<div id="popup_change_contractor" class="popup_wrap hide">
+    <div class="popup_box">
+        <div class="popup_header">
+            <h2 class="popup_title">협력사 변경</h2>
+            <div class="popup_subtitle">변경할 협력사를 선택해 주세요</div>
+        </div>
+        <div class="popup_content fc_st gap-12">
+            <div class="form_group contractor_list">
+                <div class="form_item" id="contractor_list">
+                    <button type="button" class="btn_contractor_change">협력사A</button>
+                    <button type="button" class="btn_contractor_change">협력사B</button>
+                    <button type="button" class="btn_contractor_change">협력사C</button>
+                </div>
+            </div>
+            <div class="popup_footer">
+                <button type="button" class="pop_close pop_outline_btn cancel">닫기</button>
+                <button type="button" class="pop_fill_btn" id="change_contractor">변경</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(function(){
+        $("#contractor_list").on('click' , '.btn_contractor_change' ,  function(){
+            let name = $(this).html();
+            let id = $(this).data('id');
+            customConfirm({
+                title:"협력사 변경",
+                msg:`${name}<br>협력사로 접속정보를 변경하시겠습니까?`,
+                submit:function(){
+                    let res = HttpPostJson("/user/contractor/change",{id : id});
+                    if(res.data.isSuccess){
+                        location.reload();
+                    }
+                }
+            })
+        })
+        $(".btn_profile").click(function(){
+            
+            let res = HttpGetJson("/user/contractor/list");
+            if(res.data.isSuccess && res.data.list != undefined && res.data.list.length > 0){
+                let contractor_list = "";
+                for(let i = 0 ; i < res.data.list.length ; i++){
+                    let contractor_data = res.data.list[i];
+                    contractor_list += `<button type="button" class="btn_contractor_change" data-id="${contractor_data.id}">${contractor_data.name}(${contractor_data.id})</button>`
+                }
+                $("#contractor_list").html(contractor_list)
+
+                $("#popup_change_contractor").removeClass("hide");
+            }else{
+                location.href="/user/profile";
+            }
+
+                    })
+    })
+</script>
+
+<script>
+
+    //로그아웃
+    $("#logoutBtn").on('click', function () {
+        let res = HttpPostJson('/logout');
+        if (res.data.isSuccess) {
+            window.location.href = "/login";
+        } else {
+            customAlert2(res.data.message);
+            return false;
+        }
+    });
+
+    /* 모바일 메뉴 */
+    $(".mo_m_list").on('click', '.mo_m', function() {
+        let parent = $(this).closest('li');
+        let sub = parent.find('.mo_m_sub');
+        let btn = parent.find('.mo_m_icon');
+
+        sub.toggleClass('hide');
+        btn.toggleClass('on');
+    });
+    $(".m_pop_close").on('click', function() {
+        $('.mo_h_container').addClass('hide');
+    });
+    $(".mo_h_btn").on('click', function() {
+        $('.mo_h_container').removeClass('hide');
+    });
+
+    //리사이즈시 닫기
+    $(window).on('resize', function() {
+        if ($(window).width() > 1080) {
+            $('.mo_h_container').addClass('hide');
+        }
+    });
+
+
+
+</script>            </header>
+            <div class="container">
+                <ul id="side_menu">
+                    <div class="side_in">
+    <ul class="category">
+        <li class="on">
+            <a href="/dashboard" class="main">
+                <span class="sub_logo home"></span>
+                <span style="margin-top: 3px;">홈</span>
+            </a>
+        </li>
+                <li>
+            <a class="m">정산</a>
+            <ul class="sub">
+                <li><a href="/settlement/withdrawal/list">출금 관리</a></li>
+                                <li><a href="/settlement/earnings/list">수익 현황</a></li>
+                <li><a href="/settlement/weekly/list">주 정산 현황</a></li>
+                <li><a href="/settlement/contractors-payment/list">일차감 관리</a></li>
+                                <!--                <li><a href="/settlement/remittance">송금 요청 현황</a></li>-->
+            </ul>
+        </li>
+        
+                <li>
+            <a class="m">주문</a>
+            <ul class="sub">
+                
+                                    <li><a href="/orders/delivery-summaries">배달 정보 조회</a></li>
+                    <li><a href="/orders/sla/list">SLA 관리</a></li>
+                            </ul>
+        </li>
+        
+                    <li>
+                <a class="m">라이더</a>
+                <ul class="sub">
+                    <li><a href="/partners/riders">라이더 관리</a></li>
+                </ul>
+            </li>
+                <li>
+            <a class="m">MY</a>
+            <ul class="sub">
+                <li><a href="/user/profile">내 정보</a></li>
+            </ul>
+        </li>
+    </ul>
+        <div class="side_bottom">
+        <a href="/settlement/withdrawal/list">
+            <div class="card">
+                <div class="card_wrap fr_st align-items-center gap-8 flex_wrap">
+                    <span class="i_cash"></span>
+                    <div class="fc_st">
+                        <div class="card_sub_tit">출금 가능 캐시</div>
+                        <h4 class="title_medium">
+                                                            0원
+                                                    </h4>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    
+</div>
+                </ul>
+    
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+<input type="hidden" id="member_idx" value="62">
+<input type="hidden" id="member_type" value="C">
+<input id="secondary_password_flag" type="hidden" value="Y">
+<input id="account_idx" type="hidden" value="">
+<input id="partner_is_withdraw_daily" type="hidden" value="Y">
+
+<div class="page_content">
+    <div class="contents column">
+        <div class="main_container column">
+            <!-- 출금금액 -->
+                        <div class="output_wrapper content row gap-8">
+                <div class="component_in column">
+                    <div class="component box_style">
+                        <div class="component_header">
+                            <div class="fr_st align-items-center justify-content-between">
+                                <div class="fr_st align-items-center gap-12">
+                                    <span class="i_cash"></span>
+                                    <div class="fc_st gap-4">
+                                        <div class="component_subtitle" style="font-size: 15px;">출금 가능 캐시</div>
+                                        <div class="component_value">
+                                            <span class="title_x-large" style="line-height: unset;">
+                                                                                                <span id="total_withdrawal_price" class="current_price">
+                                                    0                                                </span>
+                                                원
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p_tit_btn_wrap ac">
+                                    <button type="button" class="pop_withdraw p_tit_btn popup_button" data-type="withdraw">
+                                        <i class="xi-share"></i>출금하기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="component_body">
+                            <ul class="component_list">
+                                <li>
+                                    <div class="dep1">
+                                        <div class="item">
+                                            <span>주정산금</span>
+                                            <div class="tooltip">
+                                                <span class="tooltip_icon">?</span>
+                                                <span class="tooltip_text tooltip_right">
+                                                    고용/산재 보험료 사업주분이 포함됩니다.<br>출금 시에는 주정산금이 우선 사용되며,<br>부족할 경우 자동으로 일정산금이 인출됩니다.
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div><span class="weekly_price">0</span>원</div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="dep1">
+                                        <div class="item">
+                                            <span>일정산금</span>
+                                            <div class="tooltip">
+                                                <span class="tooltip_icon">?</span>
+                                                <span class="tooltip_text tooltip_right">
+                                                출금 시 선지급 수수료 (1.1%)가 차감됩니다.
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="daily_cash"><span class="daily_price">0</span>원</div>
+                                    </div>
+                                </li>
+                                                            </ul>
+                        </div>
+                    </div>
+                                            <div class="component convert_cash box_style">
+                            <div class="component_header">
+                                <div class="fr_st align-items-center justify-content-between">
+                                    <span class="component_tit">세금 → 캐시 전환</span>
+                                </div>
+                                <div class="component_subtitle">원천세와 부가세를 출금 가능 캐시로 전환합니다.</div>
+                            </div>
+                            <div class="component_body">
+                                <ul class="component_list">
+                                    <li>
+                                        <div class="dep1">
+                                            <div class="item">
+                                                <span>원천세</span>
+                                            </div>
+                                            <div class="fr_st gap-8 align-items-center">
+
+                                                <div><span class="current_conversion_price" data-conversion="tax">0</span>원</div>
+                                                <button type="button" id="btn_tax_to_cash" class="table_btn_primary popup_button" data-type="tax">전환</button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="dep1">
+                                            <div class="item">
+                                                <span>부가세</span>
+                                            </div>
+                                            <div class="fr_st gap-8 align-items-center">
+                                                <div><span class="current_conversion_price" data-conversion="vat">0</span>원</div>
+                                                <button type="button" id="btn_vat_to_cash" class="table_btn_primary popup_button" data-type="vat">전환</button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                                    </div>
+                <div class="item table_item box_style column">
+                    <p>출금내역</p>
+                    <table class="table cash_table">
+                        <colgroup>
+                            <col width="5%">
+                            <col width="16%">
+                            <col>
+                            <col>
+                            <col>
+                            <col>
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>번호</th>
+                            <th>출금일</th>
+                            <th>출금 금액</th>
+                            <th>실지급 금액</th>
+                            <th>차감된 일정산금</th>
+                            <th>차감된 주정산금</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                                                                            <tr>
+                                <td colspan="8">출금 내역이 없습니다.</td>
+                            </tr>
+                                                </tbody>
+
+                        <!--                            -->
+                    </table>
+                </div>
+            </div>
+
+            <!-- SLA 현황 -->
+            <div class="sla_contents column">
+                <h3 class="page_sub_title row">
+                    <div class="contents_title row after">
+                        <nobr class="sla_current_date">실시간 현황 2025-06-21 21:45 기준</nobr>
+                        <img src="/public/common_assets/images/info_icon.svg" alt="">
+                        <div class="info_box">
+                            <div class="info_element after"></div>
+                            <div class="info_text">
+                                해당값은 참고용으로 사용되는값이며 주정산시 배민에서 정확한 값을 전달받게 됩니다.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="length_controller row">
+                        <div class="title row">
+                            <img src="/public/common_assets/images/setting_length_icon.svg" alt="">
+                            세트 수 변경
+                        </div>
+                        <div class="length_controller_option_container row after">
+                            <p class="length_controller_option_thumbnail option_motion after row" data-option_motion="open">
+                                <span class="thumbnail_text row">1회</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </p>
+                            <div class="length_controller_option_box column">
+        <div class="length_controller_option option_motion row" data-set_value="1" data-option_motion="close">1회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="2" data-option_motion="close">2회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="3" data-option_motion="close">3회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="4" data-option_motion="close">4회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="5" data-option_motion="close">5회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="6" data-option_motion="close">6회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="7" data-option_motion="close">7회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="8" data-option_motion="close">8회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="9" data-option_motion="close">9회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="10" data-option_motion="close">10회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="11" data-option_motion="close">11회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="12" data-option_motion="close">12회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="13" data-option_motion="close">13회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="14" data-option_motion="close">14회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="15" data-option_motion="close">15회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="16" data-option_motion="close">16회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="17" data-option_motion="close">17회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="18" data-option_motion="close">18회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="19" data-option_motion="close">19회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="20" data-option_motion="close">20회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="21" data-option_motion="close">21회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="22" data-option_motion="close">22회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="23" data-option_motion="close">23회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="24" data-option_motion="close">24회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="25" data-option_motion="close">25회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="26" data-option_motion="close">26회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="27" data-option_motion="close">27회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="28" data-option_motion="close">28회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="29" data-option_motion="close">29회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="30" data-option_motion="close">30회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="31" data-option_motion="close">31회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="32" data-option_motion="close">32회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="33" data-option_motion="close">33회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="34" data-option_motion="close">34회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="35" data-option_motion="close">35회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="36" data-option_motion="close">36회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="37" data-option_motion="close">37회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="38" data-option_motion="close">38회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="39" data-option_motion="close">39회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="40" data-option_motion="close">40회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="41" data-option_motion="close">41회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="42" data-option_motion="close">42회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="43" data-option_motion="close">43회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="44" data-option_motion="close">44회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="45" data-option_motion="close">45회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="46" data-option_motion="close">46회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="47" data-option_motion="close">47회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="48" data-option_motion="close">48회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="49" data-option_motion="close">49회</div>
+        
+        <div class="length_controller_option option_motion row" data-set_value="50" data-option_motion="close">50회</div>
+        </div>
+                        </div>
+                    </div>
+                </h3>
+                <div class="sla_inner column">
+                    <div class="summary_box row">
+                        <div class="total_area row">
+                            <div class="summary_area box_style row">
+                                <div class="summary_score column after">
+                                    <div class="summary_total_score row">
+                                        <span class="i_cash i_graph"></span>
+                                        <div class="summary_total_score_inner column">
+                                            <div class="score_title">예상 총 점수</div>
+                                            <div class="score_total_text row">
+                                                <span class="score_total_value summary_score_text" data-text="total">63</span>점
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="summary_detail_score row">
+                                        <div class="detail_score_item column">
+                                            <div class="text_box row">
+                                                <div class="detail_score_title">물량점수</div>
+                                                <div class="detail_score_text row">
+                                                    <span class="detail_score_value summary_score_text" data-text="quantity">33</span>점 / 60점
+                                                </div>
+                                            </div>
+                                            <div class="detail_score_graph_box">
+                                                <div class="detail_score_percent" data-percent="quantity" style="width: 55%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="detail_score_item column">
+                                            <div class="text_box row">
+                                                <div class="detail_score_title">수락률점수</div>
+                                                <div class="detail_score_text row">
+                                                    <span class="detail_score_value summary_score_text" data-text="acceptance">30</span>점 / 40점
+                                                </div>
+                                            </div>
+                                            <div class="detail_score_graph_box">
+                                                <div class="detail_score_percent" data-percent="acceptance" style="width: 75%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="summary_etc column">
+                                    <div class="etc_item row after">
+                                        <div class="etc_title row">
+                                            <img src="/public/common_assets/images/complete_icon.svg" alt="">
+                                            <p class="text_box">총 완료</p>
+                                        </div>
+                                        <div class="etc_value row" data-etc="complete"><span>772</span>건</div>
+                                    </div>
+                                    <div class="etc_item row after">
+                                        <div class="etc_title row">
+                                            <img src="/public/common_assets/images/cancel_icon.svg" alt="">
+                                            <p class="text_box">총 거절</p>
+                                        </div>
+                                        <div class="etc_value row" data-etc="reject"><span>42</span>건</div>
+                                    </div>
+                                    <div class="etc_item row">
+                                        <div class="etc_title row">
+                                            <img src="/public/common_assets/images/graph_icon.svg" alt="">
+                                            <p class="text_box">수락률</p>
+                                        </div>
+                                        <div class="etc_value row" data-etc="acceptance"><span>93.2</span>%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="week_summary_area swiper box_style after swiper-container-initialized swiper-container-horizontal swiper-container-pointer-events">
+                                <div id="week_summary_list" class="list swiper-wrapper on" aria-live="polite" style="transform: translate3d(0px, 0px, 0px);">
+        <div class="weekly_summary_item swiper-slide column after swiper-slide-active" role="group" aria-label="1 / 3">
+            <div class="weekly_date row">
+                <div class="date">2025-06-20</div>
+                <div class="score">+7점</div>
+            </div>
+            <div class="weekly_gage column">
+                <div class="weekly_gage_text row">
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/complete_icon.svg" alt="">
+                        <span class="value">194건</span>
+                    </p>                        
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/cancel_icon.svg" alt="">
+                        <span class="value">33건</span>
+                    </p>
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/graph_icon.svg" alt="">
+                        <span class="value">83%</span>
+                    </p>
+                </div>
+                <div class="weekly_percent_box">
+                    <div class="weekly_percent" style="width: 83%"></div>
+                </div>
+            </div>
+            <div class="weekly_detail row">
+                <div class="column">
+                    <span>아침피크</span>
+                    <span class="weekly_score row">14건</span>
+                </div>
+                <div class="on column">
+                    <span>오후피크</span>
+                    <span class="weekly_score row">21건<span class="obtain">(+2)</span></span>
+                </div>
+                <div class="on column">
+                    <span>저녁피크</span>
+                    <span class="weekly_score row">58건<span class="obtain">(+3)</span></span>
+                </div>
+                <div class="on column">
+                    <span>심야피크</span>
+                    <span class="weekly_score row">101건<span class="obtain">(+2)</span></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="weekly_summary_item swiper-slide column after swiper-slide-next" role="group" aria-label="2 / 3">
+            <div class="weekly_date row">
+                <div class="date">2025-06-19</div>
+                <div class="score">+8점</div>
+            </div>
+            <div class="weekly_gage column">
+                <div class="weekly_gage_text row">
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/complete_icon.svg" alt="">
+                        <span class="value">162건</span>
+                    </p>                        
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/cancel_icon.svg" alt="">
+                        <span class="value">4건</span>
+                    </p>
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/graph_icon.svg" alt="">
+                        <span class="value">98%</span>
+                    </p>
+                </div>
+                <div class="weekly_percent_box">
+                    <div class="weekly_percent" style="width: 98%"></div>
+                </div>
+            </div>
+            <div class="weekly_detail row">
+                <div class="on column">
+                    <span>아침피크</span>
+                    <span class="weekly_score row">23건<span class="obtain">(+2)</span></span>
+                </div>
+                <div class="on column">
+                    <span>오후피크</span>
+                    <span class="weekly_score row">21건<span class="obtain">(+2)</span></span>
+                </div>
+                <div class="on column">
+                    <span>저녁피크</span>
+                    <span class="weekly_score row">38건<span class="obtain">(+3)</span></span>
+                </div>
+                <div class="on column">
+                    <span>심야피크</span>
+                    <span class="weekly_score row">80건<span class="obtain">(+1)</span></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="weekly_summary_item swiper-slide column after" role="group" aria-label="3 / 3">
+            <div class="weekly_date row">
+                <div class="date">2025-06-18</div>
+                <div class="score">+8점</div>
+            </div>
+            <div class="weekly_gage column">
+                <div class="weekly_gage_text row">
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/complete_icon.svg" alt="">
+                        <span class="value">192건</span>
+                    </p>                        
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/cancel_icon.svg" alt="">
+                        <span class="value">3건</span>
+                    </p>
+                    <p class="weekly_gage_text_item row">
+                        <img src="/public/common_assets/images/graph_icon.svg" alt="">
+                        <span class="value">98%</span>
+                    </p>
+                </div>
+                <div class="weekly_percent_box">
+                    <div class="weekly_percent" style="width: 98%"></div>
+                </div>
+            </div>
+            <div class="weekly_detail row">
+                <div class="on column">
+                    <span>아침피크</span>
+                    <span class="weekly_score row">43건<span class="obtain">(+2)</span></span>
+                </div>
+                <div class="on column">
+                    <span>오후피크</span>
+                    <span class="weekly_score row">40건<span class="obtain">(+2)</span></span>
+                </div>
+                <div class="on column">
+                    <span>저녁피크</span>
+                    <span class="weekly_score row">62건<span class="obtain">(+3)</span></span>
+                </div>
+                <div class="on column">
+                    <span>심야피크</span>
+                    <span class="weekly_score row">47건<span class="obtain">(+1)</span></span>
+                </div>
+            </div>
+        </div>
+        </div>
+                                <div class="swiper-button-prev swiper-button-disabled" tabindex="-1" role="button" aria-label="Previous slide" aria-controls="week_summary_list" aria-disabled="true"></div>
+                                <div class="swiper-button-next" tabindex="0" role="button" aria-label="Next slide" aria-controls="week_summary_list" aria-disabled="false"></div>
+                            <span class="swiper-notification" aria-live="assertive" aria-atomic="true"></span></div>
+                        </div>
+                        <div class="graph_area box_style row">
+                            <canvas id="lineChart" width="1714" height="470" style="display: block; box-sizing: border-box; height: 235px; width: 857px;"></canvas>
+                        </div>
+                    </div>
+                    <div class="quantity_box row">
+                        <div class="quantity_item box_style row after" data-index="0">
+                            <img class="quantity_image" src="/public/common_assets/images/morning_icon.svg" alt="오전피크">
+                            <div class="quantity_summary column">
+                                <div class="quantity_text row">
+                                    <p class="quantity_title row">오전피크</p>
+                                    <p class="quantity_info row">
+        <p class="number_value">
+            <span class="highlight_text performance_value">
+                70
+            </span> / 
+            <span>
+                31건
+            </span>
+        </p>
+        <p class="percent_value">
+            226%
+        </p>
+        </p>
+                                </div>
+                                <div class="quantity_gage">
+                                    <div class="quantity_percent" style="width: 226%;"></div>
+                                </div>
+                            </div>
+                        <div class="quantity_complete_mark">+3점</div></div>
+                        <div class="quantity_item box_style row after" data-index="1">
+                            <img class="quantity_image" src="/public/common_assets/images/afternoon_icon.svg" alt="오후피크">
+                            <div class="quantity_summary column">
+                                <div class="quantity_text row">
+                                    <p class="quantity_title row">오후피크</p>
+                                    <p class="quantity_info row">
+        <p class="number_value">
+            <span class="highlight_text performance_value">
+                30
+            </span> / 
+            <span>
+                22건
+            </span>
+        </p>
+        <p class="percent_value">
+            136%
+        </p>
+        </p>
+                                </div>
+                                <div class="quantity_gage">
+                                    <div class="quantity_percent" style="width: 136%;"></div>
+                                </div>
+                            </div>
+                        <div class="quantity_complete_mark">+2점</div></div>
+                        <div class="quantity_item box_style row after" data-index="2">
+                            <img class="quantity_image" src="/public/common_assets/images/evening_icon.svg" alt="저녁피크">
+                            <div class="quantity_summary column">
+                                <div class="quantity_text row">
+                                    <p class="quantity_title row">저녁피크</p>
+                                    <p class="quantity_info row">
+        <p class="number_value">
+            <span class="highlight_text performance_value">
+                74
+            </span> / 
+            <span>
+                36건
+            </span>
+        </p>
+        <p class="percent_value">
+            206%
+        </p>
+        </p>
+                                </div>
+                                <div class="quantity_gage">
+                                    <div class="quantity_percent" style="width: 206%;"></div>
+                                </div>
+                            </div>
+                        <div class="quantity_complete_mark">+3점</div></div>
+                        <div class="quantity_item box_style row after" data-index="3">
+                            <img class="quantity_image" src="/public/common_assets/images/midnight_icon.svg" alt="심야피크">
+                            <div class="quantity_summary column">
+                                <div class="quantity_text row">
+                                    <p class="quantity_title row">심야피크</p>
+                                    <p class="quantity_info row">
+        <p class="number_value">
+            <span class="highlight_text performance_value">
+                50
+            </span> / 
+            <span>
+                31건
+            </span>
+        </p>
+        <p class="percent_value">
+            161%
+        </p>
+        </p>
+                                </div>
+                                <div class="quantity_gage">
+                                    <div class="quantity_percent" style="width: 161%;"></div>
+                                </div>
+                            </div>
+                        <div class="quantity_complete_mark">+2점</div></div>
+                    </div>
+                    <div class="acceptance_box box_style column">
+                        <div class="acceptance_title row">
+                            <p>라이더 현황</p>
+                            <div class="search_container row">
+                                <div class="search row">
+                                    <img src="/public/common_assets/images/search_icon.svg" alt="검색">
+                                    <input class="search_input" type="text" autocomplete="new-password">
+                                </div>
+                                <div class="search_button row">검색</div>
+                            </div>
+                        </div>
+
+                        <!--
+                        <div class="filter_container swiper">
+                            <div class="filter_container_inner swiper-wrapper row">
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="acceptance_rate">
+                                        <option value="up">수락률 ↑</option>
+                                        <option value="down">수락률 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="complete_count">
+                                        <option value="up">완료건수 ↑</option>
+                                        <option value="down">완료건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="reject_count">
+                                        <option value="up">거절건수 ↑</option>
+                                        <option value="down">거절건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="accept_cancel_count">
+                                        <option value="up">배차취소건수 ↑</option>
+                                        <option value="down">배차취소건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="accept_cancel_rider_fault_count">
+                                        <option value="up">배달취소건수 ↑</option>
+                                        <option value="down">배달취소건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="morning_peak_count">
+                                        <option value="up">오전 수행건수 ↑</option>
+                                        <option value="down">오전 수행건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="afternoon_peak_count">
+                                        <option value="up">오후 수행건수 ↑</option>
+                                        <option value="down">오후 수행건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="evening_peak_count">
+                                        <option value="up">저녁 수행건수 ↑</option>
+                                        <option value="down">저녁 수행건수 ↓</option>
+                                    </select>
+                                </div>
+                                <div class="filter_box swiper-slide column">
+                                    <select class="filter_item" data-filter="midnight_peak_count">
+                                        <option value="up">심야 수행건수 ↑</option>
+                                        <option value="down">심야 수행건수 ↓</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        -->
+
+                        <div class="filter_container row">
+                            <div class="filter_item row" data-filter="acceptance_rate">수락률</div>
+                            <div class="filter_item row" data-filter="complete_count">완료</div>
+                            <div class="filter_item row" data-filter="reject_count">거절</div>
+                            <div class="filter_item row" data-filter="accept_cancel_count">배차취소</div>
+                            <div class="filter_item row" data-filter="accept_cancel_rider_fault_count">배달취소</div>
+                            <div class="filter_item row" data-filter="morning_peak_count">오전</div>
+                            <div class="filter_item row" data-filter="afternoon_peak_count">오후</div>
+                            <div class="filter_item row" data-filter="evening_peak_count">저녁</div>
+                            <div class="filter_item row" data-filter="midnight_peak_count">심야</div>
+                        </div>
+
+
+                        <div class="rider_container column">
+                            <div class="rider_th row">
+                                <div class="rider_contents small row">운행</div>
+                                <div class="rider_contents midium row">아이디</div>
+                                <div class="rider_contents midium row">이름</div>
+                                <div class="rider_contents midium row">수락률</div>
+                                <div class="rider_contents row">완료</div>
+                                <div class="rider_contents row">거절</div>
+                                <div class="rider_contents row">배차취소</div>
+                                <div class="rider_contents row">배달취소</div>
+                                <div class="rider_contents row">오전</div>
+                                <div class="rider_contents row">오후</div>
+                                <div class="rider_contents row">저녁</div>
+                                <div class="rider_contents row">심야</div>
+                            </div>
+                            <div class="rider_list column"><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>112KK24
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김정열<span class="blinked_item mobile_rider_rate">수락률:100%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>100%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>41
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>15
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>6
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>12
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>8
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>Carot34
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                박종민<span class="blinked_item mobile_rider_rate">수락률:95%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>95%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>18
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>1
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>8
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>3
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>2
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>5
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>dhghrmss
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                오호근<span class="blinked_item mobile_rider_rate">수락률:97%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>97%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>32
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>1
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>6
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>18
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>8
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>bs9638
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정성범<span class="blinked_item mobile_rider_rate">수락률:94%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>94%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>15
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>1
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>15
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>youl3757
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김공열<span class="blinked_item mobile_rider_rate">수락률:95%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>95%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>18
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>1
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>6
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>7
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>5
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>vnfmwldh88
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                나성구<span class="blinked_item mobile_rider_rate">수락률:100%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>100%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>28
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>10
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>2
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>10
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>6
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>dudrnsdl12
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정재민<span class="blinked_item mobile_rider_rate">수락률:95%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>95%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>36
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>2
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>13
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>4
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>12
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>7
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>mudancer11
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                최전일<span class="blinked_item mobile_rider_rate">수락률:94%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>94%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>15
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>1
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>10
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>5
+            </div>
+            </div></div><div class="rider_item after row delivering">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>BC0259104
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                이용구<span class="blinked_item mobile_rider_rate">수락률:100%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>100%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>16
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>8
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>3
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>5
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>qhdqhd520
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                CUIXIN<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>39144
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                NAN WEN HAO<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>qyr1031
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                QIAN YONGRI<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>zhengjie0626
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                ZHENGJIE<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>Kjhsmh12
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                곽종한<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>qhr1031
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                금혜정<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>qhadl5032
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김지권<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>mnisjh74
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                박병호<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>yhshd23
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                양희상<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>dydqhfl
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                이재훈<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>jangvhf
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                장광영<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>jdj314
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정동준<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>whatiam
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김규헌<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>hero8767
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김태웅<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>821011
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                이남호<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>jwp1404
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정원표<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>jjw9917
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정종운<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>rldmsk
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김태양<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>zerofe419
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                송영철<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>oone0918
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                오일균<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>coc11111
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                한기상<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>dusdlf5165
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정원해<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>fungo87
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김성현<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>npc777
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김동희<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>tlsghk5987
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                홍소미<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>qazx1234
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                백천식<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>bonggun2
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                지봉근<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>khs1271
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김해성<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>lee032
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                이병삼<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>jkc1114
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                정기찬<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>kys9714
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김민준<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>kim951016
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김태연<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>ses132
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                허석근<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>wlwjd12
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                박지정<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>nakyung6
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                YUANMEIHONG<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>chengri1897
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                PIAOCHENGRI<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>rlawnduf64
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김주열<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>BC0645
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                진승민<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>hak8366
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                한봉학<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>qqwweet86
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                황민영<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>wook6665
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                위정욱<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>istoruin
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                송민규<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>si2963
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                박시명<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>gudtjr98
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                강형석<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>wos1003
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김민관<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>Ansansk
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                이선국<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>lkysky10
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                이관연<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>BC58302
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                송창섭<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>ssin740913
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                박현신<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>freebirdf1
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김세진<span class="blinked_item mobile_rider_rate">수락률:83%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>83%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>5
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>1
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>3
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>1
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>1
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>won559274
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김경원<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>tok3320
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                김영삼<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>hwa511
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                배영화<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>yang4757566
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                양승철<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>sk981003
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                최상규<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div><div class="rider_item after row">
+            <div class="rider_contents small row working_status">
+                <span class="blinked_item">운행상태</span><span class="rider_info_text after">운행중료</span>
+            </div>
+            
+            <div class="rider_contents midium row user_id">
+                <span class="blinked_item">아이디</span>thisdb
+            </div>
+            
+            <div class="rider_contents midium row rider_name">
+                유경준<span class="blinked_item mobile_rider_rate">수락률:0%</span>
+            </div>
+            <div class="rider_contents midium row acceptance_rate">
+                <span class="blinked_item">undefined</span>0%
+            </div>
+            
+            
+            
+            <div class="rider_group row">
+            <div class="rider_contents row complete_count">
+                <span class="blinked_item">완료</span>0
+            </div>
+            
+            <div class="rider_contents row reject_count">
+                <span class="blinked_item">거절</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_count">
+                <span class="blinked_item">배차취소</span>0
+            </div>
+            
+            <div class="rider_contents row accept_cancel_rider_fault_count">
+                <span class="blinked_item">배달취소</span>0
+            </div>
+            
+            <div class="rider_contents row morning_peak_count">
+                <span class="blinked_item">오전</span>0
+            </div>
+            
+            <div class="rider_contents row afternoon_peak_count">
+                <span class="blinked_item">오후</span>0
+            </div>
+            
+            <div class="rider_contents row evening_peak_count">
+                <span class="blinked_item">저녁</span>0
+            </div>
+            
+            <div class="rider_contents row midnight_peak_count">
+                <span class="blinked_item">심야</span>0
+            </div>
+            </div></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 출금팝업 -->
+            <div id="popup_withdraw" class="popup_wrap popup_withdraw locked hide">
+                <div class="popup_box small">
+                    <div class="popup_header">
+                        <h2 class="popup_title">출금하기</h2>
+                                                    <div class="bank_info justify-content-between">
+                                <div class="warning_text">
+                                    <i class="xi-error-o"></i> 출금 계좌를 등록해주세요.
+                                </div>
+                                <a href="/user/profile">
+                                    <button type="submit" class="table_btn_primary">설정</button>
+                                </a>
+                            </div>
+                                                <p class="popup_close"></p>
+                    </div>
+                    <div class="popup_content fc_st gap-12">
+                        <div class="fc_st gap-8">
+                            <div class="fc_st gap-4">
+                                <div class="form_group">
+                                    <label for="" class="form_label">출금 요청금액</label>
+                                    <div class="form_item">
+                                        <input id="withdrawal_amount" class="price_value comma_number error" placeholder="출금 금액을 입력해주세요." value="0">
+                                        <label for="" class="text_on_input">원</label>
+                                    </div>
+                                </div>
+                                <div class="form_info">
+                                    <div class="form_row">
+                                        <input type="hidden" class="daily_commission_mode" value="rate">
+                                        <input type="hidden" class="fixed_fee" value="1.1">
+                                        <div class="form_row_title">
+                                            <span>선지급 수수료 <span class="nss">*</span></span>
+                                        </div>
+                                        <div class="form_row_text">
+                                            <div><span class="advance_commission output_text" data-output="advance"></span>원</div>
+                                        </div>
+                                    </div>
+                                    <div class="form_row">
+                                        <div class="form_row_title">
+                                            <span>출금 수수료 <span class="nss">*</span></span>
+                                        </div>
+                                        <div class="form_row_text">
+                                            <div><span class="withdrawal_commission">300</span>원</div>
+                                        </div>
+                                    </div>
+                                    <div class="divider"></div>
+                                    <div class="form_row withdraw_result">
+                                        <div class="form_row_title">
+                                            <span><i class="xi-won"></i> 입금 예정금액</span>
+                                        </div>
+                                        <div class="form_row_text">
+                                            <div><span id="received_amount" class="output_text" data-output="output"></span>원</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="sub_tx text_muted info_msg"><i class="xi-error-o"></i>최소 출금 금액: <span class="min_price">3,000</span>원</div>
+                                <p class="output_info sub_tx tx_red"></p>
+                            </div>
+                            <!--
+                            <div class="form_group">
+                                <label for="" class="form_label">메모 </label>
+                                <div class="form_item">
+                                    <input placeholder="출금 메모 입력">
+                                </div>
+                            </div>
+                            -->
+                        </div>
+                    </div>
+                    <div class="popup_footer">
+                        <button type="button" class="pop_close pop_outline_btn cancel">취소</button>
+                        <button type="button" id="btn_withdrawal" class="pop_fill_btn btn_withdrawal disabled">출금</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- (팝업)원천세 -> 캐시 전환 -->
+            <div id="popup_tax_to_cash" class="popup_wrap popup_tax hide">
+                <div class="popup_box small">
+                    <div class="popup_header">
+                        <h2 class="popup_title">원천세 → 캐시 전환</h2>
+                        <p class="popup_close"></p>
+                    </div>
+                    <div class="popup_content">
+                        <div class="form_inline">
+                            <div class="form_item" style="width: calc(100% - 55px);">
+                                <input id="value_tax_to_cash" class="comma_number conversion_input" data-conversion="tax" placeholder="금액을 입력해주세요." value="0">
+                                <label for="value_tax_to_cash" class="text_on_input">원</label>
+                            </div>
+                            <button type="button" class="outline_btn label_medium total_conversion tx_primary" data-conversion="tax">전액</button>
+                        </div>
+                        <div class="sub_tx tx_red error_msg hide"><i class="xi-warning"></i>전환 가능 금액이 부족해요.</div>
+                    </div>
+                    <div class="popup_footer">
+                        <button type="button" class="pop_close pop_outline_btn cancel">취소</button>
+                        <button type="button" id="" class="pop_fill_btn conversion_button" data-conversion="tax">전환</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- (팝업)부가세 -> 캐시 전환 -->
+            <div id="popup_vat_to_cash" class="popup_wrap popup_vat hide">
+                <div class="popup_box small">
+                    <div class="popup_header">
+                        <h2 class="popup_title">부가세 → 캐시 전환</h2>
+                        <p class="popup_close"></p>
+                    </div>
+                    <div class="popup_content">
+                        <div class="form_inline">
+                            <div class="form_item" style="width: calc(100% - 55px);">
+                                <input id="value_vat_to_cash" class="comma_number conversion_input" data-conversion="vat" placeholder="금액을 입력해주세요." value="0">
+                                <label for="value_vat_to_cash" class="text_on_input">원</label>
+                            </div>
+                            <button type="button" class="outline_btn label_medium total_conversion tx_primary" data-conversion="vat">전액</button>
+                        </div>
+                        <div class="sub_tx tx_red error_msg hide"><i class="xi-warning"></i>전환 가능 금액이 부족해요.</div>
+                    </div>
+                    <div class="popup_footer">
+                        <button type="button" class="pop_close pop_outline_btn cancel">취소</button>
+                        <button type="button" id="" class="pop_fill_btn conversion_button" data-conversion="vat">전환</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="popup_password_container fr_st">
+                <div class="popup_contents column">
+                    <div class="popup_header row">
+                        <p class="popup_title">2차 비밀번호</p>
+                        <i class="fa-solid fa-xmark popup_password_close"></i>
+                    </div>
+                    <div class="popup_wrapper column">
+                        <div class="popup_output row">
+                            <div class="popup_input_box row">
+                                <input id="secondary_password_input" class="popup_input" maxlength="6" type="password" autocomplete="new-password">
+                                <i class="fa-regular fa-eye-slash popup_password"></i>
+                            </div>
+                            <button id="secondary_password_button" class="popup_button">확인</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" class="daily_commission_mode" value="">
+    </div>
+</div>
+
+    </div>
+    </main>
+    </div>
+
+    
+
+    </body></html>

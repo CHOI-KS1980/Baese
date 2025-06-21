@@ -1,0 +1,135 @@
+name: 🎯 SemiAuto G라이더 자동화
+
+on:
+  schedule:
+    # 한국시간(KST) = UTC + 9시간이므로 UTC 시간은 -9시간으로 설정
+    
+    # 기본 10분 간격 (10:00~00:00 KST = 01:00~15:00 UTC)
+    - cron: '0,10,20,30,40,50 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 * * *'
+    
+    # 피크시간 5분 간격 추가 (11-13시, 17-19시 KST)
+    # 11-13시 KST = 02-04시 UTC
+    - cron: '5,15,25,35,45,55 2,3,4 * * *'
+    # 17-19시 KST = 08-10시 UTC  
+    - cron: '5,15,25,35,45,55 8,9,10 * * *'
+    
+  # 수동 실행 지원
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: '테스트 모드 실행'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'false'
+        - 'true'
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  grider-automation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔄 코드 체크아웃
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Python 설정
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: 📦 의존성 설치
+      run: |
+        cd semiauto
+        pip install --upgrade pip
+        pip install -r config/requirements.txt
+        
+    - name: 🌐 Chrome 브라우저 설치
+      uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+        
+    - name: 📋 ChromeDriver 설치
+      uses: nanasess/setup-chromedriver@v2
+      
+    - name: 🔧 환경 설정
+      run: |
+        cd semiauto
+        # config.txt 파일 생성
+        echo "REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" > config.txt
+        echo "REFRESH_TOKEN=${{ secrets.KAKAO_REFRESH_TOKEN }}" >> config.txt
+        
+        # 권한 설정
+        chmod +x config.txt
+        
+    - name: 🎯 GitHub Actions용 실행 스크립트 생성
+      run: |
+        cd semiauto
+        cat > github_runner.py << 'EOF'
+        import sys
+        import os
+        sys.path.append('.')
+        
+        from core.final_solution import GriderAutoSender, load_config
+        import logging
+        
+        # 로깅 설정
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logger = logging.getLogger(__name__)
+        
+        def main():
+            try:
+                logger.info('🚀 GitHub Actions에서 G라이더 자동화 시작')
+                
+                # 설정 로드
+                rest_api_key, refresh_token = load_config()
+                if not rest_api_key or not refresh_token:
+                    logger.error('❌ 설정 파일 로드 실패')
+                    return False
+                    
+                # 자동화 객체 생성
+                auto_sender = GriderAutoSender(rest_api_key, refresh_token)
+                
+                # 연결 테스트
+                if not auto_sender.test_connection():
+                    logger.error('❌ 연결 테스트 실패')
+                    return False
+                    
+                # 리포트 전송
+                result = auto_sender.send_report()
+                
+                if result:
+                    logger.info('✅ GitHub Actions 자동화 완료!')
+                    return True
+                else:
+                    logger.error('❌ 리포트 전송 실패')
+                    return False
+                    
+            except Exception as e:
+                logger.error(f'❌ GitHub Actions 실행 중 오류: {e}')
+                return False
+        
+        if __name__ == '__main__':
+            success = main()
+            if not success:
+                sys.exit(1)
+        EOF
+        
+    - name: 🎯 G라이더 자동화 실행
+      run: |
+        cd semiauto
+        python3 github_runner.py
+        
+    - name: 📊 실행 결과 요약
+      if: always()
+      run: |
+        echo "🎯 SemiAuto G라이더 자동화 실행 완료"
+        echo "⏰ 실행 시간: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "🌏 한국시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+        echo ""
+        echo "📱 카카오톡 '나에게 보내기'로 메시지가 전송되었습니다!"
+        echo "📋 메시지를 복사하여 오픈채팅방에 붙여넣기하세요!" 

@@ -29,7 +29,7 @@ def generate_grider_report():
     except:
         print("⚠️ G라이더 접속 실패, 샘플 데이터 사용")
     
-    report = f"""📊 G라이더 미션 현황 리포트
+    report = f"""📊 심플 배민 플러스 미션 현황 리포트
 📅 {now.strftime('%Y-%m-%d %H:%M')} 자동 업데이트
 
 🌅 아침점심피크: 30/21 ✅ (달성)
