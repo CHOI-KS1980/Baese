@@ -1435,9 +1435,8 @@ class GriderAutoSender:
         if not preparation_time:
             is_weekend_or_holiday = self._is_weekend_or_holiday(now)
             
-            # 지난 미션과 현재 진행중 미션만 표시 (아직 시작되지 않은 미션은 표시하지 않음)
-            completed_missions = []  # 완료된 미션
-            current_missions = []    # 현재 진행중 미션
+            # 시작된 미션만 표시 (아직 시작되지 않은 미션은 숨김)
+            started_missions = []  # 시작된 모든 미션 (완료/진행중 구분 없이)
             
             for key in peak_order:
                 peak_info = data.get(key, {'current': 0, 'target': 0})
@@ -1448,41 +1447,34 @@ class GriderAutoSender:
                     continue
                 
                 # 미션 시간대 확인
-                mission_ended = False
-                mission_active = False
                 mission_started = False  # 미션이 시작되었는지 확인
+                mission_active = False   # 현재 진행중인지 확인
                 
                 if key == '아침점심피크':
                     if is_weekend_or_holiday:
                         # 휴일: 6-14시
                         mission_started = current_hour >= 6
-                        mission_ended = current_hour >= 14
                         mission_active = 6 <= current_hour < 14
                     else:
                         # 평일: 6-13시
                         mission_started = current_hour >= 6
-                        mission_ended = current_hour >= 13
                         mission_active = 6 <= current_hour < 13
                 elif key == '오후논피크':
                     if is_weekend_or_holiday:
                         # 휴일: 14-17시
                         mission_started = current_hour >= 14
-                        mission_ended = current_hour >= 17
                         mission_active = 14 <= current_hour < 17
                     else:
                         # 평일: 13-17시
                         mission_started = current_hour >= 13
-                        mission_ended = current_hour >= 17
                         mission_active = 13 <= current_hour < 17
                 elif key == '저녁피크':
                     # 17-20시
                     mission_started = current_hour >= 17
-                    mission_ended = current_hour >= 20
                     mission_active = 17 <= current_hour < 20
                 elif key == '심야논피크':
                     # 20시~다음날 3시
                     mission_started = current_hour >= 20 or current_hour < 3
-                    mission_ended = 3 <= current_hour < 20
                     mission_active = current_hour >= 20 or current_hour < 3
                 
                 # 아직 시작되지 않은 미션은 표시하지 않음
@@ -1493,33 +1485,22 @@ class GriderAutoSender:
                 if cur >= tgt:
                     status = '✅ (달성)'
                 else:
-                    if mission_ended:
-                        status = f'❌ (미달성: {tgt-cur}건 부족)'
-                    else:
+                    if mission_active:
                         status = f'⏳ (진행중: {tgt-cur}건 남음)'
                         lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
+                    else:
+                        status = f'❌ (미달성: {tgt-cur}건 부족)'
                 
                 mission_line = f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}"
-                
-                # 미션을 카테고리별로 분류 (시작된 미션만)
-                if mission_ended:
-                    completed_missions.append(mission_line)
-                elif mission_active:
-                    current_missions.append(mission_line)
+                started_missions.append(mission_line)
             
-            # 미션 현황을 카테고리별로 표시 (시작된 미션만)
-            if completed_missions:
-                mission_parts.append("📋 완료된 미션")
-                mission_parts.extend(completed_missions)
-                
-            if current_missions:
-                if completed_missions:
-                    mission_parts.append("")
-                mission_parts.append("🔄 현재 진행중 미션")
-                mission_parts.extend(current_missions)
-            
-            # 아직 미션이 시작되지 않은 경우 안내 메시지
-            if not completed_missions and not current_missions:
+            # 금일 미션 현황 표시 (시작된 미션만)
+            if started_missions:
+                mission_parts.append("🎯 금일 미션 현황")
+                mission_parts.extend(started_missions)
+            else:
+                # 아직 미션이 시작되지 않은 경우 안내 메시지
+                mission_parts.append("🎯 금일 미션 현황")
                 mission_parts.append("⏰ 미션 시작 전입니다")
                 mission_parts.append("첫 번째 미션은 06:00부터 시작됩니다")
         
