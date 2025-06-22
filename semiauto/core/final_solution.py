@@ -1216,21 +1216,39 @@ class GriderAutoSender:
         mission_parts = []
         lacking_missions = []
         
-        for key in peak_order:
-            peak_info = data.get(key, {'current': 0, 'target': 0})
-            cur = peak_info.get('current', 0)
-            tgt = peak_info.get('target', 0)
-            
-            if tgt == 0:
-                continue
+        # 03:00~06:00는 미션 준비 시간 (main_(2).py와 동일한 로직)
+        if 3 <= current_hour < 6:
+            mission_parts.append("🛌 미션 준비 시간입니다 (06:00부터 미션 정보가 표시됩니다)")
+        else:
+            for key in peak_order:
+                peak_info = data.get(key, {'current': 0, 'target': 0})
+                cur = peak_info.get('current', 0)
+                tgt = peak_info.get('target', 0)
                 
-            if cur >= tgt:
-                status = '✅ (달성)'
-            else:
-                status = f'❌ ({tgt-cur}건 부족)'
-                lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
-            
-            mission_parts.append(f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}")
+                if tgt == 0:
+                    continue
+                
+                # 시간대별로 표시 여부 결정 (main_(2).py와 동일한 로직)
+                should_show = False
+                if key == '아침점심피크' and current_hour >= 6:  # 6시 이후부터 표시
+                    should_show = True
+                elif key == '오후논피크' and current_hour >= 13:  # 13시 이후부터 표시
+                    should_show = True
+                elif key == '저녁피크' and current_hour >= 17:  # 17시 이후부터 표시
+                    should_show = True
+                elif key == '심야논피크' and (current_hour >= 20 or current_hour < 6):  # 20시~다음날 6시
+                    should_show = True
+                    
+                if not should_show:
+                    continue
+                    
+                if cur >= tgt:
+                    status = '✅ (달성)'
+                else:
+                    status = f'❌ ({tgt-cur}건 부족)'
+                    lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
+                
+                mission_parts.append(f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}")
         
         # 2. 기본 정보 - 두 줄로 정리
         total_score = data.get("총점", 0)
