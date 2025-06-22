@@ -1348,7 +1348,7 @@ class GriderAutoSender:
                     should_show = True
                 elif key == '저녁피크' and current_hour >= 17:  # 17시부터 표시 (17-20시)
                     should_show = True
-                elif key == '심야논피크' and (current_hour >= 20 or current_hour < 6):  # 20시~다음날 6시
+                elif key == '심야논피크' and (current_hour >= 20 or current_hour < 3):  # 20시~다음날 3시
                     should_show = True
                     
                 if not should_show:
