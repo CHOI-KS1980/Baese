@@ -411,12 +411,82 @@ class GriderDataCollector:
 
                 # 로그인 처리
                 logger.info("로그인 시도")
-                USER_ID = 'DP2406035262'  
-                USER_PW = 'wldud050323!'
                 
-                id_field = driver.find_element(By.ID, 'id')
-                pw_field = driver.find_element(By.ID, 'password')
-                login_btn = driver.find_element(By.ID, 'loginBtn')
+                # 환경변수 또는 config.txt에서 로그인 정보 가져오기
+                import os
+                USER_ID = os.getenv('GRIDER_ID')
+                USER_PW = os.getenv('GRIDER_PASSWORD')
+                
+                # 환경변수가 없으면 config.txt에서 읽기
+                if not USER_ID or not USER_PW:
+                    config_file = 'config.txt'
+                    if os.path.exists(config_file):
+                        with open(config_file, 'r') as f:
+                            for line in f:
+                                if line.startswith('GRIDER_ID='):
+                                    USER_ID = line.split('=')[1].strip()
+                                elif line.startswith('GRIDER_PASSWORD='):
+                                    USER_PW = line.split('=')[1].strip()
+                
+                if not USER_ID or not USER_PW:
+                    raise Exception("G라이더 로그인 정보가 설정되지 않았습니다. GRIDER_ID와 GRIDER_PASSWORD를 확인하세요.")
+                
+                # 여러 선택자 시도 (웹사이트 구조 변경 대응)
+                id_field = None
+                pw_field = None
+                login_btn = None
+                
+                # ID 필드 찾기 (여러 선택자 시도)
+                id_selectors = ['#id', '[name="id"]', '[id="id"]', 'input[type="text"]', '.login-id', '#userId', '[name="userId"]']
+                for selector in id_selectors:
+                    try:
+                        if selector.startswith('#') or selector.startswith('.'):
+                            id_field = driver.find_element(By.CSS_SELECTOR, selector)
+                        elif selector.startswith('['):
+                            id_field = driver.find_element(By.CSS_SELECTOR, selector)
+                        else:
+                            id_field = driver.find_element(By.ID, selector)
+                        logger.info(f"✅ ID 필드 발견: {selector}")
+                        break
+                    except:
+                        continue
+                
+                # 비밀번호 필드 찾기
+                pw_selectors = ['#password', '[name="password"]', '[id="password"]', 'input[type="password"]', '.login-password', '#userPw', '[name="userPw"]']
+                for selector in pw_selectors:
+                    try:
+                        if selector.startswith('#') or selector.startswith('.'):
+                            pw_field = driver.find_element(By.CSS_SELECTOR, selector)
+                        elif selector.startswith('['):
+                            pw_field = driver.find_element(By.CSS_SELECTOR, selector)
+                        else:
+                            pw_field = driver.find_element(By.ID, selector)
+                        logger.info(f"✅ 비밀번호 필드 발견: {selector}")
+                        break
+                    except:
+                        continue
+                
+                # 로그인 버튼 찾기
+                btn_selectors = ['#loginBtn', '[id="loginBtn"]', 'button[type="submit"]', '.login-btn', '.btn-login', 'input[type="submit"]']
+                for selector in btn_selectors:
+                    try:
+                        if selector.startswith('#') or selector.startswith('.'):
+                            login_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                        elif selector.startswith('['):
+                            login_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                        else:
+                            login_btn = driver.find_element(By.ID, selector)
+                        logger.info(f"✅ 로그인 버튼 발견: {selector}")
+                        break
+                    except:
+                        continue
+                
+                if not id_field:
+                    raise Exception("ID 입력 필드를 찾을 수 없습니다. 웹사이트 구조가 변경되었을 가능성이 있습니다.")
+                if not pw_field:
+                    raise Exception("비밀번호 입력 필드를 찾을 수 없습니다.")
+                if not login_btn:
+                    raise Exception("로그인 버튼을 찾을 수 없습니다.")
                 
                 # 입력 필드 클리어 후 입력
                 id_field.clear()
@@ -449,7 +519,38 @@ class GriderDataCollector:
             except Exception as e:
                 logger.error(f"❌ 크롤링 시도 {attempt + 1} 실패: {e}")
                 
+                # 디버깅 정보 수집
                 if driver:
+                    try:
+                        current_url = driver.current_url
+                        page_title = driver.title
+                        page_source_length = len(driver.page_source)
+                        
+                        logger.error(f"🔍 디버깅 정보:")
+                        logger.error(f"   현재 URL: {current_url}")
+                        logger.error(f"   페이지 제목: {page_title}")
+                        logger.error(f"   페이지 소스 길이: {page_source_length}")
+                        
+                        # 실패한 페이지 소스 저장
+                        with open(f'debug_failed_page_{attempt + 1}.html', 'w', encoding='utf-8') as f:
+                            f.write(driver.page_source)
+                        logger.error(f"   실패한 페이지 소스 저장: debug_failed_page_{attempt + 1}.html")
+                        
+                        # 로그인 필드 존재 여부 확인
+                        try:
+                            login_elements = driver.find_elements(By.CSS_SELECTOR, 'input[type="text"], input[type="password"], input[id*="id"], input[name*="id"]')
+                            logger.error(f"   발견된 입력 필드 수: {len(login_elements)}")
+                            for i, elem in enumerate(login_elements[:5]):  # 최대 5개만 표시
+                                try:
+                                    logger.error(f"   필드 {i+1}: tag={elem.tag_name}, id={elem.get_attribute('id')}, name={elem.get_attribute('name')}, type={elem.get_attribute('type')}")
+                                except:
+                                    pass
+                        except:
+                            logger.error("   입력 필드 확인 실패")
+                            
+                    except Exception as debug_e:
+                        logger.error(f"   디버깅 정보 수집 실패: {debug_e}")
+                    
                     try:
                         driver.quit()
                     except:
@@ -462,6 +563,7 @@ class GriderDataCollector:
                     time.sleep(retry_delay)
                 else:
                     logger.error(f"❌ 모든 크롤링 시도 실패 ({max_retries}회)")
+                    logger.error("🚨 크롤링 실패 - 대체 데이터로 메시지를 전송합니다")
                     
             finally:
                 if driver:
@@ -1309,7 +1411,7 @@ class GriderAutoSender:
         # 날씨 정보 (전체 버전으로 복원)
         weather_info = self._get_weather_info()
         
-        # 1. 미션 현황 - 깔끔하게 줄바꿈
+        # 1. 미션 현황 - 지난 미션과 현재 미션 모두 표시
         peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
         peak_emojis = {
             '아침점심피크': '🌅', 
@@ -1321,7 +1423,7 @@ class GriderAutoSender:
         mission_parts = []
         lacking_missions = []
         
-                # 03:00~06:00는 미션 준비 시간 (휴일/평일 동일)
+        # 03:00~06:00는 미션 준비 시간 (휴일/평일 동일)
         if 3 <= current_hour < 6:
             is_weekend_or_holiday = self._is_weekend_or_holiday(now)
             holiday_info = " (주말/휴일)" if is_weekend_or_holiday else " (평일)"
@@ -1331,6 +1433,12 @@ class GriderAutoSender:
             preparation_time = False
         
         if not preparation_time:
+            is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+            
+            # 지난 미션과 현재 진행중 미션만 표시 (아직 시작되지 않은 미션은 표시하지 않음)
+            completed_missions = []  # 완료된 미션
+            current_missions = []    # 현재 진행중 미션
+            
             for key in peak_order:
                 peak_info = data.get(key, {'current': 0, 'target': 0})
                 cur = peak_info.get('current', 0)
@@ -1339,39 +1447,81 @@ class GriderAutoSender:
                 if tgt == 0:
                     continue
                 
-                # 시간대별로 표시 여부 결정 (휴일/평일 차이 반영)
-                should_show = False
-                is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+                # 미션 시간대 확인
+                mission_ended = False
+                mission_active = False
+                mission_started = False  # 미션이 시작되었는지 확인
                 
-                if key == '아침점심피크' and current_hour >= 6:  # 6시부터 표시
+                if key == '아침점심피크':
                     if is_weekend_or_holiday:
-                        # 휴일: 6-14시 (8시간)
-                        should_show = current_hour < 14
+                        # 휴일: 6-14시
+                        mission_started = current_hour >= 6
+                        mission_ended = current_hour >= 14
+                        mission_active = 6 <= current_hour < 14
                     else:
-                        # 평일: 6-13시 (7시간)  
-                        should_show = current_hour < 13
-                elif key == '오후논피크' and current_hour >= 13:  # 13시부터 표시
+                        # 평일: 6-13시
+                        mission_started = current_hour >= 6
+                        mission_ended = current_hour >= 13
+                        mission_active = 6 <= current_hour < 13
+                elif key == '오후논피크':
                     if is_weekend_or_holiday:
-                        # 휴일: 14-17시 (아침점심피크가 14시까지 연장되므로)
-                        should_show = current_hour >= 14
+                        # 휴일: 14-17시
+                        mission_started = current_hour >= 14
+                        mission_ended = current_hour >= 17
+                        mission_active = 14 <= current_hour < 17
                     else:
                         # 평일: 13-17시
-                        should_show = True
-                elif key == '저녁피크' and current_hour >= 17:  # 17시부터 표시 (17-20시)
-                    should_show = True
-                elif key == '심야논피크' and (current_hour >= 20 or current_hour < 3):  # 20시~다음날 3시
-                    should_show = True
-                    
-                if not should_show:
+                        mission_started = current_hour >= 13
+                        mission_ended = current_hour >= 17
+                        mission_active = 13 <= current_hour < 17
+                elif key == '저녁피크':
+                    # 17-20시
+                    mission_started = current_hour >= 17
+                    mission_ended = current_hour >= 20
+                    mission_active = 17 <= current_hour < 20
+                elif key == '심야논피크':
+                    # 20시~다음날 3시
+                    mission_started = current_hour >= 20 or current_hour < 3
+                    mission_ended = 3 <= current_hour < 20
+                    mission_active = current_hour >= 20 or current_hour < 3
+                
+                # 아직 시작되지 않은 미션은 표시하지 않음
+                if not mission_started:
                     continue
-                    
+                
+                # 상태 결정
                 if cur >= tgt:
                     status = '✅ (달성)'
                 else:
-                    status = f'❌ ({tgt-cur}건 부족)'
-                    lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
+                    if mission_ended:
+                        status = f'❌ (미달성: {tgt-cur}건 부족)'
+                    else:
+                        status = f'⏳ (진행중: {tgt-cur}건 남음)'
+                        lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
                 
-                mission_parts.append(f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}")
+                mission_line = f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}"
+                
+                # 미션을 카테고리별로 분류 (시작된 미션만)
+                if mission_ended:
+                    completed_missions.append(mission_line)
+                elif mission_active:
+                    current_missions.append(mission_line)
+            
+            # 미션 현황을 카테고리별로 표시 (시작된 미션만)
+            if completed_missions:
+                mission_parts.append("📋 완료된 미션")
+                mission_parts.extend(completed_missions)
+                
+            if current_missions:
+                if completed_missions:
+                    mission_parts.append("")
+                mission_parts.append("🔄 현재 진행중 미션")
+                mission_parts.extend(current_missions)
+            
+            # 아직 미션이 시작되지 않은 경우 안내 메시지
+            if not completed_missions and not current_missions:
+                mission_parts.append("⏰ 미션 시작 전입니다")
+                mission_parts.append("첫 번째 미션은 06:00부터 시작됩니다")
         
         # 2. 기본 정보 - 두 줄로 정리
         total_score = data.get("총점", 0)
@@ -1473,18 +1623,54 @@ class GriderAutoSender:
             ""
         ]
         
-        # 오류 데이터인 경우 오류 메시지 추가
+        # 오류 데이터인 경우 친화적인 오류 메시지 추가
         if data.get('error', False):
             error_reason = data.get('error_reason', '알 수 없는 오류')
+            
+            # 현재 시간대 정보
+            now = datetime.now(KST)
+            current_hour = now.hour
+            
+            # 시간대별 상황 설명
+            if 6 <= current_hour < 13:
+                time_info = "🌅 아침점심피크 시간대"
+                mission_status = "현재 아침점심피크 미션이 진행중입니다"
+            elif 13 <= current_hour < 17:
+                time_info = "🌇 오후논피크 시간대"
+                mission_status = "현재 오후논피크 미션이 진행중입니다"
+            elif 17 <= current_hour < 20:
+                time_info = "🌃 저녁피크 시간대"
+                mission_status = "현재 저녁피크 미션이 진행중입니다"
+            elif 20 <= current_hour or current_hour < 3:
+                time_info = "🌙 심야논피크 시간대"
+                mission_status = "현재 심야논피크 미션이 진행중입니다"
+            else:
+                time_info = "⏰ 미션 준비 시간"
+                mission_status = "미션 시작 전입니다"
+            
             message_parts.extend([
-                f"🚨 데이터 수집 오류 발생",
-                f"오류 원인: {error_reason}",
+                "🚨 크롤링 연결 실패",
+                "",
+                time_info,
+                mission_status,
+                "",
+                "⚠️ 일시적인 연결 문제로 실시간 데이터를 가져올 수 없습니다.",
+                "",
+                "🔧 가능한 원인:",
+                "• G라이더 웹사이트 일시적 접속 장애",
+                "• 네트워크 연결 문제",
+                "• 웹사이트 구조 변경",
+                "",
+                "💡 해결 방법:",
+                "• 잠시 후 자동으로 재시도됩니다",
+                "• 문제가 지속되면 수동으로 확인해주세요",
+                "",
+                "🕐 다음 자동 시도: 30분 후",
+                "📱 자동화 시스템은 계속 작동중입니다",
+                "",
                 f"⏰ 오류 발생 시간: {data.get('timestamp', 'N/A')}",
                 "",
-                "❗ 관리자에게 문의하여 시스템을 점검해주세요.",
-                "📞 시스템 복구 후 정상 데이터가 전송됩니다.",
-                "",
-                "🤖 자동화 시스템에 의해 전송됨 (오류 상태)"
+                "🤖 자동화 시스템에 의해 전송됨"
             ])
         else:
             # 정상 데이터인 경우 기존 메시지 구성
