@@ -1339,13 +1339,24 @@ class GriderAutoSender:
                 if tgt == 0:
                     continue
                 
-                # 시간대별로 표시 여부 결정 (main_(2).py와 동일한 정확한 시간)
+                # 시간대별로 표시 여부 결정 (휴일/평일 차이 반영)
                 should_show = False
+                is_weekend_or_holiday = self._is_weekend_or_holiday(now)
                 
-                if key == '아침점심피크' and current_hour >= 6:  # 6시부터 표시 (6-13시)
-                    should_show = True
-                elif key == '오후논피크' and current_hour >= 13:  # 13시부터 표시 (13-17시)
-                    should_show = True
+                if key == '아침점심피크' and current_hour >= 6:  # 6시부터 표시
+                    if is_weekend_or_holiday:
+                        # 휴일: 6-14시 (8시간)
+                        should_show = current_hour < 14
+                    else:
+                        # 평일: 6-13시 (7시간)  
+                        should_show = current_hour < 13
+                elif key == '오후논피크' and current_hour >= 13:  # 13시부터 표시
+                    if is_weekend_or_holiday:
+                        # 휴일: 14-17시 (아침점심피크가 14시까지 연장되므로)
+                        should_show = current_hour >= 14
+                    else:
+                        # 평일: 13-17시
+                        should_show = True
                 elif key == '저녁피크' and current_hour >= 17:  # 17시부터 표시 (17-20시)
                     should_show = True
                 elif key == '심야논피크' and (current_hour >= 20 or current_hour < 3):  # 20시~다음날 3시
