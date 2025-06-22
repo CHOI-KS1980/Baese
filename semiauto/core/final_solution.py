@@ -782,6 +782,7 @@ class GriderDataCollector:
         """
         물량 점수관리 테이블에서 미션 데이터를 파싱합니다. (main_(2).py와 동일)
         """
+        from bs4 import BeautifulSoup
         
         # html.parser 파서 사용으로 속도 향상
         soup = BeautifulSoup(html, 'html.parser')
@@ -1370,13 +1371,13 @@ class GriderAutoSender:
     def _get_time_based_greeting(self, hour, minute):
         """시간대별 인사말 생성"""
         
-        # 10:00 하루 시작
+        # 10:00 하루 시작 - 특별 인사말 (전체 리포트에 추가됨)
         if hour == 10 and minute == 0:
             return """🌅 좋은 아침입니다!
 오늘도 심플 배민 플러스와 함께 힘찬 하루를 시작해보세요!
 안전운행하시고 좋은 하루 되세요! 💪"""
         
-        # 00:00 하루 마무리
+        # 00:00 하루 마무리 - 특별 인사말 (전체 리포트에 추가됨)
         elif hour == 0 and minute == 0:
             return """🌙 오늘 하루도 정말 수고하셨습니다!
 안전하게 귀가하시고 푹 쉬세요.
