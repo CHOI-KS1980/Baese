@@ -19,6 +19,7 @@ import re
 import datetime as dt
 import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup  # BeautifulSoup import 추가
+from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 
 # 로깅 설정
 logging.basicConfig(
@@ -33,6 +34,110 @@ logger = logging.getLogger(__name__)
 
 # 한국시간 설정
 KST = pytz.timezone('Asia/Seoul')
+
+class KoreaHolidayChecker:
+    """한국천문연구원 공휴일 체커"""
+    
+    def __init__(self):
+        # 한국천문연구원 특일 정보 API
+        self.api_key = os.getenv('KOREA_HOLIDAY_API_KEY')
+        self.base_url = "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService"
+        self.holidays_cache = {}
+        
+        if self.api_key:
+            logger.info("🇰🇷 한국천문연구원 특일 정보 API 공휴일 체커 초기화")
+            self.load_year_holidays(datetime.now(KST).year)
+        else:
+            logger.info("⚠️ KOREA_HOLIDAY_API_KEY 환경변수가 설정되지 않음 - 기본 공휴일 사용")
+    
+    def get_holidays_from_api(self, year, month=None):
+        """API에서 공휴일 정보 가져오기"""
+        if not self.api_key:
+            return []
+        
+        url = f"{self.base_url}/getRestDeInfo"
+        
+        params = {
+            'serviceKey': self.api_key,
+            'pageNo': '1',
+            'numOfRows': '50',
+            'solYear': str(year)
+        }
+        
+        if month:
+            params['solMonth'] = f"{month:02d}"
+        
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                root = ET.fromstring(response.content)
+                
+                holidays = []
+                items = root.findall('.//item')
+                
+                for item in items:
+                    date_name = item.find('dateName')
+                    loc_date = item.find('locdate')
+                    is_holiday = item.find('isHoliday')
+                    
+                    if date_name is not None and loc_date is not None:
+                        holiday_name = date_name.text
+                        holiday_date = loc_date.text
+                        holiday_status = is_holiday.text if is_holiday is not None else 'Y'
+                        
+                        # 날짜 형식 변환
+                        if len(holiday_date) == 8:
+                            formatted_date = f"{holiday_date[:4]}-{holiday_date[4:6]}-{holiday_date[6:8]}"
+                            holidays.append({
+                                'date': formatted_date,
+                                'name': holiday_name,
+                                'is_holiday': holiday_status == 'Y'
+                            })
+                            logger.info(f"📅 공휴일 확인: {formatted_date} - {holiday_name}")
+                
+                return holidays
+                
+        except Exception as e:
+            logger.error(f"❌ 공휴일 API 오류: {e}")
+        
+        return []
+    
+    def load_year_holidays(self, year):
+        """전체 년도 공휴일 로드"""
+        if year in self.holidays_cache:
+            return
+        
+        holidays = []
+        for month in range(1, 13):
+            month_holidays = self.get_holidays_from_api(year, month)
+            holidays.extend(month_holidays)
+        
+        self.holidays_cache[year] = holidays
+        logger.info(f"✅ {year}년 전체월 공휴일 {len(holidays)}개 로드 완료")
+    
+    def is_holiday_advanced(self, target_date):
+        """고급 공휴일 판정"""
+        if isinstance(target_date, str):
+            target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+        elif isinstance(target_date, datetime):
+            target_date = target_date.date()
+        
+        year = target_date.year
+        if year not in self.holidays_cache:
+            self.load_year_holidays(year)
+        
+        target_str = target_date.strftime('%Y-%m-%d')
+        
+        holidays = self.holidays_cache.get(year, [])
+        for holiday in holidays:
+            if holiday['date'] == target_str:
+                return True, holiday['name']
+        
+        return False, None
+
+# 전역 공휴일 체커 (한 번만 초기화)
+holiday_checker = KoreaHolidayChecker()
 
 class TokenManager:
     """카카오톡 토큰 관리 클래스"""
@@ -1216,22 +1321,14 @@ class GriderAutoSender:
         mission_parts = []
         lacking_missions = []
         
-                # 휴일/평일에 따른 미션 준비 시간 설정
-        is_weekend_or_holiday = self._is_weekend_or_holiday(now)
-        if is_weekend_or_holiday:
-            # 주말/휴일: 03:00~07:00 미션 준비 시간
-            if 3 <= current_hour < 7:
-                mission_parts.append("🛌 미션 준비 시간입니다 (주말/휴일: 07:00부터 미션 정보가 표시됩니다)")
-                preparation_time = True
-            else:
-                preparation_time = False
+                # 03:00~06:00는 미션 준비 시간 (휴일/평일 동일)
+        if 3 <= current_hour < 6:
+            is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+            holiday_info = " (주말/휴일)" if is_weekend_or_holiday else " (평일)"
+            mission_parts.append(f"🛌 미션 준비 시간입니다{holiday_info} - 06:00부터 미션 정보가 표시됩니다")
+            preparation_time = True
         else:
-            # 평일: 03:00~06:00 미션 준비 시간
-            if 3 <= current_hour < 6:
-                mission_parts.append("🛌 미션 준비 시간입니다 (평일: 06:00부터 미션 정보가 표시됩니다)")
-                preparation_time = True
-            else:
-                preparation_time = False
+            preparation_time = False
         
         if not preparation_time:
             for key in peak_order:
@@ -1242,31 +1339,17 @@ class GriderAutoSender:
                 if tgt == 0:
                     continue
                 
-                # 휴일/평일 구분 및 시간대별로 표시 여부 결정
-                is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+                # 시간대별로 표시 여부 결정 (휴일/평일 동일한 시간)
                 should_show = False
                 
-                if key == '아침점심피크':
-                    # 평일: 6시, 주말/휴일: 7시부터 표시
-                    start_hour = 7 if is_weekend_or_holiday else 6
-                    if current_hour >= start_hour:
-                        should_show = True
-                elif key == '오후논피크':
-                    # 평일: 13시, 주말/휴일: 14시부터 표시
-                    start_hour = 14 if is_weekend_or_holiday else 13
-                    if current_hour >= start_hour:
-                        should_show = True
-                elif key == '저녁피크':
-                    # 평일: 17시, 주말/휴일: 18시부터 표시
-                    start_hour = 18 if is_weekend_or_holiday else 17
-                    if current_hour >= start_hour:
-                        should_show = True
-                elif key == '심야논피크':
-                    # 평일: 20시~다음날 6시, 주말/휴일: 21시~다음날 7시
-                    start_hour = 21 if is_weekend_or_holiday else 20
-                    end_hour = 7 if is_weekend_or_holiday else 6
-                    if current_hour >= start_hour or current_hour < end_hour:
-                        should_show = True
+                if key == '아침점심피크' and current_hour >= 6:  # 6시부터 표시
+                    should_show = True
+                elif key == '오후논피크' and current_hour >= 11:  # 11시부터 표시 (점심피크 시작)
+                    should_show = True
+                elif key == '저녁피크' and current_hour >= 17:  # 17시부터 표시
+                    should_show = True
+                elif key == '심야논피크' and (current_hour >= 21 or current_hour < 6):  # 21시~다음날 6시
+                    should_show = True
                     
                 if not should_show:
                     continue
@@ -1416,40 +1499,30 @@ class GriderAutoSender:
         return "\n".join(message_parts)
     
     def _is_weekend_or_holiday(self, dt):
-        """주말 또는 휴일 판정"""
+        """주말 또는 휴일 판정 (한국천문연구원 API 기반)"""
         # 주말 체크 (토요일=5, 일요일=6)
         if dt.weekday() >= 5:
             return True
-            
-        # 한국 공휴일 체크 (2024년 기준, 필요시 업데이트)
-        holidays_2024 = [
-            # 신정
-            (1, 1),
-            # 설날 연휴
-            (2, 9), (2, 10), (2, 11), (2, 12),
-            # 3·1절
-            (3, 1),
-            # 어린이날
-            (5, 5),
-            # 부처님오신날
-            (5, 15),
-            # 현충일
-            (6, 6),
-            # 광복절
-            (8, 15),
-            # 추석 연휴
-            (9, 16), (9, 17), (9, 18),
-            # 개천절
-            (10, 3),
-            # 한글날
-            (10, 9),
-            # 크리스마스
-            (12, 25)
-        ]
         
-        for month, day in holidays_2024:
-            if dt.month == month and dt.day == day:
+        # 한국천문연구원 공휴일 API 사용
+        try:
+            is_holiday, holiday_name = holiday_checker.is_holiday_advanced(dt)
+            if is_holiday:
+                logger.info(f"📅 공휴일 확인: {dt.strftime('%Y-%m-%d')} - {holiday_name}")
                 return True
+        except Exception as e:
+            logger.warning(f"⚠️ 공휴일 API 오류, 기본 공휴일 사용: {e}")
+            
+            # API 실패시 기본 공휴일 체크
+            holidays_2024 = [
+                (1, 1), (2, 9), (2, 10), (2, 11), (2, 12), (3, 1), (5, 5), 
+                (5, 15), (6, 6), (8, 15), (9, 16), (9, 17), (9, 18), 
+                (10, 3), (10, 9), (12, 25)
+            ]
+            
+            for month, day in holidays_2024:
+                if dt.month == month and dt.day == day:
+                    return True
                 
         return False
     
