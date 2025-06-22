@@ -1,0 +1,23 @@
+name: Keep workflows alive
+
+on:
+  schedule:
+    # 매월 1일 00:00 UTC (한국시간 09:00)에 실행하여 저장소를 활성 상태로 유지
+    - cron: '0 0 1 * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Keep repository active
+        run: |
+          echo "Repository activity update: $(date)" >> .github/keepalive.log
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/keepalive.log
+          git commit -m "🤖 Keep repository active" || exit 0
+          git push 
