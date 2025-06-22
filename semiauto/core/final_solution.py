@@ -1216,10 +1216,24 @@ class GriderAutoSender:
         mission_parts = []
         lacking_missions = []
         
-        # 03:00~06:00는 미션 준비 시간 (main_(2).py와 동일한 로직)
-        if 3 <= current_hour < 6:
-            mission_parts.append("🛌 미션 준비 시간입니다 (06:00부터 미션 정보가 표시됩니다)")
+                # 휴일/평일에 따른 미션 준비 시간 설정
+        is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+        if is_weekend_or_holiday:
+            # 주말/휴일: 03:00~07:00 미션 준비 시간
+            if 3 <= current_hour < 7:
+                mission_parts.append("🛌 미션 준비 시간입니다 (주말/휴일: 07:00부터 미션 정보가 표시됩니다)")
+                preparation_time = True
+            else:
+                preparation_time = False
         else:
+            # 평일: 03:00~06:00 미션 준비 시간
+            if 3 <= current_hour < 6:
+                mission_parts.append("🛌 미션 준비 시간입니다 (평일: 06:00부터 미션 정보가 표시됩니다)")
+                preparation_time = True
+            else:
+                preparation_time = False
+        
+        if not preparation_time:
             for key in peak_order:
                 peak_info = data.get(key, {'current': 0, 'target': 0})
                 cur = peak_info.get('current', 0)
@@ -1228,16 +1242,31 @@ class GriderAutoSender:
                 if tgt == 0:
                     continue
                 
-                # 시간대별로 표시 여부 결정 (main_(2).py와 동일한 로직)
+                # 휴일/평일 구분 및 시간대별로 표시 여부 결정
+                is_weekend_or_holiday = self._is_weekend_or_holiday(now)
                 should_show = False
-                if key == '아침점심피크' and current_hour >= 6:  # 6시 이후부터 표시
-                    should_show = True
-                elif key == '오후논피크' and current_hour >= 13:  # 13시 이후부터 표시
-                    should_show = True
-                elif key == '저녁피크' and current_hour >= 17:  # 17시 이후부터 표시
-                    should_show = True
-                elif key == '심야논피크' and (current_hour >= 20 or current_hour < 6):  # 20시~다음날 6시
-                    should_show = True
+                
+                if key == '아침점심피크':
+                    # 평일: 6시, 주말/휴일: 7시부터 표시
+                    start_hour = 7 if is_weekend_or_holiday else 6
+                    if current_hour >= start_hour:
+                        should_show = True
+                elif key == '오후논피크':
+                    # 평일: 13시, 주말/휴일: 14시부터 표시
+                    start_hour = 14 if is_weekend_or_holiday else 13
+                    if current_hour >= start_hour:
+                        should_show = True
+                elif key == '저녁피크':
+                    # 평일: 17시, 주말/휴일: 18시부터 표시
+                    start_hour = 18 if is_weekend_or_holiday else 17
+                    if current_hour >= start_hour:
+                        should_show = True
+                elif key == '심야논피크':
+                    # 평일: 20시~다음날 6시, 주말/휴일: 21시~다음날 7시
+                    start_hour = 21 if is_weekend_or_holiday else 20
+                    end_hour = 7 if is_weekend_or_holiday else 6
+                    if current_hour >= start_hour or current_hour < end_hour:
+                        should_show = True
                     
                 if not should_show:
                     continue
@@ -1385,6 +1414,44 @@ class GriderAutoSender:
             message_parts.append("🤖 자동화 시스템에 의해 전송됨")
         
         return "\n".join(message_parts)
+    
+    def _is_weekend_or_holiday(self, dt):
+        """주말 또는 휴일 판정"""
+        # 주말 체크 (토요일=5, 일요일=6)
+        if dt.weekday() >= 5:
+            return True
+            
+        # 한국 공휴일 체크 (2024년 기준, 필요시 업데이트)
+        holidays_2024 = [
+            # 신정
+            (1, 1),
+            # 설날 연휴
+            (2, 9), (2, 10), (2, 11), (2, 12),
+            # 3·1절
+            (3, 1),
+            # 어린이날
+            (5, 5),
+            # 부처님오신날
+            (5, 15),
+            # 현충일
+            (6, 6),
+            # 광복절
+            (8, 15),
+            # 추석 연휴
+            (9, 16), (9, 17), (9, 18),
+            # 개천절
+            (10, 3),
+            # 한글날
+            (10, 9),
+            # 크리스마스
+            (12, 25)
+        ]
+        
+        for month, day in holidays_2024:
+            if dt.month == month and dt.day == day:
+                return True
+                
+        return False
     
     def _get_time_based_greeting(self, hour, minute):
         """시간대별 인사말 생성"""
