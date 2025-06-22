@@ -1481,15 +1481,15 @@ class GriderAutoSender:
                 if not mission_started:
                     continue
                 
-                # 상태 결정
+                # 상태 결정 (아이콘만 사용)
                 if cur >= tgt:
-                    status = '✅ (달성)'
+                    status = '✅'
                 else:
                     if mission_active:
-                        status = f'⏳ (진행중: {tgt-cur}건 남음)'
+                        status = f'⏳ ({tgt-cur}건 남음)'
                         lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
                     else:
-                        status = f'❌ (미달성: {tgt-cur}건 부족)'
+                        status = f'❌ ({tgt-cur}건 부족)'
                 
                 mission_line = f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}"
                 started_missions.append(mission_line)
