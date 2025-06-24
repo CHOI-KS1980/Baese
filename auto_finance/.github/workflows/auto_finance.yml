@@ -1,0 +1,188 @@
+name: 📈 자동 금융 뉴스 시스템
+
+on:
+  schedule:
+    # 한국시간 기준 스케줄 (UTC+9)
+    # 오전 9시, 오후 12시, 오후 3시, 오후 6시, 오후 9시
+    - cron: '0 0,3,6,9,12 * * *'  # UTC 00:00, 03:00, 06:00, 09:00, 12:00
+  workflow_dispatch:  # 수동 실행 가능
+  push:
+    branches: [ main ]
+    paths:
+      - 'auto_finance/**'
+
+env:
+  PYTHON_VERSION: '3.9'
+  TZ: 'Asia/Seoul'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    steps:
+      - name: 📅 시간대 확인
+        id: check
+        run: |
+          # 한국시간 기준으로 실행 여부 결정
+          CURRENT_HOUR=$(TZ=Asia/Seoul date +%H)
+          echo "현재 한국시간: $CURRENT_HOUR시"
+          
+          # 장 시간대 (9시-15시) 또는 저녁 시간대 (18시-21시)에만 실행
+          if [ "$CURRENT_HOUR" -ge 9 ] && [ "$CURRENT_HOUR" -le 15 ]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "✅ 장 시간대 - 실행 예정"
+          elif [ "$CURRENT_HOUR" -ge 18 ] && [ "$CURRENT_HOUR" -le 21 ]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "✅ 저녁 시간대 - 실행 예정"
+          else
+            echo "should-run=false" >> $GITHUB_OUTPUT
+            echo "⏰ 비활성 시간대 - 실행 건너뜀"
+          fi
+
+  auto-finance-automation:
+    needs: setup
+    if: needs.setup.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 저장소 체크아웃
+        uses: actions/checkout@v4
+        
+      - name: 🐍 Python 설정
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: 📦 의존성 설치
+        run: |
+          cd auto_finance
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: 🔧 환경 변수 설정
+        run: |
+          cd auto_finance
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "TISTORY_ACCESS_TOKEN=${{ secrets.TISTORY_ACCESS_TOKEN }}" >> .env
+          echo "TISTORY_BLOG_NAME=${{ secrets.TISTORY_BLOG_NAME }}" >> .env
+          echo "TISTORY_CATEGORY_ID=${{ secrets.TISTORY_CATEGORY_ID }}" >> .env
+          echo "CLAUDE_API_KEY=${{ secrets.CLAUDE_API_KEY }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> .env
+          
+      - name: 🔍 환경 검증
+        run: |
+          cd auto_finance
+          python -c "
+          import sys
+          sys.path.append('.')
+          from config.settings import settings
+          from config.credentials import credentials
+          
+          print('🔍 설정 검증 중...')
+          if settings.validate_config():
+              print('✅ 설정 검증 완료')
+          else:
+              print('❌ 설정 검증 실패')
+              sys.exit(1)
+              
+          print('🔑 인증 정보 검증 중...')
+          validation = credentials.validate_required_credentials()
+          if validation['valid']:
+              print('✅ 인증 정보 검증 완료')
+          else:
+              print(f'❌ 인증 정보 누락: {validation[\"missing\"]}')
+              sys.exit(1)
+          "
+          
+      - name: 🚀 자동 금융 뉴스 시스템 실행
+        run: |
+          cd auto_finance
+          echo "🕐 실행 시작: $(TZ=Asia/Seoul date)"
+          
+          # 단일 실행 모드로 실행
+          python main.py
+          
+          echo "🕐 실행 완료: $(TZ=Asia/Seoul date)"
+          
+      - name: 📊 결과 아티팩트 저장
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: auto-finance-results
+          path: |
+            auto_finance/logs/
+            auto_finance/data/statistics.json
+            auto_finance/cache/
+          retention-days: 7
+          
+      - name: 📈 성과 리포트 생성
+        if: always()
+        run: |
+          cd auto_finance
+          
+          echo "📊 자동 금융 뉴스 시스템 성과 리포트" > performance_report.md
+          echo "=====================================" >> performance_report.md
+          echo "" >> performance_report.md
+          echo "실행 시간: $(TZ=Asia/Seoul date)" >> performance_report.md
+          echo "" >> performance_report.md
+          
+          if [ -f "data/statistics.json" ]; then
+              echo "📈 통계 정보:" >> performance_report.md
+              cat data/statistics.json | python -m json.tool >> performance_report.md
+          else
+              echo "⚠️ 통계 파일을 찾을 수 없습니다." >> performance_report.md
+          fi
+          
+          echo "" >> performance_report.md
+          echo "📝 최근 로그:" >> performance_report.md
+          if [ -f "logs/crawler.log" ]; then
+              tail -20 logs/crawler.log >> performance_report.md
+          fi
+          
+      - name: 📤 성과 리포트 업로드
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: auto_finance/performance_report.md
+          retention-days: 30
+
+  notification:
+    needs: auto-finance-automation
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 결과 다운로드
+        uses: actions/download-artifact@v3
+        with:
+          name: performance-report
+          
+      - name: 📱 카카오톡 알림 (성공)
+        if: needs.auto-finance-automation.result == 'success'
+        run: |
+          echo "✅ 자동 금융 뉴스 시스템 성공적으로 완료되었습니다!"
+          
+          # 성과 리포트 내용 읽기
+          if [ -f "performance_report.md" ]; then
+              REPORT_CONTENT=$(cat performance_report.md)
+              echo "📊 성과 리포트:"
+              echo "$REPORT_CONTENT"
+          fi
+          
+      - name: 📱 카카오톡 알림 (실패)
+        if: needs.auto-finance-automation.result == 'failure'
+        run: |
+          echo "❌ 자동 금융 뉴스 시스템 실행 중 오류가 발생했습니다."
+          echo "🔍 로그를 확인하여 문제를 해결해주세요."
+          
+      - name: 🧹 정리
+        if: always()
+        run: |
+          echo "🧹 작업 공간 정리 중..."
+          # 임시 파일 정리
+          rm -rf auto_finance/cache/*
+          rm -rf auto_finance/logs/*.tmp 

@@ -1,0 +1,13 @@
+{
+  "running": false,
+  "runtime_seconds": 0.774994,
+  "stats": {
+    "articles_crawled": 82,
+    "articles_verified": 0,
+    "articles_generated": 0,
+    "articles_uploaded": 0,
+    "errors": 1,
+    "start_time": "2025-06-25T07:13:38.723685"
+  },
+  "timestamp": "2025-06-25T07:13:39.498679"
+}
