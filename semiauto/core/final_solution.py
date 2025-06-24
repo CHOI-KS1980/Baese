@@ -1420,10 +1420,27 @@ class GriderAutoSender:
     def format_message(self, data):
         """깔끔하고 읽기 좋은 메시지 포맷 (시간대별 인사말 포함)"""
         
-        # 현재 시간 확인 (한국시간)
-        now = datetime.now(KST)
+        # 현재 시간 확인 (한국시간) - 더 안전한 방법으로 처리
+        try:
+            import pytz
+            kst = pytz.timezone('Asia/Seoul')
+            now = datetime.now(kst)
+        except ImportError:
+            # pytz가 없으면 UTC+9로 계산
+            utc_now = datetime.utcnow()
+            now = utc_now + timedelta(hours=9)
+        
         current_hour = now.hour
         current_minute = now.minute
+        
+        # 디버그 로그 추가 (GitHub Actions에서 시간 확인용)
+        logger.info(f"🕐 현재 시간: {now.strftime('%Y-%m-%d %H:%M:%S')} (한국시간)")
+        logger.info(f"🕐 시간대별 인사말 생성: {current_hour:02d}:{current_minute:02d}")
+        
+        # 휴일/평일 정보 확인 및 로그
+        is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+        day_type = "휴일" if is_weekend_or_holiday else "평일"
+        logger.info(f"📅 현재 날짜 타입: {day_type}")
         
         # 시간대별 인사말 결정
         greeting = self._get_time_based_greeting(current_hour, current_minute)
@@ -1475,27 +1492,36 @@ class GriderAutoSender:
                         # 휴일: 6-14시
                         mission_started = current_hour >= 6
                         mission_active = 6 <= current_hour < 14
+                        peak_time_info = "06:00-14:00 (휴일)"
                     else:
                         # 평일: 6-13시
                         mission_started = current_hour >= 6
                         mission_active = 6 <= current_hour < 13
+                        peak_time_info = "06:00-13:00 (평일)"
                 elif key == '오후논피크':
                     if is_weekend_or_holiday:
                         # 휴일: 14-17시
                         mission_started = current_hour >= 14
                         mission_active = 14 <= current_hour < 17
+                        peak_time_info = "14:00-17:00 (휴일)"
                     else:
                         # 평일: 13-17시
                         mission_started = current_hour >= 13
                         mission_active = 13 <= current_hour < 17
+                        peak_time_info = "13:00-17:00 (평일)"
                 elif key == '저녁피크':
-                    # 17-20시
+                    # 17-20시 (휴일/평일 동일)
                     mission_started = current_hour >= 17
                     mission_active = 17 <= current_hour < 20
+                    peak_time_info = "17:00-20:00"
                 elif key == '심야논피크':
-                    # 20시~다음날 3시
+                    # 20시~다음날 3시 (휴일/평일 동일)
                     mission_started = current_hour >= 20 or current_hour < 3
                     mission_active = current_hour >= 20 or current_hour < 3
+                    peak_time_info = "20:00-03:00 (익일)"
+                
+                # 피크 시간대 정보 로그
+                logger.info(f"🎯 {key}: {peak_time_info} | 시작됨: {mission_started} | 진행중: {mission_active}")
                 
                 # 아직 시작되지 않은 미션은 표시하지 않음
                 if not mission_started:
@@ -1620,7 +1646,7 @@ class GriderAutoSender:
         message_parts = [
             greeting,  # 시간대별 인사말 추가
             "",
-            "📊 심플 배민 플러스 미션 알리미",
+            f"📊 심플 배민 플러스 미션 알리미 ({day_type})",
             ""
         ]
         
@@ -1727,14 +1753,19 @@ class GriderAutoSender:
     def _get_time_based_greeting(self, hour, minute):
         """시간대별 인사말 생성"""
         
+        # 디버그 로그 추가
+        logger.info(f"🎯 인사말 생성 요청: {hour:02d}:{minute:02d}")
+        
         # 10:00 하루 시작 - 특별 인사말 (전체 리포트에 추가됨)
         if hour == 10 and minute == 0:
+            logger.info("🌅 10:00 하루 시작 인사말 선택")
             return """🌅 좋은 아침입니다!
 오늘도 심플 배민 플러스와 함께 힘찬 하루를 시작해보세요!
 안전운행하시고 좋은 하루 되세요! 💪"""
         
         # 00:00 하루 마무리 - 특별 인사말 (전체 리포트에 추가됨)
         elif hour == 0 and minute == 0:
+            logger.info("🌙 00:00 하루 마무리 인사말 선택")
             return """🌙 오늘 하루도 정말 수고하셨습니다!
 안전하게 귀가하시고 푹 쉬세요.
 내일도 좋은 하루 되시길 바랍니다! 🙏"""
@@ -1768,10 +1799,19 @@ class GriderAutoSender:
                 (22, 0): "🌙 밤 10시! 심야 시간대 안전운행!",
                 (22, 30): "🌙 심야 시간대, 안전운행 최우선!",
                 (23, 0): "🌌 밤 11시! 하루 마무리가 다가와요!",
-                (23, 30): "🌌 하루 마무리 시간이 다가오고 있어요!"
+                (23, 30): "🌌 하루 마무리 시간이 다가오고 있어요!",
+                # 익일 새벽 시간대 추가
+                (0, 30): "🌙 새벽 12시 30분, 오늘도 정말 수고하셨습니다!",
+                (1, 0): "🌅 새벽 1시, 심야 미션 진행중입니다!",
+                (1, 30): "🌅 새벽 1시 30분, 안전운행 최우선입니다!",
+                (2, 0): "🌅 새벽 2시, 곧 하루가 마무리됩니다!",
+                (2, 30): "🌅 새벽 2시 30분, 마지막 미션 시간입니다!",
+                (3, 0): "🌅 새벽 3시, 오늘 하루도 정말 고생하셨습니다!"
             }
             
-            return time_greetings.get((hour, minute), f"⏰ {hour:02d}:{minute:02d} 현재 상황을 알려드립니다!")
+            greeting = time_greetings.get((hour, minute), f"⏰ {hour:02d}:{minute:02d} 현재 상황을 알려드립니다!")
+            logger.info(f"📝 선택된 인사말: {greeting[:50]}...")
+            return greeting
     
     def _get_weather_info(self):
         """날씨 정보 가져오기 (오전/오후 요약 버전)"""
