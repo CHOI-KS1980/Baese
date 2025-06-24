@@ -69,16 +69,75 @@ PEAK_NAMES = {
     'legacy': ['오전피크', '오후피크', '저녁피크', '심야피크']
 }
 
+# 피크시간 정의 (한국시간 기준)
+PEAK_TIMES = {
+    '아침점심피크': {'start': 7, 'end': 13},    # 07:00-13:00
+    '오후논피크': {'start': 13, 'end': 17},     # 13:00-17:00  
+    '저녁피크': {'start': 17, 'end': 21},       # 17:00-21:00
+    '심야논피크': {'start': 21, 'end': 7}       # 21:00-07:00 (다음날)
+}
+
 # ========== 유틸리티 함수들 ==========
 
+def get_korean_time():
+    """한국시간 반환"""
+    try:
+        import pytz
+        kst = pytz.timezone('Asia/Seoul')
+        return datetime.datetime.now(kst)
+    except ImportError:
+        # pytz가 없으면 UTC+9로 계산
+        utc_now = datetime.datetime.utcnow()
+        kst_now = utc_now + datetime.timedelta(hours=9)
+        return kst_now
+
 def get_mission_date() -> str:
-    """미션 기준 날짜 계산 (06:00~다음날 03:00)"""
-    now = datetime.datetime.now()
-    if now.time() < datetime.time(6, 0):
+    """미션 기준 날짜 계산 (03:00~다음날 02:59를 하나의 미션 날짜로 간주)"""
+    now = get_korean_time()
+    if now.time() < datetime.time(3, 0):
         mission_date = now.date() - datetime.timedelta(days=1)
     else:
         mission_date = now.date()
+    logger.info(f"🎯 미션 날짜 계산: 현재시간 {now.strftime('%Y-%m-%d %H:%M')} → 미션날짜 {mission_date}")
     return mission_date.strftime('%Y-%m-%d')
+
+def is_peak_time() -> bool:
+    """현재가 피크시간인지 확인"""
+    now = get_korean_time()
+    current_hour = now.hour
+    
+    for peak_name, time_range in PEAK_TIMES.items():
+        start_hour = time_range['start']
+        end_hour = time_range['end']
+        
+        if start_hour <= end_hour:
+            # 일반적인 시간대 (예: 07:00-13:00)
+            if start_hour <= current_hour < end_hour:
+                return True
+        else:
+            # 심야시간대 (예: 21:00-07:00)
+            if current_hour >= start_hour or current_hour < end_hour:
+                return True
+    
+    return False
+
+def get_current_peak_name() -> str:
+    """현재 피크시간 이름 반환"""
+    now = get_korean_time()
+    current_hour = now.hour
+    
+    for peak_name, time_range in PEAK_TIMES.items():
+        start_hour = time_range['start']
+        end_hour = time_range['end']
+        
+        if start_hour <= end_hour:
+            if start_hour <= current_hour < end_hour:
+                return peak_name
+        else:
+            if current_hour >= start_hour or current_hour < end_hour:
+                return peak_name
+    
+    return "일반시간"
 
 def safe_file_operation(operation, *args, **kwargs):
     """안전한 파일 작업 래퍼"""
@@ -474,6 +533,8 @@ def parse_rider_data(soup, parser) -> list:
             
             if name_node and complete_node:
                 name = name_node.get_text(strip=True)
+                # "이름" 텍스트 제거
+                name = re.sub(r'이름', '', name).strip()
                 complete_text = complete_node.get_text(strip=True)
                 complete_match = parser.int_pattern.search(complete_text)
                 complete = int(complete_match.group()) if complete_match else 0
@@ -774,48 +835,70 @@ def job():
             logger.error("❌ 기본 인터넷 연결도 실패. 네트워크 설정을 확인하세요")
 
 def setup_smart_schedule():
-    """스마트 스케줄링 설정"""
-    schedule.every(10).minutes.do(job)
+    """스마트 스케줄링 설정 (한국시간 기준)"""
+    logger.info("📅 스마트 스케줄링 설정 시작")
     
-    # 피크 시간 집중 모니터링
-    peak_hours = [11, 12, 13, 17, 18, 19]
-    for hour in peak_hours:
-        for minute in range(0, 60, 5):  # 5분 간격
+    # 기본 30분 간격 스케줄 (10:00-00:00)
+    for hour in range(10, 24):  # 10시부터 23시까지
+        for minute in [0, 30]:  # 0분, 30분
             schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(job)
+    
+    # 자정 실행 (00:00)
+    schedule.every().day.at("00:00").do(job)
+    
+    # 피크시간 15분 간격 추가 스케줄
+    peak_hours = {
+        '아침점심피크': range(7, 13),   # 07:00-12:59
+        '오후논피크': range(13, 17),    # 13:00-16:59
+        '저녁피크': range(17, 21),      # 17:00-20:59
+        '심야논피크': list(range(21, 24)) + list(range(0, 7))  # 21:00-06:59
+    }
+    
+    for peak_name, hours in peak_hours.items():
+        for hour in hours:
+            for minute in [15, 45]:  # 15분, 45분
+                if hour == 0 and minute == 45:  # 00:45는 이미 30분 간격에 포함
+                    continue
+                schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(job)
+    
+    logger.info("✅ 스케줄링 설정 완료")
+    logger.info(f"   • 기본 간격: 30분 (10:00-00:00)")
+    logger.info(f"   • 피크시간 추가: 15분 간격")
+    logger.info(f"   • 현재 피크시간: {get_current_peak_name()}")
+
+def is_message_time() -> bool:
+    """메시지 전송 시간대(00:00~02:59, 10:00~23:59)인지 확인"""
+    now = get_korean_time()
+    t = now.time()
+    return (datetime.time(0, 0) <= t < datetime.time(3, 0)) or (datetime.time(10, 0) <= t <= datetime.time(23, 59, 59))
 
 def main():
-    """메인 실행 함수"""
     print("🚀 장부 모니터링 시스템 시작 (최적화 버전)")
     print("=" * 50)
-    
-    # 설정 정보
+    kst_now = get_korean_time()
+    current_mission_date = get_mission_date()
     print("📊 현재 설정:")
-    print(f"   • 미션 데이터 기준: 06:00~다음날 03:00")
-    print(f"   • 알림 시간: 10:00~00:00")
-    print(f"   • 모니터링 간격: 10분 (피크시간 5분)")
-    print(f"🎯 현재 미션 날짜: {get_mission_date()}")
-    print(f"⏰ 현재 시각: {datetime.datetime.now().strftime('%H:%M:%S')}")
-    
-    # 즉시 실행 여부 확인
-    current_hour = datetime.datetime.now().hour
-    if 10 <= current_hour <= 23:
-        print("✅ 알림 시간대입니다. 즉시 첫 모니터링을 시작합니다.")
+    print(f"   • 미션 데이터 기준: 03:00~다음날 02:59")
+    print(f"   • 알림 시간: 00:00~02:59, 10:00~23:59")
+    print(f"   • 모니터링 간격: 30분 (피크시간 15분 추가)")
+    print(f"🎯 현재 미션 날짜: {current_mission_date}")
+    print(f"⏰ 현재 시각: {kst_now.strftime('%Y-%m-%d %H:%M:%S')} (KST)")
+    print(f"📈 현재 피크시간: {get_current_peak_name()}")
+    if is_message_time():
+        print("✅ 메시지 전송 시간대입니다. 즉시 첫 모니터링을 시작합니다.")
         try:
             job()
         except Exception as e:
             logger.error(f"초기 실행 실패: {e}")
     else:
         print("💤 현재 휴식 시간대입니다. 10:00부터 알림을 시작합니다.")
-    
-    # 스케줄 시작
     setup_smart_schedule()
     print("\n🔄 스케줄러가 시작되었습니다.")
     print("   • 중지하려면 Ctrl+C를 누르세요")
-    
     try:
         while True:
-            current_time = datetime.datetime.now()
-            if 10 <= current_time.hour <= 23:
+            kst_now = get_korean_time()
+            if is_message_time():
                 schedule.run_pending()
             time.sleep(60)
     except KeyboardInterrupt:

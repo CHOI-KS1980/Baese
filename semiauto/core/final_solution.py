@@ -750,6 +750,8 @@ class GriderDataCollector:
                 name_text = name_node.get_text(strip=True)
                 # "수락률:XX%" 부분 제거
                 name = re.sub(r'수락률:\d+%', '', name_text).strip()
+                # "이름" 텍스트 제거
+                name = re.sub(r'이름', '', name).strip()
                 
                 # 수락률 추출 (정확한 구조 반영)
                 acceptance_rate = 0.0
@@ -972,18 +974,36 @@ class GriderDataCollector:
     def _get_mission_date(self):
         """
         미션 기준 날짜를 계산합니다.
-        06:00~다음날 03:00를 하나의 미션 날짜로 간주합니다.
-        예: 2025-06-15 06:00 ~ 2025-06-16 03:00 = 2025-06-15 미션
+        03:00~다음날 02:59를 하나의 미션 날짜로 간주합니다.
+        예: 2025-06-15 03:00 ~ 2025-06-16 02:59 = 2025-06-15 미션
         """
-        now = dt.datetime.now()
-        
-        # 현재 시간이 06:00 이전이면 전날을 미션 날짜로 계산
-        if now.time() < dt.time(6, 0):
+        # 한국시간 기준으로 계산
+        try:
+            import pytz
+            kst = pytz.timezone('Asia/Seoul')
+            now = dt.datetime.now(kst)
+        except ImportError:
+            # pytz가 없으면 UTC+9로 계산
+            utc_now = dt.datetime.utcnow()
+            now = utc_now + dt.timedelta(hours=9)
+        if now.time() < dt.time(3, 0):
             mission_date = now.date() - dt.timedelta(days=1)
         else:
             mission_date = now.date()
-        
+        logger.info(f"🎯 미션 날짜 계산: 현재시간 {now.strftime('%Y-%m-%d %H:%M')} → 미션날짜 {mission_date}")
         return mission_date.strftime('%Y-%m-%d')
+
+    def _is_message_time(self):
+        """메시지 전송 시간대(00:00~02:59, 10:00~23:59)인지 확인"""
+        try:
+            import pytz
+            kst = pytz.timezone('Asia/Seoul')
+            now = dt.datetime.now(kst)
+        except ImportError:
+            utc_now = dt.datetime.utcnow()
+            now = utc_now + dt.timedelta(hours=9)
+        t = now.time()
+        return (dt.time(0, 0) <= t < dt.time(3, 0)) or (dt.time(10, 0) <= t <= dt.time(23, 59, 59))
 
     def _parse_mission_table_data(self, html):
         """
