@@ -1,0 +1,181 @@
+name: 🎯 고도화된 G라이더 자동화 시스템
+
+on:
+  schedule:
+    # === 한국시간 기준 정확한 스케줄 (단순화) ===
+    # 비피크시간: 정각, 30분 (한국시간 10:00-23:59)
+    # 피크시간: 정각, 15분, 30분, 45분
+    
+    # 🌅 오전 시작 (한국시간 10:00 = UTC 01:00)
+    - cron: '0 1 * * *'
+    
+    # 📊 비피크 정시 (한국시간 10:00-23:00 = UTC 01:00-14:00)
+    - cron: '0 1,2,3,4,5,6,7,8,9,10,11,12,13,14 * * *'
+    
+    # 📊 비피크 30분 (한국시간 10:30-23:30 = UTC 01:30-14:30)  
+    - cron: '30 1,2,3,4,5,6,7,8,9,10,11,12,13,14 * * *'
+    
+    # 🚀 피크시간 15분 추가 (한국시간 06:00-19:59)
+    # 아침점심피크 (06:00-13:59): 한국시간 = UTC 21:00-04:59 (전날 21시부터)
+    - cron: '15,45 21,22,23,0,1,2,3,4 * * *'
+    
+    # 오후논피크 + 저녁피크 (13:00-19:59): 한국시간 = UTC 04:00-10:59
+    - cron: '15,45 4,5,6,7,8,9,10 * * *'
+    
+    # 심야논피크 (20:00-02:59): 한국시간 = UTC 11:00-17:59
+    - cron: '15,45 11,12,13,14,15,16,17 * * *'
+    
+    # 🌙 자정 종료 메시지 (한국시간 00:00 = UTC 15:00)
+    - cron: '0 15 * * *'
+    
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '실행 모드'
+        required: true
+        default: 'normal'
+        type: choice
+        options:
+        - normal
+        - validation
+        - recovery
+
+env:
+  PYTHONUNBUFFERED: 1
+  PYTHONIOENCODING: utf-8
+  TZ: Asia/Seoul
+  LC_ALL: C.UTF-8
+  LANG: C.UTF-8
+
+jobs:
+  enhanced-automation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: false  # 고도화 버전은 실패시 중단
+    
+    steps:
+    - name: 📋 실행 정보 출력
+      run: |
+        echo "🎯 고도화된 G라이더 자동화 실행"
+        echo "🕐 UTC 시간: $(date -u '+%Y-%m-%d %H:%M:%S')"
+        echo "🇰🇷 한국시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S')"
+        echo "🔧 실행 모드: ${{ github.event.inputs.mode || 'scheduled' }}"
+        echo "🔄 트리거: ${{ github.event_name }}"
+    
+    - name: 📦 코드 체크아웃
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Python 3.11 설정
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: 📚 의존성 설치
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 🌐 Chrome 설치
+      run: |
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        
+    - name: 🚗 ChromeDriver 설치
+      run: |
+        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE")
+        wget -O /tmp/chromedriver-linux64.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+        sudo unzip /tmp/chromedriver-linux64.zip -d /tmp/
+        sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        chromedriver --version
+        
+    - name: ⚙️ 설정 파일 생성
+      run: |
+        cd semiauto
+        echo "REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" > config.txt
+        echo "REFRESH_TOKEN=${{ secrets.KAKAO_REFRESH_TOKEN }}" >> config.txt
+        echo "GRIDER_ID=${{ secrets.GRIDER_ID }}" >> config.txt
+        echo "GRIDER_PASSWORD=${{ secrets.GRIDER_PASSWORD }}" >> config.txt
+        echo "✅ 설정 파일 생성 완료"
+        
+    - name: 🎯 고도화된 자동화 실행
+      run: |
+        cd semiauto
+        echo "🚀 고도화된 시스템 시작..."
+        
+        # 실행 모드에 따른 분기
+        MODE="${{ github.event.inputs.mode }}"
+        
+        if [ "$MODE" = "validation" ]; then
+          echo "🔍 검증 모드 실행"
+          python core/enhanced_final_solution.py --validation
+        elif [ "$MODE" = "recovery" ]; then
+          echo "🔄 복구 모드 실행"
+          python core/enhanced_final_solution.py --single-run --recovery
+        else
+          echo "📤 일반 전송 모드 실행"
+          python core/enhanced_final_solution.py --single-run
+        fi
+        
+    - name: 📊 실행 결과 확인
+      if: always()
+      run: |
+        cd semiauto
+        echo "📋 실행 결과 요약:"
+        
+        # 로그 파일 확인
+        if [ -f "grider_automation.log" ]; then
+          echo "📄 로그 파일 크기: $(wc -l < grider_automation.log) 줄"
+          echo "🔍 최근 로그 (마지막 10줄):"
+          tail -10 grider_automation.log
+        fi
+        
+        # 히스토리 파일 확인
+        if [ -f "message_history.json" ]; then
+          echo "📝 메시지 히스토리 존재: $(wc -c < message_history.json) bytes"
+        fi
+        
+        # 데이터 캐시 확인
+        if [ -f "data_cache.json" ]; then
+          echo "💾 데이터 캐시 존재: $(wc -c < data_cache.json) bytes"
+        fi
+        
+    - name: 📁 아티팩트 업로드
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: automation-logs-${{ github.run_number }}
+        path: |
+          semiauto/grider_automation.log
+          semiauto/message_history.json
+          semiauto/data_cache.json
+          semiauto/debug_grider_page.html
+        retention-days: 3
+        
+    - name: ⚠️ 실패 알림 (Slack/Discord 등)
+      if: failure()
+      run: |
+        echo "❌ 고도화된 자동화 실행 실패"
+        echo "🔍 문제 해결을 위해 로그를 확인하세요"
+        # 필요시 Slack/Discord 웹훅 추가
+        
+  # 상태 모니터링 잡 (선택사항)
+  status-check:
+    runs-on: ubuntu-latest
+    needs: enhanced-automation
+    if: always()
+    
+    steps:
+    - name: 📊 실행 상태 확인
+      run: |
+        echo "🎯 고도화된 자동화 실행 완료"
+        echo "📈 상태: ${{ needs.enhanced-automation.result }}"
+        
+        if [ "${{ needs.enhanced-automation.result }}" = "success" ]; then
+          echo "✅ 정상 실행됨"
+        else
+          echo "❌ 실행 실패 - 확인 필요"
+        fi 
