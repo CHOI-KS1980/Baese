@@ -24,7 +24,7 @@ sys.path.insert(0, parent_dir)
 # 기존 모듈들 import
 from core.enhanced_final_solution import EnhancedGriderAutoSender
 from core.ai_analytics import AIAnalytics
-from core.final_solution import load_config, KakaoSender
+from core.final_solution import KakaoSender
 # from core.multi_platform_notifier import MultiPlatformNotifier
 # from core.optimization_engine import OptimizationEngine
 
@@ -456,12 +456,9 @@ def main():
         if rest_api_key and refresh_token:
             logger.info("✅ 환경변수에서 REST_API_KEY, REFRESH_TOKEN 로드 완료")
         else:
-            # 환경변수가 없으면 설정 파일에서 로드
-            rest_api_key, refresh_token = load_config()
-            
-            if not rest_api_key or not refresh_token:
-                logger.error("❌ 설정 로드 실패")
-                sys.exit(1)
+            logger.error("❌ REST_API_KEY 또는 REFRESH_TOKEN 환경변수가 설정되지 않았습니다")
+            logger.error("💡 GitHub Actions에서는 환경변수로 설정해야 합니다")
+            sys.exit(1)
         
         # 시스템 초기화
         system = UltimateGriderSystem(
