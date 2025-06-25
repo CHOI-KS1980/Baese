@@ -74,15 +74,12 @@ jobs:
         
     - name: 📚 의존성 설치 (최적화)
       run: |
-        echo "⚡ 고속 pip 설치 시작..."
+        echo "⚡ 초고속 경량 설치 시작..."
         python -m pip install --upgrade pip wheel setuptools
         
-        # 필수 패키지만 먼저 설치 (병렬 처리)
-        pip install --no-deps selenium requests beautifulsoup4 lxml pytz holidays
-        
-        # 나머지 의존성 설치
-        pip install -r requirements.txt --no-warn-script-location
-        echo "✅ 의존성 설치 완료"
+        # G라이더 자동화 최소 의존성만 설치 (10개 패키지)
+        pip install -r semiauto/requirements_minimal.txt --no-warn-script-location
+        echo "✅ 경량 의존성 설치 완료 (기존 90개 → 10개 패키지)"
         
     - name: 🌐 Chrome + ChromeDriver 고속 설치
       run: |
@@ -108,7 +105,7 @@ jobs:
         echo "✅ Chrome $(google-chrome --version) 설치 완료"
         echo "✅ ChromeDriver $(chromedriver --version) 설치 완료"
         
-    - name: ⚙️ 설정 파일 생성
+    - name: ⚙️ 설정 파일 및 환경변수 생성
       run: |
         cd semiauto
         echo "REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" > config.txt
@@ -116,6 +113,10 @@ jobs:
         echo "GRIDER_ID=${{ secrets.GRIDER_ID }}" >> config.txt
         echo "GRIDER_PASSWORD=${{ secrets.GRIDER_PASSWORD }}" >> config.txt
         echo "✅ 설정 파일 생성 완료"
+        
+        # 환경변수 설정 (한국 공휴일 API 키)
+        echo "KOREA_HOLIDAY_API_KEY=${{ secrets.KOREA_HOLIDAY_API_KEY || 'default_key' }}" >> $GITHUB_ENV
+        echo "✅ 환경변수 설정 완료"
         
     - name: 🎯 고도화된 자동화 실행
       run: |
