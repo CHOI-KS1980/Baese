@@ -134,6 +134,43 @@ jobs:
             ;;
         esac
 
+    - name: 🌐 대시보드 데이터 업데이트
+      if: success()
+      run: |
+        cd semiauto
+        echo "🌐 대시보드 데이터 업데이트 시작"
+        
+        # 대시보드 API 데이터가 생성되었는지 확인
+        if [ -f "dashboard/api/latest-data.json" ]; then
+          echo "✅ 대시보드 데이터 발견됨"
+          
+          # Git 설정
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # 대시보드 데이터 커밋
+          git add dashboard/api/
+          
+          if ! git diff --staged --quiet; then
+            git commit -m "🌐 실시간 대시보드 데이터 업데이트
+
+            📊 자동 업데이트: $(date '+%Y-%m-%d %H:%M:%S %Z')
+            🎯 실행 모드: ${{ env.MODE }}
+            ⚡ 우선순위: ${{ env.PRIORITY }}
+            
+            - 실시간 성과 데이터 갱신
+            - 차트 데이터 업데이트
+            - 메시지 설정 동기화"
+            
+            git push
+            echo "✅ 대시보드 데이터 푸시 완료"
+          else
+            echo "ℹ️ 대시보드 데이터 변경사항 없음"
+          fi
+        else
+          echo "⚠️ 대시보드 데이터 파일이 생성되지 않았습니다"
+        fi
+
     - name: 📊 실행 결과 분석
       if: always()
       run: |
@@ -189,6 +226,24 @@ jobs:
             print(f'❌ AI 데이터 분석 실패: {e}')
         "
         fi
+        
+        # 대시보드 데이터 상태 확인
+        if [ -f "dashboard/api/latest-data.json" ]; then
+          echo "🌐 대시보드 데이터 상태:"
+          python -c "
+        import json
+        try:
+            with open('dashboard/api/latest-data.json', 'r') as f:
+                data = json.load(f)
+                print(f'📊 현재 점수: {data.get(\"current_score\", 0)}점')
+                print(f'✅ 완료 미션: {data.get(\"completed_missions\", 0)}개')
+                print(f'🏍️ 활성 라이더: {data.get(\"active_riders\", 0)}명')
+                print(f'💰 예상 수익: {data.get(\"estimated_income\", 0):,}원')
+                print(f'📅 업데이트: {data.get(\"timestamp\", \"알 수 없음\")}')
+        except Exception as e:
+            print(f'❌ 대시보드 데이터 분석 실패: {e}')
+        "
+        fi
 
     - name: 📁 아티팩트 업로드
       if: always()
@@ -200,6 +255,7 @@ jobs:
           semiauto/*_history.json
           semiauto/*_data.json
           semiauto/*_cache.json
+          semiauto/dashboard/api/*.json
         retention-days: 7
 
   performance-monitoring:
@@ -236,10 +292,11 @@ jobs:
         echo "  📅 정확한 시간 기반 스케줄링"
         echo "  🔄 누락 메시지 자동 복구"
         echo "  📈 성능 모니터링 및 최적화"
+        echo "  🌐 실시간 웹 대시보드"
         echo "  🌟 차세대 통합 관리"
         
         echo ""
-        echo "🔗 모니터링 대시보드: https://github.com/${{ github.repository }}/actions"
+        echo "🔗 모니터링 대시보드: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         echo "📁 로그 아티팩트: ultimate-system-logs-${{ github.run_number }}"
 
   health-check:
@@ -269,10 +326,4 @@ jobs:
         echo "  1. Actions 탭에서 로그 확인"
         echo "  2. 아티팩트에서 상세 로그 다운로드"
         echo "  3. 필요시 수동으로 workflow_dispatch 실행"
-        echo "  4. 시스템 상태 확인: 'status_check' 모드 실행"
-        
-        echo ""
-        echo "📞 즉시 점검이 필요한 경우:"
-        echo "  • GitHub Actions에서 'workflow_dispatch' 선택"
-        echo "  • 모드를 'status_check'로 설정하여 실행"
-        echo "  • 문제 해결 후 'ultimate' 모드로 재시작" 
+        echo "  4. 대시보드에서 실시간 상태 확인" 

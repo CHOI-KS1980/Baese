@@ -25,6 +25,7 @@ sys.path.insert(0, parent_dir)
 from core.enhanced_final_solution import EnhancedGriderAutoSender
 from core.ai_analytics import AIAnalytics
 from core.final_solution import KakaoSender
+from core.dashboard_data_generator import DashboardDataGenerator
 # from core.multi_platform_notifier import MultiPlatformNotifier
 # from core.optimization_engine import OptimizationEngine
 
@@ -39,6 +40,7 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
         
         # 고도화 컴포넌트 초기화
         self.ai_analytics = AIAnalytics()
+        self.dashboard_generator = DashboardDataGenerator()
         # self.multi_notifier = MultiPlatformNotifier()
         # self.optimization_engine = OptimizationEngine()
         
@@ -64,6 +66,7 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
             "✅ 정확한 시간 기반 스케줄링",
             "✅ 중복 방지 및 누락 메시지 복구",
             "✅ 지능형 분석 리포트",
+            "✅ 실시간 웹 대시보드 및 맞춤형 메시지",
             # "✅ 다중 플랫폼 알림 (슬랙, 디스코드, 텔레그램, 이메일)",
             # "✅ 동적 성능 최적화",
             "✅ 종합 상태 모니터링"
@@ -133,11 +136,19 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
                     execution_result["errors"].append("데이터 자동 수정 실패")
                     return execution_result
             
-            # 6. 기본 카카오톡 메시지 전송
+            # 6. 대시보드 데이터 생성 및 저장
+            logger.info("🌐 대시보드 데이터 생성 중...")
+            dashboard_data = self.dashboard_generator.generate_dashboard_data(data)
+            self.dashboard_generator.save_dashboard_data(dashboard_data)
+            
+            # 7. 맞춤형 메시지 생성 및 전송
             access_token = self.token_manager.get_valid_token()
             self.sender = KakaoSender(access_token)
             
-            message = self.format_message(data)
+            # 대시보드에서 메시지 설정 로드 후 맞춤형 메시지 생성
+            message_data = self.dashboard_generator.generate_message_data(dashboard_data)
+            message = message_data.get('full_message', self.format_message(data))
+            
             result = self.sender.send_text_message(message)
             
             if result.get('result_code') == 0:
@@ -148,18 +159,20 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
                 
                 self.scheduler.history.record_sent(target_time, message_id, data_hash)
                 
-                logger.info("✅ 카카오톡 메시지 전송 성공!")
+                logger.info("✅ 맞춤형 카카오톡 메시지 전송 성공!")
+                logger.info(f"📱 사용된 템플릿: {message_data.get('settings', {}).get('template', 'standard')}")
                 execution_result["success"] = True
+                execution_result["message_template"] = message_data.get('settings', {}).get('template', 'standard')
             else:
                 execution_result["errors"].append(f"카카오톡 전송 실패: {result}")
                 
-            # 7. 다중 플랫폼 알림 (주석 처리)
+            # 8. 다중 플랫폼 알림 (주석 처리)
             # if self.multi_notifier.platforms:
             #     logger.info("📤 다중 플랫폼 알림 전송...")
             #     notification_results = self.multi_notifier.send_grider_report(data)
             #     execution_result["notifications_sent"] = notification_results
             
-            # 8. AI 예측 기반 알림
+            # 9. AI 예측 기반 알림
             if ai_report.get("risk_analysis", {}).get("level") == "🔴 높음":
                 logger.warning("🚨 AI가 높은 위험도를 감지했습니다!")
                 # self.multi_notifier.send_alert(

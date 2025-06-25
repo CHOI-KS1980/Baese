@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚚 G라이더 메인 시스템 제어</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* 헤더 */
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* 제어 패널 */
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .panel-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* 상태 표시 */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .status-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #28a745;
+        }
+
+        /* 설정 폼 */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* 버튼 스타일 */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.25rem;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* 로그 섹션 */
+        .log-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .log-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+        }
+
+        .log-timestamp {
+            color: #6c757d;
+            font-weight: bold;
+        }
+
+        .log-level-info {
+            color: #007bff;
+        }
+
+        .log-level-success {
+            color: #28a745;
+        }
+
+        .log-level-warning {
+            color: #ffc107;
+        }
+
+        .log-level-error {
+            color: #dc3545;
+        }
+
+        /* 통계 카드 */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-truck"></i> G라이더 메인 시스템 제어</h1>
+                <a href="../control-center.html" class="back-btn">
+                    <i class="fas fa-arrow-left"></i> 제어 센터로 돌아가기
+                </a>
+            </div>
+        </div>
+
+        <!-- 제어 패널 -->
+        <div class="control-panel">
+            <!-- 시스템 상태 -->
+            <div class="panel-section">
+                <h2 class="section-title"><i class="fas fa-heartbeat"></i> 시스템 상태</h2>
+                
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <div class="status-text">시스템 정상 실행중</div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <div class="stat-value" id="uptime">2일 14시간</div>
+                        <div class="stat-label">연속 실행시간</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="success-rate">98.5%</div>
+                        <div class="stat-label">성공률</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="last-execution">2분 전</div>
+                        <div class="stat-label">마지막 실행</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="next-execution">13분 후</div>
+                        <div class="stat-label">다음 실행</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button class="btn btn-success" onclick="executeNow()">
+                        <i class="fas fa-play"></i> 즉시 실행
+                    </button>
+                    <button class="btn btn-warning" onclick="pauseSystem()">
+                        <i class="fas fa-pause"></i> 일시 정지
+                    </button>
+                    <button class="btn btn-danger" onclick="stopSystem()">
+                        <i class="fas fa-stop"></i> 시스템 중지
+                    </button>
+                </div>
+            </div>
+
+            <!-- 시스템 설정 -->
+            <div class="panel-section">
+                <h2 class="section-title"><i class="fas fa-cog"></i> 시스템 설정</h2>
+                
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label>실행 주기</label>
+                        <select id="execution-interval">
+                            <option value="15">15분</option>
+                            <option value="30" selected>30분</option>
+                            <option value="60">1시간</option>
+                            <option value="120">2시간</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>알림 설정</label>
+                        <div style="margin-top: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="checkbox" id="notify-success" checked>
+                                성공시 알림
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="checkbox" id="notify-error" checked>
+                                오류시 알림
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="notify-summary">
+                                일일 요약 알림
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>로그 레벨</label>
+                        <select id="log-level">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO" selected>INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>최대 재시도 횟수</label>
+                        <input type="number" id="max-retries" value="3" min="1" max="10">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 설정 저장
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="resetSettings()">
+                        <i class="fas fa-undo"></i> 기본값 복원
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 로그 섹션 -->
+        <div class="log-section">
+            <h2 class="section-title">
+                <i class="fas fa-file-alt"></i> 실시간 로그
+                <button class="btn btn-primary" onclick="refreshLogs()" style="margin-left: auto;">
+                    <i class="fas fa-sync"></i> 새로고침
+                </button>
+            </h2>
+            
+            <div class="log-container" id="logContainer">
+                <!-- 로그 엔트리가 여기에 동적으로 추가됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+            loadLogs();
+            updateSystemStats();
+            
+            // 10초마다 로그 업데이트
+            setInterval(loadLogs, 10000);
+            
+            // 30초마다 통계 업데이트
+            setInterval(updateSystemStats, 30000);
+        });
+
+        // 설정 폼 제출
+        document.getElementById('settingsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveSettings();
+        });
+
+        // 설정 로드
+        function loadSettings() {
+            // 로컬 스토리지에서 설정 로드
+            const settings = JSON.parse(localStorage.getItem('griderSettings') || '{}');
+            
+            if (settings.executionInterval) {
+                document.getElementById('execution-interval').value = settings.executionInterval;
+            }
+            if (settings.notifySuccess !== undefined) {
+                document.getElementById('notify-success').checked = settings.notifySuccess;
+            }
+            if (settings.notifyError !== undefined) {
+                document.getElementById('notify-error').checked = settings.notifyError;
+            }
+            if (settings.notifySummary !== undefined) {
+                document.getElementById('notify-summary').checked = settings.notifySummary;
+            }
+            if (settings.logLevel) {
+                document.getElementById('log-level').value = settings.logLevel;
+            }
+            if (settings.maxRetries) {
+                document.getElementById('max-retries').value = settings.maxRetries;
+            }
+        }
+
+        // 설정 저장
+        function saveSettings() {
+            const settings = {
+                executionInterval: document.getElementById('execution-interval').value,
+                notifySuccess: document.getElementById('notify-success').checked,
+                notifyError: document.getElementById('notify-error').checked,
+                notifySummary: document.getElementById('notify-summary').checked,
+                logLevel: document.getElementById('log-level').value,
+                maxRetries: document.getElementById('max-retries').value
+            };
+            
+            localStorage.setItem('griderSettings', JSON.stringify(settings));
+            
+            alert('설정이 저장되었습니다!');
+            console.log('설정 저장됨:', settings);
+        }
+
+        // 설정 초기화
+        function resetSettings() {
+            if (confirm('모든 설정을 기본값으로 복원하시겠습니까?')) {
+                localStorage.removeItem('griderSettings');
+                
+                // 폼 초기화
+                document.getElementById('execution-interval').value = '30';
+                document.getElementById('notify-success').checked = true;
+                document.getElementById('notify-error').checked = true;
+                document.getElementById('notify-summary').checked = false;
+                document.getElementById('log-level').value = 'INFO';
+                document.getElementById('max-retries').value = '3';
+                
+                alert('설정이 초기화되었습니다!');
+            }
+        }
+
+        // 시스템 통계 업데이트
+        function updateSystemStats() {
+            // 실제 API 호출로 대체할 부분
+            document.getElementById('uptime').textContent = '2일 14시간';
+            document.getElementById('success-rate').textContent = '98.5%';
+            document.getElementById('last-execution').textContent = '2분 전';
+            document.getElementById('next-execution').textContent = '13분 후';
+        }
+
+        // 로그 로드
+        function loadLogs() {
+            const logContainer = document.getElementById('logContainer');
+            
+            // 샘플 로그 데이터 (실제로는 API에서 가져올 데이터)
+            const logs = [
+                { timestamp: '14:30:25', level: 'info', message: '✅ G라이더 데이터 수집 완료' },
+                { timestamp: '14:30:26', level: 'success', message: '📊 총점: 92점, 완료: 156건' },
+                { timestamp: '14:30:27', level: 'success', message: '📱 카카오톡 메시지 전송 성공' },
+                { timestamp: '14:30:28', level: 'info', message: '💾 대시보드 데이터 업데이트 완료' },
+                { timestamp: '14:30:29', level: 'info', message: '⏰ 다음 실행 예약: 15:00:00' },
+                { timestamp: '14:28:15', level: 'warning', message: '⚠️ 일시적 네트워크 지연 감지' },
+                { timestamp: '14:28:16', level: 'info', message: '🔄 재시도 시도 중...' },
+                { timestamp: '14:28:17', level: 'success', message: '✅ 재시도 성공' }
+            ];
+            
+            logContainer.innerHTML = '';
+            
+            logs.forEach(log => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.innerHTML = `
+                    <span class="log-timestamp">[${log.timestamp}]</span>
+                    <span class="log-level-${log.level}">${log.message}</span>
+                `;
+                logContainer.appendChild(logEntry);
+            });
+            
+            // 자동 스크롤
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 로그 새로고침
+        function refreshLogs() {
+            loadLogs();
+            console.log('로그 새로고침됨');
+        }
+
+        // 시스템 제어 함수들
+        function executeNow() {
+            if (confirm('G라이더 시스템을 즉시 실행하시겠습니까?')) {
+                console.log('즉시 실행 요청');
+                alert('시스템이 실행되었습니다!');
+                // 실제 실행 로직 구현
+            }
+        }
+
+        function pauseSystem() {
+            if (confirm('G라이더 시스템을 일시 정지하시겠습니까?')) {
+                console.log('시스템 일시 정지');
+                alert('시스템이 일시 정지되었습니다!');
+                // 실제 일시 정지 로직 구현
+            }
+        }
+
+        function stopSystem() {
+            if (confirm('G라이더 시스템을 완전히 중지하시겠습니까?\n이 작업은 자동 실행을 완전히 멈춥니다.')) {
+                console.log('시스템 완전 중지');
+                alert('시스템이 중지되었습니다!');
+                // 실제 중지 로직 구현
+            }
+        }
+
+        console.log('🚚 G라이더 메인 시스템 제어 페이지 초기화 완료');
+    </script>
+</body>
+</html> 

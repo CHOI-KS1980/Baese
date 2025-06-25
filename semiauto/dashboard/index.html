@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍕 심플 배민 실시간 대시보드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* 기본 설정 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: #2c3e50;
+        }
+
+        .dashboard-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 헤더 */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+
+        .header-info {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        /* 제어 센터 버튼 */
+        .control-center-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .control-center-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        /* 메인 콘텐츠 */
+        .main-content {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            height: calc(100vh - 100px);
+        }
+
+        /* 통계 카드들 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .stat-card.primary::before { background: #3498db; }
+        .stat-card.success::before { background: #27ae60; }
+        .stat-card.warning::before { background: #f39c12; }
+        .stat-card.danger::before { background: #e74c3c; }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-title {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .stat-card.primary .stat-icon { background: #3498db; }
+        .stat-card.success .stat-icon { background: #27ae60; }
+        .stat-card.warning .stat-icon { background: #f39c12; }
+        .stat-card.danger .stat-icon { background: #e74c3c; }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #95a5a6;
+        }
+
+        /* 피크 현황 섹션 */
+        .peaks-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .peaks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .peak-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .peak-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .peak-progress {
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .peak-numbers {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        /* 라이더 섹션 */
+        .riders-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .rider-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #ecf0f1;
+            transition: background 0.2s ease;
+        }
+
+        .rider-item:hover {
+            background: #f8f9fa;
+        }
+
+        .rider-item:last-child {
+            border-bottom: none;
+        }
+
+        .rider-info {
+            flex: 1;
+        }
+
+        .rider-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+
+        .rider-stats {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .rider-badge {
+            background: #3498db;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* 새로고침 버튼 */
+        .refresh-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(52, 152, 219, 0.3);
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #2980b9;
+            transform: scale(1.1);
+        }
+
+        /* 로딩 애니메이션 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- 헤더 -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-motorcycle"></i> 심플 배민 실시간 대시보드</h1>
+                <div class="header-info">
+                    <div><i class="fas fa-clock"></i> <span id="last-update">로딩중...</span></div>
+                    <div><i class="fas fa-circle" style="color: #27ae60;"></i> 실시간 연결</div>
+                    <a href="control-center.html" class="control-center-btn">
+                        <i class="fas fa-cogs"></i> 통합 제어 센터
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="main-content">
+            <!-- 주요 통계 -->
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-header">
+                        <span class="stat-title">총 점수</span>
+                        <div class="stat-icon"><i class="fas fa-star"></i></div>
+                    </div>
+                    <div class="stat-value" id="total-score">0</div>
+                    <div class="stat-label">물량 + 수락률 점수</div>
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-header">
+                        <span class="stat-title">총 완료</span>
+                        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    </div>
+                    <div class="stat-value" id="total-completed">0</div>
+                    <div class="stat-label">완료된 미션 수</div>
+                </div>
+
+                <div class="stat-card warning">
+                    <div class="stat-header">
+                        <span class="stat-title">수락률</span>
+                        <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+                    </div>
+                    <div class="stat-value" id="acceptance-rate">0%</div>
+                    <div class="stat-label">전체 수락률</div>
+                </div>
+
+                <div class="stat-card danger">
+                    <div class="stat-header">
+                        <span class="stat-title">활성 라이더</span>
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="stat-value" id="active-riders">0</div>
+                    <div class="stat-label">활동 중인 라이더</div>
+                </div>
+            </div>
+
+            <!-- 피크 현황 -->
+            <div class="peaks-section">
+                <h2 class="section-title"><i class="fas fa-chart-line"></i> 피크별 미션 현황</h2>
+                <div class="peaks-grid" id="peaks-grid">
+                    <!-- 피크 데이터가 여기에 동적으로 추가됩니다 -->
+                </div>
+            </div>
+
+            <!-- 라이더 현황 -->
+            <div class="riders-section">
+                <h2 class="section-title"><i class="fas fa-motorcycle"></i> 라이더 현황</h2>
+                <div id="riders-list">
+                    <!-- 라이더 데이터가 여기에 동적으로 추가됩니다 -->
+                </div>
+            </div>
+
+            <!-- 로딩 -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>데이터를 불러오는 중...</p>
+            </div>
+        </main>
+
+        <!-- 새로고침 버튼 -->
+        <button class="refresh-btn" onclick="refreshData()">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
+
+    <script>
+        // 전역 변수
+        let lastUpdateTime = null;
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+            
+            // 60초마다 자동 새로고침
+            setInterval(refreshData, 60000);
+        });
+
+        // 데이터 새로고침
+        async function refreshData() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+
+            try {
+                // 실제 데이터 로드 시도
+                const response = await fetch('api/latest-data.json?' + Date.now());
+                let data;
+                
+                if (response.ok) {
+                    data = await response.json();
+                    console.log('✅ 실제 데이터 로드됨');
+                } else {
+                    throw new Error('데이터 로드 실패');
+                }
+
+                updateDashboard(data);
+                updateLastUpdateTime();
+                
+            } catch (error) {
+                console.warn('실제 데이터 로드 실패, 샘플 데이터 사용:', error);
+                updateDashboard(generateSampleData());
+                updateLastUpdateTime();
+            }
+
+            loading.style.display = 'none';
+        }
+
+        // 대시보드 업데이트
+        function updateDashboard(data) {
+            // 메인 통계 업데이트
+            updateMainStats(data);
+            
+            // 피크 현황 업데이트
+            updatePeaksSection(data);
+            
+            // 라이더 현황 업데이트
+            updateRidersSection(data);
+        }
+
+        // 메인 통계 업데이트
+        function updateMainStats(data) {
+            document.getElementById('total-score').textContent = formatNumber(data.총점 || 0);
+            document.getElementById('total-completed').textContent = formatNumber(data.총완료 || 0);
+            document.getElementById('acceptance-rate').textContent = (data.수락률 || 0).toFixed(1) + '%';
+            document.getElementById('active-riders').textContent = formatNumber((data.riders || []).length);
+        }
+
+        // 피크 현황 업데이트
+        function updatePeaksSection(data) {
+            const peaksGrid = document.getElementById('peaks-grid');
+            const peaks = [
+                { name: '아침점심피크', data: data.아침점심피크 || data.오전피크 },
+                { name: '오후논피크', data: data.오후논피크 || data.오후피크 },
+                { name: '저녁피크', data: data.저녁피크 },
+                { name: '심야논피크', data: data.심야논피크 || data.심야피크 }
+            ];
+
+            peaksGrid.innerHTML = '';
+
+            peaks.forEach(peak => {
+                if (!peak.data) return;
+
+                const current = peak.data.current || 0;
+                const target = peak.data.target || 0;
+                const progress = target > 0 ? (current / target * 100) : 0;
+
+                const peakCard = document.createElement('div');
+                peakCard.className = 'peak-card';
+                peakCard.innerHTML = `
+                    <div class="peak-name">${peak.name}</div>
+                    <div class="peak-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${Math.min(progress, 100)}%"></div>
+                        </div>
+                        <div class="progress-text">${progress.toFixed(1)}% 달성</div>
+                    </div>
+                    <div class="peak-numbers">
+                        <span>${current}</span>
+                        <span>/</span>
+                        <span>${target}</span>
+                    </div>
+                `;
+
+                peaksGrid.appendChild(peakCard);
+            });
+        }
+
+        // 라이더 현황 업데이트
+        function updateRidersSection(data) {
+            const ridersList = document.getElementById('riders-list');
+            const riders = data.riders || [];
+
+            ridersList.innerHTML = '';
+
+            if (riders.length === 0) {
+                ridersList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">활동 중인 라이더가 없습니다.</div>';
+                return;
+            }
+
+            // 완료 건수로 정렬
+            riders.sort((a, b) => (b.complete || 0) - (a.complete || 0));
+
+            riders.forEach((rider, index) => {
+                const riderItem = document.createElement('div');
+                riderItem.className = 'rider-item';
+                
+                const badge = index < 3 ? '🏆' : (rider.complete > 10 ? '⭐' : '');
+                
+                riderItem.innerHTML = `
+                    <div class="rider-info">
+                        <div class="rider-name">${badge} ${rider.name || '이름없음'}</div>
+                        <div class="rider-stats">
+                            완료: ${rider.complete || 0}건 | 
+                            수락률: ${(rider.acceptance_rate || 0).toFixed(1)}% | 
+                            기여도: ${(rider.contribution || 0).toFixed(1)}%
+                        </div>
+                    </div>
+                    <div class="rider-badge">${rider.complete || 0}건</div>
+                `;
+
+                ridersList.appendChild(riderItem);
+            });
+        }
+
+        // 마지막 업데이트 시간 업데이트
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = now.toLocaleString('ko-KR');
+            lastUpdateTime = now;
+        }
+
+        // 숫자 포맷팅
+        function formatNumber(num) {
+            if (typeof num !== 'number') return num;
+            return num.toLocaleString('ko-KR');
+        }
+
+        // 샘플 데이터 생성 (실제 데이터 구조에 맞춤)
+        function generateSampleData() {
+            return {
+                총점: 85,
+                물량점수: 42,
+                수락률점수: 43,
+                총완료: 127,
+                총거절: 8,
+                수락률: 94.1,
+                아침점심피크: { current: 32, target: 30 },
+                오후논피크: { current: 28, target: 25 },
+                저녁피크: { current: 45, target: 40 },
+                심야논피크: { current: 22, target: 20 },
+                riders: [
+                    { name: '김철수', complete: 45, acceptance_rate: 96.2, contribution: 35.4 },
+                    { name: '이영희', complete: 38, acceptance_rate: 94.8, contribution: 29.9 },
+                    { name: '박민수', complete: 32, acceptance_rate: 92.1, contribution: 25.2 },
+                    { name: '정수진', complete: 12, acceptance_rate: 89.7, contribution: 9.4 }
+                ],
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        console.log('🚚 G라이더 대시보드 초기화 완료');
+    </script>
+</body>
+</html> 

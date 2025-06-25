@@ -1,0 +1,9 @@
+{
+  "template": "standard",
+  "sendOnChange": true,
+  "sendOnSchedule": true,
+  "sendOnAlert": false,
+  "customMessage": null,
+  "lastUpdated": "2025-06-26T04:54:24.399872+09:00",
+  "updatedBy": "system"
+}

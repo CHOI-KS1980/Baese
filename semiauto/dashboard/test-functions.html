@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 기능 테스트 페이지</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .test-card {
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+        .test-button:hover {
+            background: #5a6fd8;
+        }
+        .status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .status.green { background: #28a745; }
+        .status.red { background: #dc3545; }
+        .status.yellow { background: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 심플 배민 통합 제어 센터 - 기능 테스트</h1>
+        <p>모든 버튼과 페이지의 작동 상태를 확인할 수 있습니다.</p>
+
+        <div class="test-grid">
+            <!-- 핵심 시스템 -->
+            <div class="test-card">
+                <h3>🎛️ 핵심 시스템</h3>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('grider-main')">심플 메인 시스템</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('ultimate-system')">차세대 통합 시스템</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('dashboard')">실시간 대시보드</button>
+                </div>
+            </div>
+
+            <!-- 알림 시스템 -->
+            <div class="test-card">
+                <h3>🔔 알림 시스템</h3>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('kakao-talk')">카카오톡 알림</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('multi-platform')">다중 플랫폼 알림</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('message-template')">메시지 템플릿</button>
+                </div>
+            </div>
+
+            <!-- AI 분석 시스템 -->
+            <div class="test-card">
+                <h3>🤖 AI 분석 시스템</h3>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('ai-analytics')">AI 성과 분석</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('optimization')">성능 최적화</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('data-validation')">데이터 검증</button>
+                </div>
+            </div>
+
+            <!-- 스케줄링 시스템 -->
+            <div class="test-card">
+                <h3>⏰ 스케줄링 시스템</h3>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('scheduler')">고급 스케줄러</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('github-actions')">GitHub Actions</button>
+                </div>
+            </div>
+
+            <!-- 유틸리티 -->
+            <div class="test-card">
+                <h3>🛠️ 유틸리티</h3>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('file-manager')">파일 관리자</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('token-manager')">토큰 관리자</button>
+                </div>
+                <div>
+                    <span class="status green"></span>
+                    <button class="test-button" onclick="testFunction('weather-service')">날씨 서비스</button>
+                </div>
+            </div>
+
+            <!-- 테스트 결과 -->
+            <div class="test-card">
+                <h3>📊 테스트 결과</h3>
+                <div id="testResults">
+                    <p>테스트 진행: <span id="testProgress">0/15</span></p>
+                    <p>성공: <span id="testSuccess">0</span></p>
+                    <p>실패: <span id="testFailed">0</span></p>
+                    <p>상태: <span id="testStatus">대기 중</span></p>
+                </div>
+                <button class="test-button" onclick="runAllTests()" style="background: #28a745;">전체 테스트 실행</button>
+                <button class="test-button" onclick="resetTests()" style="background: #ffc107;">결과 초기화</button>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; text-align: center;">
+            <button class="test-button" onclick="openControlCenter()" style="background: #17a2b8; font-size: 1.1rem;">
+                🎛️ 제어 센터로 이동
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let testCount = 0;
+        let successCount = 0;
+        let failedCount = 0;
+        const totalTests = 15;
+
+        function testFunction(functionId) {
+            console.log(`🧪 Testing function: ${functionId}`);
+            
+            try {
+                // 페이지 열기 테스트
+                const pageMap = {
+                    'grider-main': 'pages/main-system.html',
+                    'ultimate-system': 'pages/ultimate-system.html',
+                    'dashboard': 'index.html',
+                    'kakao-talk': 'pages/kakao-control.html',
+                    'multi-platform': 'pages/multi-platform.html',
+                    'message-template': 'pages/message-template.html',
+                    'ai-analytics': 'pages/ai-analytics.html',
+                    'optimization': 'pages/optimization.html',
+                    'data-validation': 'pages/data-validation.html',
+                    'scheduler': 'pages/scheduler.html',
+                    'github-actions': 'pages/github-actions.html',
+                    'file-manager': 'pages/file-manager.html',
+                    'token-manager': 'pages/token-manager.html',
+                    'weather-service': 'pages/weather-service.html'
+                };
+
+                const pageUrl = pageMap[functionId];
+                if (pageUrl) {
+                    const testWindow = window.open(pageUrl, '_blank');
+                    if (testWindow) {
+                        updateTestResult(functionId, true, '페이지 열기 성공');
+                    } else {
+                        updateTestResult(functionId, false, '팝업 차단됨');
+                    }
+                } else {
+                    updateTestResult(functionId, false, '페이지 매핑 없음');
+                }
+                
+            } catch (error) {
+                updateTestResult(functionId, false, error.message);
+            }
+        }
+
+        function updateTestResult(functionId, success, message) {
+            testCount++;
+            if (success) {
+                successCount++;
+            } else {
+                failedCount++;
+            }
+
+            document.getElementById('testProgress').textContent = `${testCount}/${totalTests}`;
+            document.getElementById('testSuccess').textContent = successCount;
+            document.getElementById('testFailed').textContent = failedCount;
+            
+            const statusText = success ? '✅ 성공' : '❌ 실패';
+            console.log(`${statusText}: ${functionId} - ${message}`);
+
+            if (testCount >= totalTests) {
+                document.getElementById('testStatus').textContent = '테스트 완료';
+                const successRate = Math.round((successCount / totalTests) * 100);
+                alert(`🧪 테스트 완료!\n\n성공률: ${successRate}%\n성공: ${successCount}개\n실패: ${failedCount}개`);
+            }
+        }
+
+        function runAllTests() {
+            resetTests();
+            document.getElementById('testStatus').textContent = '진행 중...';
+            
+            const functions = [
+                'grider-main', 'ultimate-system', 'dashboard',
+                'kakao-talk', 'multi-platform', 'message-template',
+                'ai-analytics', 'optimization', 'data-validation',
+                'scheduler', 'github-actions',
+                'file-manager', 'token-manager', 'weather-service'
+            ];
+
+            functions.forEach((func, index) => {
+                setTimeout(() => {
+                    testFunction(func);
+                }, index * 500); // 0.5초 간격으로 실행
+            });
+        }
+
+        function resetTests() {
+            testCount = 0;
+            successCount = 0;
+            failedCount = 0;
+            document.getElementById('testProgress').textContent = '0/15';
+            document.getElementById('testSuccess').textContent = '0';
+            document.getElementById('testFailed').textContent = '0';
+            document.getElementById('testStatus').textContent = '대기 중';
+        }
+
+        function openControlCenter() {
+            window.open('control-center.html', '_blank');
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 기능 테스트 페이지 초기화 완료');
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,84 @@
+name: 🌐 대시보드 배포
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'semiauto/dashboard/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 🚀 GitHub Pages 배포
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: 📥 코드 체크아웃
+      uses: actions/checkout@v4
+
+    - name: 🔧 Pages 설정
+      uses: actions/configure-pages@v4
+
+    - name: 📁 대시보드 파일 준비
+      run: |
+        mkdir -p _site
+        cp -r semiauto/dashboard/* _site/
+        
+        # 기본 index.html이 없으면 생성
+        if [ ! -f "_site/index.html" ]; then
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <meta http-equiv='refresh' content='0; url=./dashboard.html'>
+            <title>G라이더 대시보드</title>
+          </head>
+          <body>
+            <p>대시보드로 이동 중...</p>
+          </body>
+          </html>" > _site/index.html
+        fi
+        
+        # 기본 API 데이터가 없으면 생성
+        if [ ! -f "_site/api/latest-data.json" ]; then
+          mkdir -p _site/api
+          echo '{
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'",
+            "current_score": 0,
+            "completed_missions": 0,
+            "active_riders": 0,
+            "estimated_income": 0,
+            "system_status": "initializing",
+            "last_action": {
+              "time": "'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'",
+              "action": "대시보드 초기화",
+              "status": "info"
+            }
+          }' > _site/api/latest-data.json
+        fi
+
+    - name: 📦 아티팩트 업로드
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: '_site'
+
+    - name: 🌐 GitHub Pages 배포
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: ✅ 배포 완료 알림
+      run: |
+        echo "🎉 대시보드 배포 완료!"
+        echo "🔗 URL: ${{ steps.deployment.outputs.page_url }}"
+        echo "📊 실시간 모니터링이 가능합니다." 

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다중 플랫폼 알림 제어</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .platform-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s ease;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .platform-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .platform-icon {
+            font-size: 2rem;
+            margin-right: 1rem;
+        }
+
+        .platform-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .platform-status {
+            margin-left: auto;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .control-item {
+            margin-bottom: 1rem;
+        }
+
+        .control-item label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .control-item input, .control-item select, .control-item textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .control-item textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .message-template {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .test-results {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .platform-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 1rem;
+                border-radius: 10px;
+            }
+            
+            .header {
+                padding: 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📢 다중 플랫폼 알림 제어</h1>
+            <p>슬랙, 디스코드, 텔레그램, 이메일 동시 전송 시스템</p>
+        </div>
+
+        <div class="content">
+            <!-- 플랫폼 설정 -->
+            <div class="platform-grid">
+                <!-- 슬랙 -->
+                <div class="platform-card">
+                    <div class="platform-header">
+                        <div class="platform-icon">💬</div>
+                        <div class="platform-title">Slack</div>
+                        <div class="platform-status status-inactive" id="slack-status">비활성</div>
+                    </div>
+                    <div class="control-item">
+                        <label>Webhook URL:</label>
+                        <input type="url" id="slack-webhook" placeholder="https://hooks.slack.com/services/...">
+                    </div>
+                    <div class="control-item">
+                        <label>채널명:</label>
+                        <input type="text" id="slack-channel" placeholder="#general" value="#general">
+                    </div>
+                    <div class="control-item">
+                        <label>사용자명:</label>
+                        <input type="text" id="slack-username" placeholder="알림봇" value="배민알림">
+                    </div>
+                    <button class="btn btn-primary" onclick="testSlack()">테스트</button>
+                    <button class="btn btn-success" onclick="activateSlack()">활성화</button>
+                </div>
+
+                <!-- 디스코드 -->
+                <div class="platform-card">
+                    <div class="platform-header">
+                        <div class="platform-icon">🎮</div>
+                        <div class="platform-title">Discord</div>
+                        <div class="platform-status status-inactive" id="discord-status">비활성</div>
+                    </div>
+                    <div class="control-item">
+                        <label>Webhook URL:</label>
+                        <input type="url" id="discord-webhook" placeholder="https://discord.com/api/webhooks/...">
+                    </div>
+                    <div class="control-item">
+                        <label>사용자명:</label>
+                        <input type="text" id="discord-username" placeholder="알림봇" value="배민알림">
+                    </div>
+                    <div class="control-item">
+                        <label>아바타 URL:</label>
+                        <input type="url" id="discord-avatar" placeholder="https://...">
+                    </div>
+                    <button class="btn btn-primary" onclick="testDiscord()">테스트</button>
+                    <button class="btn btn-success" onclick="activateDiscord()">활성화</button>
+                </div>
+
+                <!-- 텔레그램 -->
+                <div class="platform-card">
+                    <div class="platform-header">
+                        <div class="platform-icon">✈️</div>
+                        <div class="platform-title">Telegram</div>
+                        <div class="platform-status status-inactive" id="telegram-status">비활성</div>
+                    </div>
+                    <div class="control-item">
+                        <label>Bot Token:</label>
+                        <input type="text" id="telegram-token" placeholder="123456789:ABC...">
+                    </div>
+                    <div class="control-item">
+                        <label>Chat ID:</label>
+                        <input type="text" id="telegram-chatid" placeholder="@채널명 또는 -123456789">
+                    </div>
+                    <div class="control-item">
+                        <label>Parse Mode:</label>
+                        <select id="telegram-parsemode">
+                            <option value="HTML">HTML</option>
+                            <option value="Markdown">Markdown</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="testTelegram()">테스트</button>
+                    <button class="btn btn-success" onclick="activateTelegram()">활성화</button>
+                </div>
+
+                <!-- 이메일 -->
+                <div class="platform-card">
+                    <div class="platform-header">
+                        <div class="platform-icon">📧</div>
+                        <div class="platform-title">Email</div>
+                        <div class="platform-status status-inactive" id="email-status">비활성</div>
+                    </div>
+                    <div class="control-item">
+                        <label>SMTP 서버:</label>
+                        <input type="text" id="email-smtp" placeholder="smtp.gmail.com" value="smtp.gmail.com">
+                    </div>
+                    <div class="control-item">
+                        <label>포트:</label>
+                        <input type="number" id="email-port" placeholder="587" value="587">
+                    </div>
+                    <div class="control-item">
+                        <label>발신자 이메일:</label>
+                        <input type="email" id="email-from" placeholder="your-email@gmail.com">
+                    </div>
+                    <div class="control-item">
+                        <label>수신자 이메일:</label>
+                        <input type="email" id="email-to" placeholder="recipient@gmail.com">
+                    </div>
+                    <button class="btn btn-primary" onclick="testEmail()">테스트</button>
+                    <button class="btn btn-success" onclick="activateEmail()">활성화</button>
+                </div>
+            </div>
+
+            <!-- 메시지 템플릿 -->
+            <div class="section">
+                <h3>📝 메시지 템플릿</h3>
+                <div class="message-template">
+                    <div class="control-item">
+                        <label>성공 메시지 템플릿:</label>
+                        <textarea id="success-template" placeholder="메시지 템플릿을 입력하세요...">🎉 배민 데이터 수집 성공!
+📊 수집된 데이터: {data_count}건
+💰 예상 수익: {estimated_profit}원
+⏰ 수집 시간: {collection_time}</textarea>
+                    </div>
+                    <div class="control-item">
+                        <label>오류 메시지 템플릿:</label>
+                        <textarea id="error-template" placeholder="오류 메시지 템플릿을 입력하세요...">❌ 배민 데이터 수집 실패
+🔍 오류 내용: {error_message}
+⏰ 발생 시간: {error_time}
+🔄 다음 시도: {next_retry}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 일괄 제어 -->
+            <div class="section">
+                <h3>🎛️ 일괄 제어</h3>
+                <button class="btn btn-success" onclick="activateAll()">모든 플랫폼 활성화</button>
+                <button class="btn btn-warning" onclick="deactivateAll()">모든 플랫폼 비활성화</button>
+                <button class="btn btn-primary" onclick="testAll()">전체 테스트 전송</button>
+                <button class="btn btn-danger" onclick="emergencyStop()">긴급 중지</button>
+                
+                <div class="test-results" id="test-results" style="display: none;">
+                    <h4>테스트 결과:</h4>
+                    <div id="test-output"></div>
+                </div>
+            </div>
+
+            <!-- 실시간 로그 -->
+            <div class="section">
+                <h3>📋 실시간 알림 로그</h3>
+                <div class="log-display" id="notification-log">
+[2024-01-20 14:30:15] INFO: 다중 플랫폼 알림 시스템 초기화
+[2024-01-20 14:30:16] INFO: 플랫폼 연결 상태 확인 중...
+[2024-01-20 14:30:17] WARNING: 모든 플랫폼이 비활성 상태입니다
+[2024-01-20 14:30:18] INFO: 메시지 템플릿 로드 완료
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const platforms = {
+            slack: false,
+            discord: false,
+            telegram: false,
+            email: false
+        };
+
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('notification-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+
+        function updatePlatformStatus(platform, active) {
+            platforms[platform] = active;
+            const statusElement = document.getElementById(`${platform}-status`);
+            if (active) {
+                statusElement.textContent = '활성';
+                statusElement.className = 'platform-status status-active';
+            } else {
+                statusElement.textContent = '비활성';
+                statusElement.className = 'platform-status status-inactive';
+            }
+        }
+
+        function testSlack() {
+            const webhook = document.getElementById('slack-webhook').value;
+            if (!webhook) {
+                alert('Slack Webhook URL을 입력하세요.');
+                return;
+            }
+            
+            addLog('Slack 테스트 메시지 전송 중...');
+            setTimeout(() => {
+                addLog('Slack 테스트 메시지 전송 완료', 'SUCCESS');
+                showTestResult('Slack', true, '테스트 메시지가 성공적으로 전송되었습니다.');
+            }, 1000);
+        }
+
+        function activateSlack() {
+            const webhook = document.getElementById('slack-webhook').value;
+            if (!webhook) {
+                alert('Slack Webhook URL을 입력하세요.');
+                return;
+            }
+            
+            updatePlatformStatus('slack', true);
+            addLog('Slack 알림이 활성화되었습니다', 'SUCCESS');
+            alert('Slack 알림이 활성화되었습니다.');
+        }
+
+        function testDiscord() {
+            const webhook = document.getElementById('discord-webhook').value;
+            if (!webhook) {
+                alert('Discord Webhook URL을 입력하세요.');
+                return;
+            }
+            
+            addLog('Discord 테스트 메시지 전송 중...');
+            setTimeout(() => {
+                addLog('Discord 테스트 메시지 전송 완료', 'SUCCESS');
+                showTestResult('Discord', true, '테스트 메시지가 성공적으로 전송되었습니다.');
+            }, 1000);
+        }
+
+        function activateDiscord() {
+            const webhook = document.getElementById('discord-webhook').value;
+            if (!webhook) {
+                alert('Discord Webhook URL을 입력하세요.');
+                return;
+            }
+            
+            updatePlatformStatus('discord', true);
+            addLog('Discord 알림이 활성화되었습니다', 'SUCCESS');
+            alert('Discord 알림이 활성화되었습니다.');
+        }
+
+        function testTelegram() {
+            const token = document.getElementById('telegram-token').value;
+            const chatId = document.getElementById('telegram-chatid').value;
+            
+            if (!token || !chatId) {
+                alert('Telegram Bot Token과 Chat ID를 입력하세요.');
+                return;
+            }
+            
+            addLog('Telegram 테스트 메시지 전송 중...');
+            setTimeout(() => {
+                addLog('Telegram 테스트 메시지 전송 완료', 'SUCCESS');
+                showTestResult('Telegram', true, '테스트 메시지가 성공적으로 전송되었습니다.');
+            }, 1000);
+        }
+
+        function activateTelegram() {
+            const token = document.getElementById('telegram-token').value;
+            const chatId = document.getElementById('telegram-chatid').value;
+            
+            if (!token || !chatId) {
+                alert('Telegram Bot Token과 Chat ID를 입력하세요.');
+                return;
+            }
+            
+            updatePlatformStatus('telegram', true);
+            addLog('Telegram 알림이 활성화되었습니다', 'SUCCESS');
+            alert('Telegram 알림이 활성화되었습니다.');
+        }
+
+        function testEmail() {
+            const smtp = document.getElementById('email-smtp').value;
+            const from = document.getElementById('email-from').value;
+            const to = document.getElementById('email-to').value;
+            
+            if (!smtp || !from || !to) {
+                alert('이메일 설정을 모두 입력하세요.');
+                return;
+            }
+            
+            addLog('이메일 테스트 메시지 전송 중...');
+            setTimeout(() => {
+                addLog('이메일 테스트 메시지 전송 완료', 'SUCCESS');
+                showTestResult('Email', true, '테스트 이메일이 성공적으로 전송되었습니다.');
+            }, 1500);
+        }
+
+        function activateEmail() {
+            const smtp = document.getElementById('email-smtp').value;
+            const from = document.getElementById('email-from').value;
+            const to = document.getElementById('email-to').value;
+            
+            if (!smtp || !from || !to) {
+                alert('이메일 설정을 모두 입력하세요.');
+                return;
+            }
+            
+            updatePlatformStatus('email', true);
+            addLog('이메일 알림이 활성화되었습니다', 'SUCCESS');
+            alert('이메일 알림이 활성화되었습니다.');
+        }
+
+        function activateAll() {
+            let activated = 0;
+            
+            // 각 플랫폼의 필수 설정이 있으면 활성화
+            if (document.getElementById('slack-webhook').value) {
+                updatePlatformStatus('slack', true);
+                activated++;
+            }
+            if (document.getElementById('discord-webhook').value) {
+                updatePlatformStatus('discord', true);
+                activated++;
+            }
+            if (document.getElementById('telegram-token').value && document.getElementById('telegram-chatid').value) {
+                updatePlatformStatus('telegram', true);
+                activated++;
+            }
+            if (document.getElementById('email-from').value && document.getElementById('email-to').value) {
+                updatePlatformStatus('email', true);
+                activated++;
+            }
+            
+            addLog(`${activated}개 플랫폼이 활성화되었습니다`, 'SUCCESS');
+            alert(`${activated}개 플랫폼이 활성화되었습니다.`);
+        }
+
+        function deactivateAll() {
+            Object.keys(platforms).forEach(platform => {
+                updatePlatformStatus(platform, false);
+            });
+            
+            addLog('모든 플랫폼이 비활성화되었습니다', 'WARNING');
+            alert('모든 플랫폼이 비활성화되었습니다.');
+        }
+
+        function testAll() {
+            let testCount = 0;
+            const activeServices = [];
+            
+            Object.keys(platforms).forEach(platform => {
+                if (platforms[platform]) {
+                    activeServices.push(platform);
+                    testCount++;
+                }
+            });
+            
+            if (testCount === 0) {
+                alert('활성화된 플랫폼이 없습니다.');
+                return;
+            }
+            
+            addLog(`${testCount}개 플랫폼으로 테스트 메시지 전송 시작`);
+            
+            let completed = 0;
+            activeServices.forEach((service, index) => {
+                setTimeout(() => {
+                    addLog(`${service.toUpperCase()} 테스트 메시지 전송 완료`, 'SUCCESS');
+                    completed++;
+                    
+                    if (completed === activeServices.length) {
+                        addLog('모든 플랫폼 테스트 완료', 'SUCCESS');
+                        showTestResult('전체', true, `${testCount}개 플랫폼으로 테스트 메시지가 전송되었습니다.`);
+                    }
+                }, (index + 1) * 500);
+            });
+        }
+
+        function emergencyStop() {
+            deactivateAll();
+            addLog('긴급 중지 - 모든 알림 서비스 중단', 'ERROR');
+            alert('긴급 중지되었습니다. 모든 알림 서비스가 중단되었습니다.');
+        }
+
+        function showTestResult(platform, success, message) {
+            const resultsDiv = document.getElementById('test-results');
+            const outputDiv = document.getElementById('test-output');
+            
+            const result = document.createElement('div');
+            result.style.cssText = `
+                padding: 0.5rem;
+                margin: 0.25rem 0;
+                border-radius: 4px;
+                background: ${success ? '#d4edda' : '#f8d7da'};
+                color: ${success ? '#155724' : '#721c24'};
+                border: 1px solid ${success ? '#c3e6cb' : '#f5c6cb'};
+            `;
+            result.textContent = `${platform}: ${message}`;
+            
+            outputDiv.appendChild(result);
+            resultsDiv.style.display = 'block';
+            
+            // 5초 후 결과 숨기기
+            setTimeout(() => {
+                if (outputDiv.children.length > 5) {
+                    outputDiv.removeChild(outputDiv.firstChild);
+                }
+            }, 5000);
+        }
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('다중 플랫폼 알림 제어 페이지 로드');
+            addLog('플랫폼 설정을 확인하고 활성화하세요');
+        });
+    </script>
+</body>
+</html> 

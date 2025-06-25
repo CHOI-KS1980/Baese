@@ -1,0 +1,32 @@
+{
+  "standard": {
+    "title": "🚀 G라이더 현황 알림",
+    "content": "📊 현재 점수: {score}점\n✅ 완료 미션: {completed_missions}개\n🏍️ 활성 라이더: {active_riders}명\n💰 예상 수익: {estimated_income:,}원",
+    "footer": "📅 {timestamp}",
+    "description": "기본적인 정보를 포함한 표준 형식"
+  },
+  "detailed": {
+    "title": "📈 G라이더 상세 현황 리포트",
+    "content": "🎯 성과 지표\n━━━━━━━━━━━━━━━━━━━━━\n📊 현재 점수: {score}점 ({score_change:+d})\n✅ 완료 미션: {completed_missions}개 ({mission_change:+d})\n🏍️ 활성 라이더: {active_riders}명 ({riders_change:+d})\n💰 예상 수익: {estimated_income:,}원 ({income_change:+,})\n\n📈 시간대별 추이\n━━━━━━━━━━━━━━━━━━━━━\n🕒 피크시간 성과율: {peak_performance}%\n⏰ 평균 응답시간: {avg_response_time}분\n🎯 목표 달성률: {goal_achievement}%",
+    "footer": "📅 {timestamp} | 다음 업데이트: {next_update}",
+    "description": "변화량과 추이를 포함한 상세 형식"
+  },
+  "simple": {
+    "title": "G라이더",
+    "content": "점수 {score}점 | 미션 {completed_missions}개 | 라이더 {active_riders}명",
+    "footer": "{timestamp}",
+    "description": "핵심 정보만 담은 간단 형식"
+  },
+  "emoji_rich": {
+    "title": "🌟 G라이더 실시간 현황 🌟",
+    "content": "🎯 오늘의 성과\n📊 점수: {score}점 ⭐\n✅ 미션: {completed_missions}개 완료 🎉\n🏍️ 라이더: {active_riders}명 활동중 🚀\n💰 수익: {estimated_income:,}원 예상 💎\n\n📈 실시간 트렌드\n{trend_emoji} {trend_description}",
+    "footer": "⏰ {timestamp} | 💪 화이팅!",
+    "description": "이모지가 풍부한 재미있는 형식"
+  },
+  "business": {
+    "title": "G라이더 운영 현황 보고",
+    "content": "■ 당일 성과 요약\n- 현재 점수: {score}점\n- 완료 미션: {completed_missions}건\n- 활성 라이더: {active_riders}명\n- 예상 수익: {estimated_income:,}원\n\n■ 주요 지표\n- 목표 달성률: {goal_achievement}%\n- 평균 응답시간: {avg_response_time}분\n- 시스템 상태: 정상 운영",
+    "footer": "보고일시: {timestamp}",
+    "description": "공식적인 비즈니스 리포트 형식"
+  }
+}

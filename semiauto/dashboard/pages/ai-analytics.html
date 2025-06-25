@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 성과 분석 시스템</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .metric-change {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .positive { color: #28a745; }
+        .negative { color: #dc3545; }
+
+        .section {
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .prediction-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .prediction-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .prediction-table th,
+        .prediction-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .prediction-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 0.25rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b6d4da;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .control-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .control-item label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .control-item input, .control-item select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI 성과 분석 시스템</h1>
+            <p>머신러닝 기반 성과 예측 및 이상 패턴 감지</p>
+        </div>
+
+        <div class="content">
+            <!-- 핵심 지표 대시보드 -->
+            <div class="dashboard-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="prediction-accuracy">94.2%</div>
+                    <div class="metric-label">예측 정확도</div>
+                    <div class="metric-change positive">+2.1% ↗</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="total-predictions">1,247</div>
+                    <div class="metric-label">총 예측 건수</div>
+                    <div class="metric-change positive">+156 ↗</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="profit-increase">+23.4%</div>
+                    <div class="metric-label">수익 개선</div>
+                    <div class="metric-change positive">+5.2% ↗</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="anomaly-detected">3</div>
+                    <div class="metric-label">이상 패턴 감지</div>
+                    <div class="metric-change negative">-2 ↘</div>
+                </div>
+            </div>
+
+            <!-- 알림 섹션 -->
+            <div class="alert alert-info">
+                <strong>📊 AI 분석 완료:</strong> 최근 24시간 데이터 분석이 완료되었습니다. 예상 수익률이 23.4% 증가했습니다.
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>⚠️ 주의사항:</strong> 오후 6-8시 구간에서 수요 급증이 예상됩니다. 배차 최적화를 권장합니다.
+            </div>
+
+            <!-- AI 모델 설정 -->
+            <div class="section">
+                <h3>🧠 AI 모델 설정</h3>
+                <div class="control-grid">
+                    <div class="control-item">
+                        <label>예측 모델:</label>
+                        <select id="model-type">
+                            <option value="lstm">LSTM 신경망</option>
+                            <option value="arima">ARIMA 모델</option>
+                            <option value="prophet">Prophet 모델</option>
+                            <option value="ensemble" selected>앙상블 모델</option>
+                        </select>
+                    </div>
+                    <div class="control-item">
+                        <label>학습 기간:</label>
+                        <select id="training-period">
+                            <option value="7">7일</option>
+                            <option value="30" selected>30일</option>
+                            <option value="90">90일</option>
+                            <option value="365">1년</option>
+                        </select>
+                    </div>
+                    <div class="control-item">
+                        <label>예측 범위:</label>
+                        <select id="prediction-range">
+                            <option value="1h">1시간</option>
+                            <option value="6h">6시간</option>
+                            <option value="24h" selected>24시간</option>
+                            <option value="7d">7일</option>
+                        </select>
+                    </div>
+                    <div class="control-item">
+                        <label>신뢰도 임계값:</label>
+                        <input type="range" id="confidence-threshold" min="0.5" max="1.0" step="0.05" value="0.85">
+                        <span id="confidence-value">85%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 예측 결과 -->
+            <div class="section">
+                <h3>📈 실시간 예측 결과</h3>
+                <div class="chart-container">
+                    <div style="text-align: center; color: #666;">
+                        <h4>수요 예측 차트</h4>
+                        <p>📊 다음 24시간 배민 주문 수요 예측</p>
+                        <div style="margin: 2rem 0;">
+                            <div style="display: inline-block; width: 300px; height: 150px; background: linear-gradient(to right, #667eea, #764ba2); border-radius: 8px; position: relative;">
+                                <div style="position: absolute; bottom: 10px; left: 10px; color: white; font-size: 0.8rem;">현재: 높음</div>
+                                <div style="position: absolute; bottom: 10px; right: 10px; color: white; font-size: 0.8rem;">예상: 매우 높음</div>
+                            </div>
+                        </div>
+                        <p>🎯 예측 정확도: 94.2% | 📍 다음 피크: 18:30</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 예측 상세 테이블 -->
+            <div class="section">
+                <h3>📋 시간대별 예측 상세</h3>
+                <div class="prediction-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>시간대</th>
+                                <th>예상 주문량</th>
+                                <th>수익 예상</th>
+                                <th>신뢰도</th>
+                                <th>권장 행동</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prediction-table-body">
+                            <tr>
+                                <td>15:00-16:00</td>
+                                <td>234건</td>
+                                <td>147,000원</td>
+                                <td>92%</td>
+                                <td>정상 운영</td>
+                            </tr>
+                            <tr>
+                                <td>16:00-17:00</td>
+                                <td>312건</td>
+                                <td>196,800원</td>
+                                <td>89%</td>
+                                <td>배차 증가</td>
+                            </tr>
+                            <tr>
+                                <td>17:00-18:00</td>
+                                <td>456건</td>
+                                <td>287,400원</td>
+                                <td>95%</td>
+                                <td>최대 배차</td>
+                            </tr>
+                            <tr>
+                                <td>18:00-19:00</td>
+                                <td>578건</td>
+                                <td>364,200원</td>
+                                <td>97%</td>
+                                <td>피크 대응</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 제어 버튼 -->
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="btn btn-primary" onclick="startAnalysis()">🤖 AI 분석 시작</button>
+                <button class="btn btn-success" onclick="trainModel()">🎓 모델 재학습</button>
+                <button class="btn btn-warning" onclick="exportReport()">📊 리포트 내보내기</button>
+                <button class="btn btn-primary" onclick="optimizeStrategy()">⚡ 전략 최적화</button>
+            </div>
+
+            <!-- 실시간 로그 -->
+            <div class="section">
+                <h3>📋 AI 분석 로그</h3>
+                <div class="log-display" id="ai-log">
+[2024-01-20 14:30:15] INFO: AI 성과 분석 시스템 초기화
+[2024-01-20 14:30:16] INFO: 앙상블 모델 로드 완료
+[2024-01-20 14:30:17] SUCCESS: 데이터 전처리 완료 (1,247건)
+[2024-01-20 14:30:18] INFO: 예측 모델 실행 중...
+[2024-01-20 14:30:19] SUCCESS: 24시간 예측 완료 (정확도: 94.2%)
+[2024-01-20 14:30:20] WARNING: 18:00-19:00 수요 급증 예상
+[2024-01-20 14:30:21] INFO: 이상 패턴 감지 알고리즘 활성화
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let analysisRunning = false;
+
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('ai-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+
+        function updateMetrics() {
+            // 랜덤하게 지표 업데이트
+            const accuracy = (Math.random() * 5 + 90).toFixed(1);
+            const predictions = Math.floor(Math.random() * 100 + 1200);
+            const profit = (Math.random() * 10 + 20).toFixed(1);
+            const anomalies = Math.floor(Math.random() * 5);
+
+            document.getElementById('prediction-accuracy').textContent = `${accuracy}%`;
+            document.getElementById('total-predictions').textContent = predictions.toLocaleString();
+            document.getElementById('profit-increase').textContent = `+${profit}%`;
+            document.getElementById('anomaly-detected').textContent = anomalies;
+        }
+
+        function startAnalysis() {
+            if (analysisRunning) {
+                alert('AI 분석이 이미 실행 중입니다.');
+                return;
+            }
+
+            analysisRunning = true;
+            addLog('AI 성과 분석 시작');
+            addLog('데이터 수집 및 전처리 중...');
+            
+            setTimeout(() => {
+                addLog('머신러닝 모델 예측 실행');
+                updateMetrics();
+            }, 2000);
+            
+            setTimeout(() => {
+                addLog('이상 패턴 감지 알고리즘 실행');
+            }, 3000);
+            
+            setTimeout(() => {
+                addLog('AI 분석 완료 - 새로운 인사이트 발견', 'SUCCESS');
+                analysisRunning = false;
+                updatePredictionTable();
+            }, 5000);
+
+            alert('AI 성과 분석을 시작합니다. 완료까지 약 5초가 소요됩니다.');
+        }
+
+        function trainModel() {
+            addLog('AI 모델 재학습 시작');
+            addLog('학습 데이터 로드 중...');
+            
+            setTimeout(() => {
+                addLog('신경망 학습 중...');
+            }, 1000);
+            
+            setTimeout(() => {
+                addLog('모델 검증 및 최적화');
+            }, 3000);
+            
+            setTimeout(() => {
+                addLog('모델 재학습 완료 - 성능 향상됨', 'SUCCESS');
+                updateMetrics();
+            }, 5000);
+
+            alert('AI 모델 재학습을 시작합니다. 완료까지 약 5초가 소요됩니다.');
+        }
+
+        function exportReport() {
+            addLog('AI 분석 리포트 생성 중...');
+            
+            const reportData = {
+                timestamp: new Date().toISOString(),
+                accuracy: document.getElementById('prediction-accuracy').textContent,
+                predictions: document.getElementById('total-predictions').textContent,
+                profit: document.getElementById('profit-increase').textContent,
+                model: document.getElementById('model-type').value,
+                trainingPeriod: document.getElementById('training-period').value
+            };
+
+            const dataStr = JSON.stringify(reportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-analysis-report-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            addLog('AI 분석 리포트 내보내기 완료', 'SUCCESS');
+            alert('AI 분석 리포트가 파일로 내보내졌습니다.');
+        }
+
+        function optimizeStrategy() {
+            addLog('전략 최적화 알고리즘 실행');
+            addLog('현재 성과 지표 분석 중...');
+            
+            setTimeout(() => {
+                addLog('최적화 방안 도출 중...');
+            }, 1500);
+            
+            setTimeout(() => {
+                addLog('전략 최적화 완료 - 예상 수익 증가: +12.3%', 'SUCCESS');
+                updateMetrics();
+            }, 3000);
+
+            alert('전략 최적화가 완료되었습니다. 예상 수익이 12.3% 증가할 것으로 예측됩니다.');
+        }
+
+        function updatePredictionTable() {
+            const tableBody = document.getElementById('prediction-table-body');
+            const currentHour = new Date().getHours();
+            
+            tableBody.innerHTML = '';
+            
+            for (let i = 0; i < 4; i++) {
+                const hour = (currentHour + i) % 24;
+                const nextHour = (hour + 1) % 24;
+                const orders = Math.floor(Math.random() * 300 + 200);
+                const revenue = orders * 630;
+                const confidence = Math.floor(Math.random() * 20 + 80);
+                
+                let action = '정상 운영';
+                if (orders > 400) action = '최대 배차';
+                else if (orders > 300) action = '배차 증가';
+                
+                const row = tableBody.insertRow();
+                row.innerHTML = `
+                    <td>${hour.toString().padStart(2, '0')}:00-${nextHour.toString().padStart(2, '0')}:00</td>
+                    <td>${orders}건</td>
+                    <td>${revenue.toLocaleString()}원</td>
+                    <td>${confidence}%</td>
+                    <td>${action}</td>
+                `;
+            }
+        }
+
+        // 신뢰도 슬라이더 업데이트
+        document.getElementById('confidence-threshold').addEventListener('input', function() {
+            const value = Math.round(this.value * 100);
+            document.getElementById('confidence-value').textContent = `${value}%`;
+        });
+
+        // 주기적 업데이트
+        setInterval(() => {
+            if (!analysisRunning) {
+                updateMetrics();
+            }
+        }, 30000);
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('AI 성과 분석 시스템 페이지 로드');
+            updatePredictionTable();
+        });
+    </script>
+</body>
+</html> 

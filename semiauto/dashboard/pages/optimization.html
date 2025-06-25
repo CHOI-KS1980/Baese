@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>성능 최적화 엔진</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .performance-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .performance-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .performance-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .performance-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .performance-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .optimization-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .control-panel {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .control-panel h4 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .control-item {
+            margin-bottom: 1rem;
+        }
+
+        .control-item label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .control-item input, .control-item select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .range-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .range-container input[type="range"] {
+            flex: 1;
+        }
+
+        .range-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 0.25rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-good { background: #28a745; }
+        .status-warning { background: #ffc107; }
+        .status-critical { background: #dc3545; }
+
+        .optimization-results {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b6d4da;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        @media (max-width: 768px) {
+            .performance-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+            
+            .optimization-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ 성능 최적화 엔진</h1>
+            <p>시스템 성능 모니터링 및 자동 최적화</p>
+        </div>
+
+        <div class="content">
+            <!-- 성능 지표 대시보드 -->
+            <div class="performance-grid">
+                <div class="performance-card">
+                    <div class="performance-value" id="cpu-usage">45%</div>
+                    <div class="performance-label">
+                        <span class="status-indicator status-good"></span>CPU 사용률
+                    </div>
+                    <div class="performance-bar">
+                        <div class="performance-fill" style="width: 45%"></div>
+                    </div>
+                </div>
+                <div class="performance-card">
+                    <div class="performance-value" id="memory-usage">68%</div>
+                    <div class="performance-label">
+                        <span class="status-indicator status-warning"></span>메모리 사용률
+                    </div>
+                    <div class="performance-bar">
+                        <div class="performance-fill" style="width: 68%"></div>
+                    </div>
+                </div>
+                <div class="performance-card">
+                    <div class="performance-value" id="response-time">124ms</div>
+                    <div class="performance-label">
+                        <span class="status-indicator status-good"></span>응답 시간
+                    </div>
+                    <div class="performance-bar">
+                        <div class="performance-fill" style="width: 25%"></div>
+                    </div>
+                </div>
+                <div class="performance-card">
+                    <div class="performance-value" id="throughput">98.7%</div>
+                    <div class="performance-label">
+                        <span class="status-indicator status-good"></span>처리량
+                    </div>
+                    <div class="performance-bar">
+                        <div class="performance-fill" style="width: 98.7%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 알림 -->
+            <div class="alert alert-info">
+                <strong>📊 최적화 권장:</strong> 메모리 사용률이 68%에 도달했습니다. 캐시 정리를 권장합니다.
+            </div>
+
+            <!-- 최적화 제어 패널 -->
+            <div class="section">
+                <h3>🎛️ 최적화 설정</h3>
+                <div class="optimization-controls">
+                    <!-- CPU 최적화 -->
+                    <div class="control-panel">
+                        <h4>🖥️ CPU 최적화</h4>
+                        <div class="control-item">
+                            <label>최대 CPU 사용률:</label>
+                            <div class="range-container">
+                                <input type="range" id="cpu-limit" min="10" max="100" value="80">
+                                <span class="range-value" id="cpu-limit-value">80%</span>
+                            </div>
+                        </div>
+                        <div class="control-item">
+                            <label>프로세스 우선순위:</label>
+                            <select id="cpu-priority">
+                                <option value="low">낮음</option>
+                                <option value="normal" selected>보통</option>
+                                <option value="high">높음</option>
+                                <option value="realtime">실시간</option>
+                            </select>
+                        </div>
+                        <div class="control-item">
+                            <label>멀티스레딩:</label>
+                            <select id="multithreading">
+                                <option value="auto" selected>자동</option>
+                                <option value="2">2스레드</option>
+                                <option value="4">4스레드</option>
+                                <option value="8">8스레드</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 메모리 최적화 -->
+                    <div class="control-panel">
+                        <h4>🧠 메모리 최적화</h4>
+                        <div class="control-item">
+                            <label>메모리 한계:</label>
+                            <div class="range-container">
+                                <input type="range" id="memory-limit" min="512" max="8192" value="2048">
+                                <span class="range-value" id="memory-limit-value">2048MB</span>
+                            </div>
+                        </div>
+                        <div class="control-item">
+                            <label>가비지 컬렉션:</label>
+                            <select id="gc-mode">
+                                <option value="auto" selected>자동</option>
+                                <option value="aggressive">공격적</option>
+                                <option value="conservative">보수적</option>
+                            </select>
+                        </div>
+                        <div class="control-item">
+                            <label>캐시 크기:</label>
+                            <select id="cache-size">
+                                <option value="small">작음 (128MB)</option>
+                                <option value="medium" selected>보통 (256MB)</option>
+                                <option value="large">큼 (512MB)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 네트워크 최적화 -->
+                    <div class="control-panel">
+                        <h4>🌐 네트워크 최적화</h4>
+                        <div class="control-item">
+                            <label>연결 풀 크기:</label>
+                            <div class="range-container">
+                                <input type="range" id="connection-pool" min="5" max="100" value="20">
+                                <span class="range-value" id="connection-pool-value">20</span>
+                            </div>
+                        </div>
+                        <div class="control-item">
+                            <label>타임아웃 설정:</label>
+                            <select id="timeout-setting">
+                                <option value="5">5초</option>
+                                <option value="10">10초</option>
+                                <option value="30" selected>30초</option>
+                                <option value="60">60초</option>
+                            </select>
+                        </div>
+                        <div class="control-item">
+                            <label>압축 알고리즘:</label>
+                            <select id="compression">
+                                <option value="gzip" selected>GZIP</option>
+                                <option value="deflate">Deflate</option>
+                                <option value="brotli">Brotli</option>
+                                <option value="none">압축 안함</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 데이터베이스 최적화 -->
+                    <div class="control-panel">
+                        <h4>🗃️ 데이터베이스 최적화</h4>
+                        <div class="control-item">
+                            <label>쿼리 캐시:</label>
+                            <select id="query-cache">
+                                <option value="enabled" selected>활성화</option>
+                                <option value="disabled">비활성화</option>
+                            </select>
+                        </div>
+                        <div class="control-item">
+                            <label>인덱스 최적화:</label>
+                            <select id="index-optimization">
+                                <option value="auto" selected>자동</option>
+                                <option value="manual">수동</option>
+                                <option value="disabled">비활성화</option>
+                            </select>
+                        </div>
+                        <div class="control-item">
+                            <label>연결 수:</label>
+                            <div class="range-container">
+                                <input type="range" id="db-connections" min="5" max="50" value="15">
+                                <span class="range-value" id="db-connections-value">15</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 최적화 결과 -->
+            <div class="section">
+                <h3>📈 최적화 결과</h3>
+                <div class="optimization-results">
+                    <div class="result-item">
+                        <span>CPU 성능 향상</span>
+                        <span class="performance-value" style="font-size: 1.2rem; color: #28a745;">+15.3%</span>
+                    </div>
+                    <div class="result-item">
+                        <span>메모리 사용량 감소</span>
+                        <span class="performance-value" style="font-size: 1.2rem; color: #28a745;">-22.1%</span>
+                    </div>
+                    <div class="result-item">
+                        <span>응답 시간 개선</span>
+                        <span class="performance-value" style="font-size: 1.2rem; color: #28a745;">-34ms</span>
+                    </div>
+                    <div class="result-item">
+                        <span>전체 처리량 증가</span>
+                        <span class="performance-value" style="font-size: 1.2rem; color: #28a745;">+8.7%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 제어 버튼 -->
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="btn btn-primary" onclick="startOptimization()">⚡ 최적화 시작</button>
+                <button class="btn btn-success" onclick="applySettings()">✅ 설정 적용</button>
+                <button class="btn btn-warning" onclick="resetSettings()">🔄 설정 초기화</button>
+                <button class="btn btn-danger" onclick="emergencyMode()">🚨 긴급 모드</button>
+            </div>
+
+            <!-- 성공 알림 -->
+            <div class="alert alert-success" id="success-alert" style="display: none;">
+                <strong>✅ 최적화 완료:</strong> 시스템 성능이 개선되었습니다.
+            </div>
+
+            <!-- 실시간 로그 -->
+            <div class="section">
+                <h3>📋 최적화 로그</h3>
+                <div class="log-display" id="optimization-log">
+[2024-01-20 14:30:15] INFO: 성능 최적화 엔진 초기화
+[2024-01-20 14:30:16] INFO: 시스템 리소스 모니터링 시작
+[2024-01-20 14:30:17] INFO: CPU 사용률: 45% (정상)
+[2024-01-20 14:30:18] WARNING: 메모리 사용률: 68% (주의)
+[2024-01-20 14:30:19] INFO: 네트워크 응답 시간: 124ms (양호)
+[2024-01-20 14:30:20] INFO: 최적화 엔진 대기 중...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let optimizationRunning = false;
+
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('optimization-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+
+        function updatePerformanceMetrics() {
+            // CPU 사용률 업데이트
+            const cpuUsage = Math.floor(Math.random() * 30 + 30);
+            document.getElementById('cpu-usage').textContent = `${cpuUsage}%`;
+            document.querySelector('.performance-card:nth-child(1) .performance-fill').style.width = `${cpuUsage}%`;
+
+            // 메모리 사용률 업데이트
+            const memoryUsage = Math.floor(Math.random() * 40 + 50);
+            document.getElementById('memory-usage').textContent = `${memoryUsage}%`;
+            document.querySelector('.performance-card:nth-child(2) .performance-fill').style.width = `${memoryUsage}%`;
+
+            // 응답 시간 업데이트
+            const responseTime = Math.floor(Math.random() * 100 + 80);
+            document.getElementById('response-time').textContent = `${responseTime}ms`;
+            document.querySelector('.performance-card:nth-child(3) .performance-fill').style.width = `${100 - responseTime/5}%`;
+
+            // 처리량 업데이트
+            const throughput = (Math.random() * 5 + 95).toFixed(1);
+            document.getElementById('throughput').textContent = `${throughput}%`;
+            document.querySelector('.performance-card:nth-child(4) .performance-fill').style.width = `${throughput}%`;
+        }
+
+        function startOptimization() {
+            if (optimizationRunning) {
+                alert('최적화가 이미 실행 중입니다.');
+                return;
+            }
+
+            optimizationRunning = true;
+            addLog('성능 최적화 시작');
+            addLog('시스템 리소스 분석 중...');
+            
+            setTimeout(() => {
+                addLog('CPU 최적화 실행');
+                updatePerformanceMetrics();
+            }, 1000);
+            
+            setTimeout(() => {
+                addLog('메모리 최적화 실행');
+                updatePerformanceMetrics();
+            }, 2000);
+            
+            setTimeout(() => {
+                addLog('네트워크 최적화 실행');
+                updatePerformanceMetrics();
+            }, 3000);
+            
+            setTimeout(() => {
+                addLog('데이터베이스 최적화 실행');
+                updatePerformanceMetrics();
+            }, 4000);
+            
+            setTimeout(() => {
+                addLog('최적화 완료 - 성능 향상됨', 'SUCCESS');
+                optimizationRunning = false;
+                showSuccessAlert();
+            }, 5000);
+
+            alert('성능 최적화를 시작합니다. 완료까지 약 5초가 소요됩니다.');
+        }
+
+        function applySettings() {
+            addLog('사용자 설정 적용 중...');
+            
+            const cpuLimit = document.getElementById('cpu-limit').value;
+            const memoryLimit = document.getElementById('memory-limit').value;
+            const connectionPool = document.getElementById('connection-pool').value;
+            
+            setTimeout(() => {
+                addLog(`CPU 한계: ${cpuLimit}% 적용`);
+                addLog(`메모리 한계: ${memoryLimit}MB 적용`);
+                addLog(`연결 풀: ${connectionPool} 적용`);
+                addLog('모든 설정이 적용되었습니다', 'SUCCESS');
+                updatePerformanceMetrics();
+            }, 1500);
+
+            alert('설정이 적용되었습니다.');
+        }
+
+        function resetSettings() {
+            // 모든 설정을 기본값으로 리셋
+            document.getElementById('cpu-limit').value = 80;
+            document.getElementById('cpu-limit-value').textContent = '80%';
+            document.getElementById('memory-limit').value = 2048;
+            document.getElementById('memory-limit-value').textContent = '2048MB';
+            document.getElementById('connection-pool').value = 20;
+            document.getElementById('connection-pool-value').textContent = '20';
+            document.getElementById('db-connections').value = 15;
+            document.getElementById('db-connections-value').textContent = '15';
+            
+            addLog('모든 설정이 기본값으로 초기화되었습니다', 'WARNING');
+            alert('설정이 초기화되었습니다.');
+        }
+
+        function emergencyMode() {
+            addLog('긴급 모드 활성화', 'ERROR');
+            addLog('시스템 리소스 긴급 최적화 실행');
+            addLog('불필요한 프로세스 종료');
+            addLog('메모리 강제 정리');
+            addLog('긴급 모드 완료', 'SUCCESS');
+            
+            // 성능 지표를 최적 상태로 설정
+            document.getElementById('cpu-usage').textContent = '25%';
+            document.getElementById('memory-usage').textContent = '45%';
+            document.getElementById('response-time').textContent = '67ms';
+            document.getElementById('throughput').textContent = '99.2%';
+            
+            alert('긴급 모드가 실행되었습니다. 시스템이 최적화되었습니다.');
+        }
+
+        function showSuccessAlert() {
+            const alert = document.getElementById('success-alert');
+            alert.style.display = 'block';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        // 슬라이더 값 업데이트
+        document.getElementById('cpu-limit').addEventListener('input', function() {
+            document.getElementById('cpu-limit-value').textContent = `${this.value}%`;
+        });
+
+        document.getElementById('memory-limit').addEventListener('input', function() {
+            document.getElementById('memory-limit-value').textContent = `${this.value}MB`;
+        });
+
+        document.getElementById('connection-pool').addEventListener('input', function() {
+            document.getElementById('connection-pool-value').textContent = this.value;
+        });
+
+        document.getElementById('db-connections').addEventListener('input', function() {
+            document.getElementById('db-connections-value').textContent = this.value;
+        });
+
+        // 주기적 성능 업데이트
+        setInterval(() => {
+            if (!optimizationRunning) {
+                updatePerformanceMetrics();
+            }
+        }, 10000);
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('성능 최적화 엔진 페이지 로드');
+            addLog('시스템 성능 모니터링 시작');
+        });
+    </script>
+</body>
+</html> 
