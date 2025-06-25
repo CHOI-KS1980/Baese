@@ -24,6 +24,7 @@ sys.path.insert(0, parent_dir)
 # 기존 모듈들 import
 from core.enhanced_final_solution import EnhancedGriderAutoSender
 from core.ai_analytics import AIAnalytics
+from core.final_solution import load_config, KakaoSender
 # from core.multi_platform_notifier import MultiPlatformNotifier
 # from core.optimization_engine import OptimizationEngine
 
@@ -448,12 +449,16 @@ def main():
     
     try:
         # 설정 로드
-        config = load_config(args.config)
+        rest_api_key, refresh_token = load_config()
+        
+        if not rest_api_key or not refresh_token:
+            logger.error("❌ 설정 로드 실패")
+            sys.exit(1)
         
         # 시스템 초기화
         system = UltimateGriderSystem(
-            rest_api_key=config['rest_api_key'],
-            refresh_token=config['refresh_token']
+            rest_api_key=rest_api_key,
+            refresh_token=refresh_token
         )
         
         # 기존 데이터 로드
