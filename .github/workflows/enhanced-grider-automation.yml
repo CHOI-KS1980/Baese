@@ -65,21 +65,36 @@ jobs:
     - name: 📦 코드 체크아웃
       uses: actions/checkout@v4
       
-    - name: 🐍 Python 3.11 설정 (캐시 활용)
-      uses: actions/setup-python@v4
+    - name: 🐍 Python 3.11 초고속 설정 (캐시 최적화)
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-        cache-dependency-path: 'requirements.txt'
+        cache-dependency-path: |
+          semiauto/requirements_minimal.txt
+        check-latest: false
         
     - name: 📚 의존성 설치 (최적화)
       run: |
         echo "⚡ 초고속 경량 설치 시작..."
-        python -m pip install --upgrade pip wheel setuptools
         
-        # G라이더 자동화 최소 의존성만 설치 (11개 패키지)
-        pip install -r semiauto/requirements_minimal.txt --no-warn-script-location
-        echo "✅ 경량 의존성 설치 완료 (기존 90개 → 11개 패키지)"
+        # pip 캐시 확인
+        pip cache info
+        
+        # 필수 패키지 빠른 설치 (휠 우선)
+        pip install --prefer-binary --no-warn-script-location \
+          selenium==4.15.2 \
+          requests==2.31.0 \
+          beautifulsoup4==4.12.2 \
+          lxml==4.9.3 \
+          urllib3==2.0.7 \
+          pytz==2023.3 \
+          holidays==0.30 \
+          python-dateutil==2.8.2 \
+          schedule==1.2.0 \
+          python-dotenv==1.0.0
+        
+        echo "✅ 경량 의존성 설치 완료 (11개 패키지, 휠 우선)"
         
     - name: 🌐 Chrome + ChromeDriver 초고속 설치 (최적화)
       run: |
