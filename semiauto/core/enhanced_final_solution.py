@@ -103,10 +103,24 @@ class EnhancedGriderAutoSender(GriderAutoSender):
         logger.info("🤖 GitHub Actions 검증 전송 모드")
         
         # 누락된 메시지 복구 먼저 시도
-        self.scheduler.recover_missing_messages()
+        recovered_count = self.scheduler.recover_missing_messages()
         
-        # 현재 시간 전송
-        success = self.send_report_with_validation()
+        # 현재 시간 전송 시도
+        should_send, reason = self.scheduler.should_send_now()
+        
+        if not should_send:
+            logger.info(f"⏸️ 전송 스킵: {reason}")
+            
+            # 운영시간 외는 정상적인 상황으로 처리
+            if "운영시간 외" in reason:
+                logger.info("✅ 운영시간 외 - 정상 완료")
+                success = True
+            else:
+                # 기타 이유로 스킵하는 경우 실제 전송 시도
+                success = self.send_report_with_validation()
+        else:
+            # 전송 시간인 경우 실제 전송
+            success = self.send_report_with_validation()
         
         # 상태 리포트 출력
         status = self.scheduler.get_status_report()
@@ -116,6 +130,10 @@ class EnhancedGriderAutoSender(GriderAutoSender):
         validation_stats = self.data_validator.get_validation_stats()
         logger.info(f"🔍 검증 통계: {validation_stats}")
         
+        # 복구된 메시지가 있는 경우 로깅
+        if recovered_count and recovered_count > 0:
+            logger.info(f"✅ {recovered_count}개 메시지 복구 완료")
+            
         return success
     
     def start_enhanced_scheduler(self):
