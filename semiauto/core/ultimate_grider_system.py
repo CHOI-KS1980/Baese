@@ -448,12 +448,20 @@ def main():
     )
     
     try:
-        # 설정 로드
-        rest_api_key, refresh_token = load_config()
+        # 환경변수 우선 체크
+        import os
+        rest_api_key = os.getenv('REST_API_KEY')
+        refresh_token = os.getenv('REFRESH_TOKEN')
         
-        if not rest_api_key or not refresh_token:
-            logger.error("❌ 설정 로드 실패")
-            sys.exit(1)
+        if rest_api_key and refresh_token:
+            logger.info("✅ 환경변수에서 REST_API_KEY, REFRESH_TOKEN 로드 완료")
+        else:
+            # 환경변수가 없으면 설정 파일에서 로드
+            rest_api_key, refresh_token = load_config()
+            
+            if not rest_api_key or not refresh_token:
+                logger.error("❌ 설정 로드 실패")
+                sys.exit(1)
         
         # 시스템 초기화
         system = UltimateGriderSystem(
