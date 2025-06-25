@@ -77,33 +77,50 @@ jobs:
         echo "⚡ 초고속 경량 설치 시작..."
         python -m pip install --upgrade pip wheel setuptools
         
-        # G라이더 자동화 최소 의존성만 설치 (10개 패키지)
+        # G라이더 자동화 최소 의존성만 설치 (11개 패키지)
         pip install -r semiauto/requirements_minimal.txt --no-warn-script-location
-        echo "✅ 경량 의존성 설치 완료 (기존 90개 → 10개 패키지)"
+        echo "✅ 경량 의존성 설치 완료 (기존 90개 → 11개 패키지)"
         
-    - name: 🌐 Chrome + ChromeDriver 고속 설치
+    - name: 🌐 Chrome + ChromeDriver 초고속 설치 (최적화)
       run: |
-        echo "⚡ Chrome 및 ChromeDriver 고속 설치..."
+        echo "⚡ 초고속 Chrome 설치 시작..."
         
-        # Chrome 설치 (단순화)
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 2>/dev/null
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+        # Chrome 버전 확인 (이미 설치되어 있는지 체크)
+        if command -v google-chrome &> /dev/null; then
+          echo "✅ Chrome 이미 설치됨: $(google-chrome --version)"
+        else
+          # Chrome 간단 설치 (apt 캐시 활용)
+          sudo apt-get update -qq 2>/dev/null
+          sudo apt-get install -y -qq google-chrome-stable 2>/dev/null
+          echo "✅ Chrome 신규 설치 완료"
+        fi
         
-        # apt 업데이트 및 Chrome 설치 (병렬)
-        sudo apt-get update -qq && sudo apt-get install -y -qq google-chrome-stable
+        # ChromeDriver 사전 설치된 것 사용 또는 빠른 설치
+        if [ -f "/usr/bin/chromedriver" ]; then
+          echo "✅ 시스템 ChromeDriver 사용: /usr/bin/chromedriver"
+          sudo ln -sf /usr/bin/chromedriver /usr/local/bin/chromedriver
+        elif [ -f "/usr/local/share/chrome_driver/chromedriver" ]; then
+          echo "✅ 사전 설치된 ChromeDriver 사용"
+          sudo ln -sf /usr/local/share/chrome_driver/chromedriver /usr/local/bin/chromedriver
+        else
+          # 빠른 ChromeDriver 설치 (캐시된 버전 사용)
+          echo "⚡ ChromeDriver 빠른 설치..."
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+' | head -1)
+          MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
+          
+          # Chrome for Testing API 사용 (더 빠름)
+          CHROMEDRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/LATEST_RELEASE_$MAJOR_VERSION"
+          CHROMEDRIVER_VERSION=$(curl -s $CHROMEDRIVER_URL)
+          
+          wget -q -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+          sudo unzip -qq /tmp/chromedriver.zip -d /tmp/
+          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+          rm -f /tmp/chromedriver.zip
+        fi
         
-        # ChromeDriver 최신 버전 고속 다운로드
-        CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE")
-        
-        # ChromeDriver 다운로드 및 설치 (캐시 활용)
-        wget -q -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
-        sudo unzip -qq /tmp/chromedriver.zip -d /tmp/
-        sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        
-        echo "✅ Chrome $(google-chrome --version) 설치 완료"
-        echo "✅ ChromeDriver $(chromedriver --version) 설치 완료"
+        echo "✅ Chrome 설치 완료: $(google-chrome --version)"
+        echo "✅ ChromeDriver 설치 완료: $(chromedriver --version)"
         
     - name: ⚙️ 설정 파일 및 환경변수 생성
       run: |
