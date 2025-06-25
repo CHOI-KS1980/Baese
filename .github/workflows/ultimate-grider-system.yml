@@ -99,9 +99,9 @@ jobs:
         
         # 설정 파일 생성
         cat > config.txt << EOF
-        rest_api_key=${REST_API_KEY}
-        refresh_token=${REFRESH_TOKEN}
-        korea_holiday_api_key=${KOREA_HOLIDAY_API_KEY}
+        REST_API_KEY=${REST_API_KEY}
+        REFRESH_TOKEN=${REFRESH_TOKEN}
+        KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
         EOF
         
         echo "🌟 차세대 G라이더 자동화 시스템 시작"
