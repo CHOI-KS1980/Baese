@@ -453,11 +453,24 @@ def main():
         rest_api_key = os.getenv('REST_API_KEY')
         refresh_token = os.getenv('REFRESH_TOKEN')
         
+        # 디버그: 환경변수 상태 로깅
+        logger.info(f"🔍 REST_API_KEY 환경변수 존재: {'있음' if rest_api_key else '없음'}")
+        logger.info(f"🔍 REFRESH_TOKEN 환경변수 존재: {'있음' if refresh_token else '없음'}")
+        
         if rest_api_key and refresh_token:
             logger.info("✅ 환경변수에서 REST_API_KEY, REFRESH_TOKEN 로드 완료")
         else:
             logger.error("❌ REST_API_KEY 또는 REFRESH_TOKEN 환경변수가 설정되지 않았습니다")
             logger.error("💡 GitHub Actions에서는 환경변수로 설정해야 합니다")
+            
+            # 추가 디버그: 모든 환경변수 출력
+            env_vars = dict(os.environ)
+            logger.error(f"🔍 현재 환경변수 개수: {len(env_vars)}")
+            rest_keys = [k for k in env_vars.keys() if 'REST' in k.upper()]
+            refresh_keys = [k for k in env_vars.keys() if 'REFRESH' in k.upper() or 'TOKEN' in k.upper()]
+            logger.error(f"🔍 REST 관련 환경변수: {rest_keys}")
+            logger.error(f"🔍 TOKEN 관련 환경변수: {refresh_keys}")
+            
             sys.exit(1)
         
         # 시스템 초기화
