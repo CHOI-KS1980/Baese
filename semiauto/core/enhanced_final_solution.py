@@ -190,9 +190,10 @@ def main():
     """고도화된 메인 실행 함수"""
     import sys
     
-    # GitHub Actions용 단일 실행 모드 체크
+    # GitHub Actions용 실행 모드 체크
     single_run = '--single-run' in sys.argv
     validation_mode = '--validation' in sys.argv
+    recovery_mode = '--recovery' in sys.argv
     
     logger.info("🎯 고도화된 심플 배민 플러스 카카오톡 자동화 시작")
     
@@ -229,9 +230,28 @@ def main():
         status = enhanced_sender.get_comprehensive_status()
         print(status)
         
-        # 검증 테스트
-        success = enhanced_sender.send_report_with_validation()
-        print(f"검증 테스트 결과: {'성공' if success else '실패'}")
+        # 검증 테스트 (실제 전송 없이 검증만)
+        logger.info("📊 데이터 수집 및 검증 테스트...")
+        data = enhanced_sender.data_collector.get_grider_data()
+        if data:
+            is_valid, validation_result = enhanced_sender.data_validator.validate_data(data, "validation_test")
+            print(f"🔍 데이터 검증 결과: {'✅ 통과' if is_valid else '❌ 실패'}")
+            if validation_result:
+                print(f"📋 검증 세부사항: {validation_result}")
+        else:
+            print("❌ 데이터 수집 실패")
+            
+    elif recovery_mode:
+        # 복구 모드
+        logger.info("🔄 복구 모드 실행")
+        
+        # 누락된 메시지만 복구
+        recovered = enhanced_sender.scheduler.recover_missing_messages()
+        print(f"🔄 복구된 메시지: {recovered}개")
+        
+        # 복구 후 상태 출력
+        status = enhanced_sender.get_comprehensive_status()
+        print(status)
         
     else:
         # 로컬 고도화 스케줄러 모드
