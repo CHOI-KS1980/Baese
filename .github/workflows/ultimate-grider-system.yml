@@ -1,0 +1,276 @@
+name: 🌟 차세대 G라이더 자동화 시스템
+
+on:
+  schedule:
+    # 비피크시간: 정각, 30분 (UTC 기준이므로 한국시간 -9시간)
+    - cron: '0,30 1-8,14 * * *'    # 한국시간 10:00, 10:30, 11:00, 11:30, 12:00, 12:30, 17:00, 17:30, 23:00, 23:30
+    # 피크시간: 15분 간격
+    - cron: '15,45 2-5,8-12 * * *' # 한국시간 11:15, 11:45, 12:15, 12:45, 17:15, 17:45, 18:00~21:45
+    - cron: '0,15,30,45 2-5,8-12 * * *' # 피크시간 모든 15분 간격
+  
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '실행 모드'
+        required: false
+        default: 'ultimate'
+        type: choice
+        options:
+          - ultimate
+          - ai_only
+          - optimization
+          - status_check
+      priority:
+        description: '우선순위'
+        required: false
+        default: 'normal'
+        type: choice
+        options:
+          - normal
+          - high
+          - emergency
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  ultimate-automation:
+    name: 🌟 차세대 자동화 실행
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    
+    steps:
+    - name: 📥 코드 체크아웃
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: 🐍 Python 환경 설정
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        check-latest: false
+        cache: 'pip'
+        cache-dependency-path: 'semiauto/requirements_minimal.txt'
+
+    - name: 📦 의존성 설치
+      run: |
+        python -m pip install --upgrade pip --quiet
+        pip install --prefer-binary -r semiauto/requirements_minimal.txt --quiet
+        pip install psutil --quiet
+
+    - name: 🚀 Chrome 최적화 설정
+      run: |
+        # Chrome이 이미 설치되어 있는지 확인
+        if command -v google-chrome >/dev/null 2>&1; then
+          echo "✅ Chrome 이미 설치됨: $(google-chrome --version)"
+        else
+          echo "🔄 Chrome 설치 중..."
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update -qq
+          sudo apt-get install -y google-chrome-stable --quiet
+        fi
+        
+        # ChromeDriver 다운로드
+        CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        echo "🔍 Chrome 버전: $CHROME_VERSION"
+        
+        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_$CHROME_VERSION" 2>/dev/null || echo "119.0.6045.105")
+        echo "📥 ChromeDriver 버전: $CHROMEDRIVER_VERSION"
+        
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/$CHROMEDRIVER_VERSION/linux64/chromedriver-linux64.zip"
+        unzip -q chromedriver-linux64.zip
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        
+        echo "✅ Chrome 설정 완료"
+
+    - name: 🌟 차세대 시스템 실행
+      env:
+        REST_API_KEY: ${{ secrets.REST_API_KEY }}
+        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+        KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
+        MODE: ${{ github.event.inputs.mode || 'ultimate' }}
+        PRIORITY: ${{ github.event.inputs.priority || 'normal' }}
+      run: |
+        cd semiauto
+        
+        # 설정 파일 생성
+        cat > config.txt << EOF
+        rest_api_key=${REST_API_KEY}
+        refresh_token=${REFRESH_TOKEN}
+        korea_holiday_api_key=${KOREA_HOLIDAY_API_KEY}
+        EOF
+        
+        echo "🌟 차세대 G라이더 자동화 시스템 시작"
+        echo "📅 실행 시간: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+        echo "🎯 실행 모드: $MODE"
+        echo "⚡ 우선순위: $PRIORITY"
+        
+        case "$MODE" in
+          "ultimate")
+            echo "🚀 최고급 통합 모드 실행"
+            python core/ultimate_grider_system.py --mode single
+            ;;
+          "ai_only")
+            echo "🤖 AI 분석 전용 모드"
+            python core/enhanced_final_solution.py --mode single --ai-only
+            ;;
+          "optimization")
+            echo "🔧 최적화 엔진 전용 모드"
+            python core/optimization_engine.py --analyze
+            ;;
+          "status_check")
+            echo "📊 상태 체크 모드"
+            python core/ultimate_grider_system.py --mode status
+            ;;
+          *)
+            echo "🚀 기본 고도화 모드"
+            python core/enhanced_final_solution.py --mode single
+            ;;
+        esac
+
+    - name: 📊 실행 결과 분석
+      if: always()
+      run: |
+        cd semiauto
+        echo "📊 실행 결과 분석"
+        
+        # 로그 파일 확인
+        if [ -f "grider_automation.log" ]; then
+          echo "📄 실행 로그 마지막 10줄:"
+          tail -n 10 grider_automation.log
+        fi
+        
+        if [ -f "ultimate_grider.log" ]; then
+          echo "🌟 차세대 시스템 로그 마지막 10줄:"
+          tail -n 10 ultimate_grider.log
+        fi
+        
+        # 메시지 히스토리 확인
+        if [ -f "message_history.json" ]; then
+          echo "📨 메시지 히스토리 상태:"
+          python -c "
+        import json
+        try:
+            with open('message_history.json', 'r') as f:
+                data = json.load(f)
+                total_sent = len(data.get('sent_messages', {}))
+                total_failed = len(data.get('failed_messages', {}))
+                print(f'✅ 전송 성공: {total_sent}개')
+                print(f'❌ 전송 실패: {total_failed}개')
+                if total_sent > 0:
+                    latest = max(data['sent_messages'].items(), key=lambda x: x[0])
+                    print(f'📅 마지막 전송: {latest[0]}')
+        except Exception as e:
+            print(f'❌ 히스토리 분석 실패: {e}')
+        "
+        fi
+        
+        # AI 분석 데이터 확인
+        if [ -f "ai_analytics_data.json" ]; then
+          echo "🤖 AI 분석 데이터 상태:"
+          python -c "
+        import json
+        try:
+            with open('ai_analytics_data.json', 'r') as f:
+                data = json.load(f)
+                history_count = len(data.get('performance_history', []))
+                print(f'📊 성과 히스토리: {history_count}개 데이터')
+                if history_count > 0:
+                    latest = data['performance_history'][-1]
+                    print(f'📈 최근 완료율: {latest.get(\"mission_completion_rate\", 0):.1f}%')
+                    print(f'🎯 이상 점수: {latest.get(\"anomaly_score\", 0):.2f}')
+        except Exception as e:
+            print(f'❌ AI 데이터 분석 실패: {e}')
+        "
+        fi
+
+    - name: 📁 아티팩트 업로드
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ultimate-system-logs-${{ github.run_number }}
+        path: |
+          semiauto/*.log
+          semiauto/*_history.json
+          semiauto/*_data.json
+          semiauto/*_cache.json
+        retention-days: 7
+
+  performance-monitoring:
+    name: 📈 성능 모니터링
+    runs-on: ubuntu-latest
+    needs: ultimate-automation
+    if: always()
+    
+    steps:
+    - name: 📥 아티팩트 다운로드
+      uses: actions/download-artifact@v4
+      with:
+        name: ultimate-system-logs-${{ github.run_number }}
+        path: ./logs
+
+    - name: 📊 성능 분석 리포트
+      run: |
+        echo "📈 차세대 G라이더 시스템 성능 분석"
+        echo "=" $(printf '=%.0s' {1..50})
+        
+        # 실행 성공/실패 판정
+        if [ "${{ needs.ultimate-automation.result }}" == "success" ]; then
+          echo "✅ 실행 상태: 성공"
+          echo "🎉 모든 컴포넌트가 정상 작동했습니다."
+        else
+          echo "❌ 실행 상태: 실패"
+          echo "🔍 로그를 확인하여 문제점을 파악해주세요."
+        fi
+        
+        echo ""
+        echo "📊 시스템 구성 요소:"
+        echo "  🤖 AI 기반 성과 예측 및 이상 감지"
+        echo "  🔍 실시간 데이터 검증 및 자동 수정"
+        echo "  📅 정확한 시간 기반 스케줄링"
+        echo "  🔄 누락 메시지 자동 복구"
+        echo "  📈 성능 모니터링 및 최적화"
+        echo "  🌟 차세대 통합 관리"
+        
+        echo ""
+        echo "🔗 모니터링 대시보드: https://github.com/${{ github.repository }}/actions"
+        echo "📁 로그 아티팩트: ultimate-system-logs-${{ github.run_number }}"
+
+  health-check:
+    name: 🏥 시스템 헬스 체크
+    runs-on: ubuntu-latest
+    needs: ultimate-automation
+    if: failure()
+    
+    steps:
+    - name: 🚨 시스템 장애 알림
+      run: |
+        echo "🚨 차세대 G라이더 시스템 장애 감지!"
+        echo ""
+        echo "🔍 장애 정보:"
+        echo "  • 시간: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+        echo "  • 워크플로우: ${{ github.workflow }}"
+        echo "  • 실행 번호: ${{ github.run_number }}"
+        echo "  • 트리거: ${{ github.event_name }}"
+        
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "  • 수동 실행 모드: ${{ github.event.inputs.mode }}"
+          echo "  • 우선순위: ${{ github.event.inputs.priority }}"
+        fi
+        
+        echo ""
+        echo "🛠️ 복구 방법:"
+        echo "  1. Actions 탭에서 로그 확인"
+        echo "  2. 아티팩트에서 상세 로그 다운로드"
+        echo "  3. 필요시 수동으로 workflow_dispatch 실행"
+        echo "  4. 시스템 상태 확인: 'status_check' 모드 실행"
+        
+        echo ""
+        echo "📞 즉시 점검이 필요한 경우:"
+        echo "  • GitHub Actions에서 'workflow_dispatch' 선택"
+        echo "  • 모드를 'status_check'로 설정하여 실행"
+        echo "  • 문제 해결 후 'ultimate' 모드로 재시작" 
