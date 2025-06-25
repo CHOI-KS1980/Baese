@@ -421,12 +421,25 @@ class GriderDataCollector:
                 if not USER_ID or not USER_PW:
                     config_file = 'config.txt'
                     if os.path.exists(config_file):
-                        with open(config_file, 'r') as f:
-                            for line in f:
-                                if line.startswith('GRIDER_ID='):
-                                    USER_ID = line.split('=')[1].strip()
-                                elif line.startswith('GRIDER_PASSWORD='):
-                                    USER_PW = line.split('=')[1].strip()
+                        try:
+                            # UTF-8 인코딩으로 파일 읽기
+                            with open(config_file, 'r', encoding='utf-8') as f:
+                                for line in f:
+                                    if line.startswith('GRIDER_ID='):
+                                        USER_ID = line.split('=')[1].strip()
+                                    elif line.startswith('GRIDER_PASSWORD='):
+                                        USER_PW = line.split('=')[1].strip()
+                        except UnicodeDecodeError:
+                            # UTF-8 실패시 다른 인코딩 시도
+                            try:
+                                with open(config_file, 'r', encoding='cp949') as f:
+                                    for line in f:
+                                        if line.startswith('GRIDER_ID='):
+                                            USER_ID = line.split('=')[1].strip()
+                                        elif line.startswith('GRIDER_PASSWORD='):
+                                            USER_PW = line.split('=')[1].strip()
+                            except:
+                                logger.error("❌ config.txt 파일 인코딩 오류")
                 
                 if not USER_ID or not USER_PW:
                     raise Exception("G라이더 로그인 정보가 설정되지 않았습니다. GRIDER_ID와 GRIDER_PASSWORD를 확인하세요.")
@@ -2006,35 +2019,36 @@ class GriderAutoSender:
             logger.error(f"❌ 종료 알림 전송 실패: {e}")
 
 def load_config():
-    """설정 파일 로드"""
-    config_file = 'config.txt'
+    """설정 파일 또는 환경변수에서 로드"""
+    import os
+    rest_api_key = os.getenv('REST_API_KEY')
+    refresh_token = os.getenv('REFRESH_TOKEN')
+    if rest_api_key and refresh_token:
+        logger.info("✅ 환경변수에서 REST_API_KEY, REFRESH_TOKEN 로드 완료")
+        return rest_api_key, refresh_token
     
+    config_file = 'config.txt'
     if not os.path.exists(config_file):
         logger.error(f"❌ 설정 파일이 없습니다: {config_file}")
         logger.info("📝 config.txt 파일을 생성하고 다음 내용을 입력하세요:")
         logger.info("REST_API_KEY=your_rest_api_key_here")
         logger.info("REFRESH_TOKEN=your_refresh_token_here")
         return None, None
-    
     try:
-        with open(config_file, 'r') as f:
+        # UTF-8 인코딩으로 파일 읽기
+        with open(config_file, 'r', encoding='utf-8') as f:
             lines = f.readlines()
-        
         rest_api_key = None
         refresh_token = None
-        
         for line in lines:
             if line.startswith('REST_API_KEY='):
                 rest_api_key = line.split('=')[1].strip()
             elif line.startswith('REFRESH_TOKEN='):
                 refresh_token = line.split('=')[1].strip()
-        
         if not rest_api_key or not refresh_token:
             logger.error("❌ 설정 파일에 필수 정보가 없습니다")
             return None, None
-        
         return rest_api_key, refresh_token
-        
     except Exception as e:
         logger.error(f"❌ 설정 파일 로드 실패: {e}")
         return None, None

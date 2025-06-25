@@ -1,0 +1,210 @@
+{
+  "stocks": {
+    "AAPL": {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "price": 200.2899932861328,
+      "change": -1.3100128173828125,
+      "change_percent": -0.6498079254571847,
+      "volume": 1643957,
+      "market_cap": 2991640805376,
+      "pe_ratio": 31.150856,
+      "dividend_yield": 0.52,
+      "high_52w": 260.1,
+      "low_52w": 169.21,
+      "timestamp": "2025-06-25T09:11:19.449531"
+    },
+    "MSFT": {
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
+      "price": 490.1199951171875,
+      "change": 1.489990234375,
+      "change_percent": 0.3049322021745968,
+      "volume": 493959,
+      "market_cap": 3642762199040,
+      "pe_ratio": 37.90487,
+      "dividend_yield": 0.68,
+      "high_52w": 491.849,
+      "low_52w": 344.79,
+      "timestamp": "2025-06-25T09:11:19.958443"
+    },
+    "GOOGL": {
+      "symbol": "GOOGL",
+      "name": "Alphabet Inc.",
+      "price": 166.75999450683594,
+      "change": 0.3600006103515625,
+      "change_percent": 0.21634652857951123,
+      "volume": 701825,
+      "market_cap": 2028223463424,
+      "pe_ratio": 18.63352,
+      "dividend_yield": 0.51,
+      "high_52w": 207.05,
+      "low_52w": 140.53,
+      "timestamp": "2025-06-25T09:11:20.476940"
+    },
+    "TSLA": {
+      "symbol": "TSLA",
+      "name": "Tesla, Inc.",
+      "price": 340.480712890625,
+      "change": -12.979400634765625,
+      "change_percent": -3.6720976817751336,
+      "volume": 1156200,
+      "market_cap": 1096640233472,
+      "pe_ratio": 195.67241,
+      "dividend_yield": null,
+      "high_52w": 488.54,
+      "low_52w": 182.0,
+      "timestamp": "2025-06-25T09:11:20.989111"
+    },
+    "NVDA": {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "price": 147.8300018310547,
+      "change": 1.970001220703125,
+      "change_percent": 1.3506110053884888,
+      "volume": 3111187,
+      "market_cap": 3606926065664,
+      "pe_ratio": 47.70968,
+      "dividend_yield": 0.03,
+      "high_52w": 153.13,
+      "low_52w": 86.62,
+      "timestamp": "2025-06-25T09:11:21.653565"
+    }
+  },
+  "indices": {
+    "^GSPC": {
+      "symbol": "^GSPC",
+      "name": "S&P 500",
+      "value": 6093.27978515625,
+      "change": 28.259765625,
+      "change_percent": 0.4659467822693869,
+      "volume": 84020000,
+      "timestamp": "2025-06-25T09:11:22.274984"
+    },
+    "^DJI": {
+      "symbol": "^DJI",
+      "name": "Dow Jones",
+      "value": 43095.94921875,
+      "change": 217.37890625,
+      "change_percent": 0.5069639791292889,
+      "volume": 11662486,
+      "timestamp": "2025-06-25T09:11:22.526899"
+    },
+    "^IXIC": {
+      "symbol": "^IXIC",
+      "name": "NASDAQ",
+      "value": 19912.783203125,
+      "change": 102.552734375,
+      "change_percent": 0.5176756249089259,
+      "volume": 39861000,
+      "timestamp": "2025-06-25T09:11:22.786783"
+    },
+    "^TNX": {
+      "symbol": "^TNX",
+      "name": "10-Year Treasury",
+      "value": 4.293000221252441,
+      "change": -0.05900001525878906,
+      "change_percent": -1.3556988063513127,
+      "volume": 0,
+      "timestamp": "2025-06-25T09:11:23.048352"
+    },
+    "^VIX": {
+      "symbol": "^VIX",
+      "name": "VIX",
+      "value": 17.479999542236328,
+      "change": -0.7100009918212891,
+      "change_percent": -3.903248878371034,
+      "volume": 0,
+      "timestamp": "2025-06-25T09:11:23.315997"
+    },
+    "GC=F": {
+      "symbol": "GC=F",
+      "name": "Gold Futures",
+      "value": 3339.10009765625,
+      "change": -27.699951171875,
+      "change_percent": -0.8227382312625444,
+      "volume": 0,
+      "timestamp": "2025-06-25T09:11:23.583701"
+    },
+    "CL=F": {
+      "symbol": "CL=F",
+      "name": "Crude Oil Futures",
+      "value": 65.05999755859375,
+      "change": -1.8199996948242188,
+      "change_percent": -2.721291521481344,
+      "volume": 0,
+      "timestamp": "2025-06-25T09:11:23.879772"
+    }
+  },
+  "summary": {
+    "timestamp": "2025-06-25T09:11:23.880774",
+    "stocks": {
+      "total_count": 5,
+      "gainers": 3,
+      "losers": 2,
+      "unchanged": 0,
+      "top_gainers": [
+        "StockData(symbol='NVDA', name='NVIDIA Corporation', price=147.8300018310547, change=1.970001220703125, change_percent=1.3506110053884888, volume=3111187, market_cap=3606926065664, pe_ratio=47.70968, dividend_yield=0.03, high_52w=153.13, low_52w=86.62, timestamp='2025-06-25T09:11:21.653565')",
+        "StockData(symbol='MSFT', name='Microsoft Corporation', price=490.1199951171875, change=1.489990234375, change_percent=0.3049322021745968, volume=493959, market_cap=3642762199040, pe_ratio=37.90487, dividend_yield=0.68, high_52w=491.849, low_52w=344.79, timestamp='2025-06-25T09:11:19.958443')",
+        "StockData(symbol='GOOGL', name='Alphabet Inc.', price=166.75999450683594, change=0.3600006103515625, change_percent=0.21634652857951123, volume=701825, market_cap=2028223463424, pe_ratio=18.63352, dividend_yield=0.51, high_52w=207.05, low_52w=140.53, timestamp='2025-06-25T09:11:20.476940')",
+        "StockData(symbol='AAPL', name='Apple Inc.', price=200.2899932861328, change=-1.3100128173828125, change_percent=-0.6498079254571847, volume=1643957, market_cap=2991640805376, pe_ratio=31.150856, dividend_yield=0.52, high_52w=260.1, low_52w=169.21, timestamp='2025-06-25T09:11:19.449531')",
+        "StockData(symbol='TSLA', name='Tesla, Inc.', price=340.480712890625, change=-12.979400634765625, change_percent=-3.6720976817751336, volume=1156200, market_cap=1096640233472, pe_ratio=195.67241, dividend_yield=None, high_52w=488.54, low_52w=182.0, timestamp='2025-06-25T09:11:20.989111')"
+      ],
+      "top_losers": [
+        "StockData(symbol='TSLA', name='Tesla, Inc.', price=340.480712890625, change=-12.979400634765625, change_percent=-3.6720976817751336, volume=1156200, market_cap=1096640233472, pe_ratio=195.67241, dividend_yield=None, high_52w=488.54, low_52w=182.0, timestamp='2025-06-25T09:11:20.989111')",
+        "StockData(symbol='AAPL', name='Apple Inc.', price=200.2899932861328, change=-1.3100128173828125, change_percent=-0.6498079254571847, volume=1643957, market_cap=2991640805376, pe_ratio=31.150856, dividend_yield=0.52, high_52w=260.1, low_52w=169.21, timestamp='2025-06-25T09:11:19.449531')",
+        "StockData(symbol='GOOGL', name='Alphabet Inc.', price=166.75999450683594, change=0.3600006103515625, change_percent=0.21634652857951123, volume=701825, market_cap=2028223463424, pe_ratio=18.63352, dividend_yield=0.51, high_52w=207.05, low_52w=140.53, timestamp='2025-06-25T09:11:20.476940')",
+        "StockData(symbol='MSFT', name='Microsoft Corporation', price=490.1199951171875, change=1.489990234375, change_percent=0.3049322021745968, volume=493959, market_cap=3642762199040, pe_ratio=37.90487, dividend_yield=0.68, high_52w=491.849, low_52w=344.79, timestamp='2025-06-25T09:11:19.958443')",
+        "StockData(symbol='NVDA', name='NVIDIA Corporation', price=147.8300018310547, change=1.970001220703125, change_percent=1.3506110053884888, volume=3111187, market_cap=3606926065664, pe_ratio=47.70968, dividend_yield=0.03, high_52w=153.13, low_52w=86.62, timestamp='2025-06-25T09:11:21.653565')"
+      ]
+    },
+    "indices": {
+      "total_count": 7,
+      "summary": [
+        {
+          "symbol": "^GSPC",
+          "value": 6093.27978515625,
+          "change": 0.4659467822693869
+        },
+        {
+          "symbol": "^DJI",
+          "value": 43095.94921875,
+          "change": 0.5069639791292889
+        },
+        {
+          "symbol": "^IXIC",
+          "value": 19912.783203125,
+          "change": 0.5176756249089259
+        },
+        {
+          "symbol": "^TNX",
+          "value": 4.293000221252441,
+          "change": -1.3556988063513127
+        },
+        {
+          "symbol": "^VIX",
+          "value": 17.479999542236328,
+          "change": -3.903248878371034
+        },
+        {
+          "symbol": "GC=F",
+          "value": 3339.10009765625,
+          "change": -0.8227382312625444
+        },
+        {
+          "symbol": "CL=F",
+          "value": 65.05999755859375,
+          "change": -2.721291521481344
+        }
+      ]
+    },
+    "statistics": {
+      "total_requests": 0,
+      "successful_requests": 12,
+      "failed_requests": 7,
+      "last_update": "2025-06-25T09:11:21.654567",
+      "processing_time": 6.103915
+    }
+  },
+  "timestamp": "2025-06-25T09:11:23.880774"
+}

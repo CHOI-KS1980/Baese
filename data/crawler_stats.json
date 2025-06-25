@@ -1,0 +1,15 @@
+{
+  "total_articles": 6,
+  "successful_crawls": 3,
+  "failed_crawls": 0,
+  "processing_time": 0,
+  "sources_processed": 3,
+  "error_statistics": {
+    "total_operations": 0,
+    "success_count": 0,
+    "error_count": 0,
+    "success_rate": 0,
+    "timestamp": "2025-06-25T09:11:11.425822"
+  },
+  "timestamp": "2025-06-25T09:11:11.425822"
+}

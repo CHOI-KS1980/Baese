@@ -1,0 +1,44 @@
+name: 주식 뉴스 자동화
+
+on:
+  schedule:
+    # 매일 오전 9시, 오후 6시에 실행 (한국시간)
+    - cron: '0 0,9 * * *'  # UTC 기준 (한국시간 -9)
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        cd auto_finance
+        pip install -r requirements.txt
+        
+    - name: Create .env file
+      run: |
+        cd auto_finance
+        echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" > .env
+        echo "AI_MODEL=gemini" >> .env
+        echo "DEBUG=False" >> .env
+        
+    - name: Run automation
+      run: |
+        cd auto_finance
+        python -m main
+        
+    - name: Upload generated files
+      uses: actions/upload-artifact@v3
+      with:
+        name: generated-articles
+        path: auto_finance/data/generated/
+        retention-days: 7 
