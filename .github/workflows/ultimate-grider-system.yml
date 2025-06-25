@@ -89,8 +89,10 @@ jobs:
 
     - name: 🌟 차세대 시스템 실행
       env:
-        REST_API_KEY: ${{ secrets.REST_API_KEY }}
-        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+        KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+        KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+        REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+        REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
         MODE: ${{ github.event.inputs.mode || 'ultimate' }}
         PRIORITY: ${{ github.event.inputs.priority || 'normal' }}
@@ -99,8 +101,8 @@ jobs:
         
         # 설정 파일 생성
         cat > config.txt << EOF
-        REST_API_KEY=${REST_API_KEY}
-        REFRESH_TOKEN=${REFRESH_TOKEN}
+        REST_API_KEY=${KAKAO_REST_API_KEY}
+        REFRESH_TOKEN=${KAKAO_REFRESH_TOKEN}
         KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
         EOF
         
