@@ -1,60 +1,175 @@
 {
-  "총점": 0,
-  "물량점수": 0,
-  "수락률점수": 0,
-  "총완료": 0,
-  "총거절": 0,
-  "수락률": 100.0,
+  "총점": 42,
+  "물량점수": 12,
+  "수락률점수": 30,
+  "총완료": 372,
+  "총거절": 8,
+  "수락률": 97.3,
   "아침점심피크": {
-    "current": 0,
-    "target": 0
+    "current": 24,
+    "target": 21
   },
   "오후논피크": {
-    "current": 0,
-    "target": 0
+    "current": 18,
+    "target": 20
   },
   "저녁피크": {
-    "current": 0,
-    "target": 0
+    "current": 56,
+    "target": 30
   },
   "심야논피크": {
-    "current": 0,
-    "target": 0
+    "current": 58,
+    "target": 29
   },
-  "오전피크": {
-    "current": 0,
-    "target": 0
-  },
-  "오후피크": {
-    "current": 0,
-    "target": 0
-  },
-  "심야피크": {
-    "current": 0,
-    "target": 0
-  },
-  "riders": [],
-  "timestamp": "2025-06-26T22:44:10.520158+09:00",
-  "last_update": "2025-06-26 22:44:10",
-  "system_status": "operational",
-  "data_source": "real_grider_crawling",
-  "raw_data": {
-    "총점": 0,
-    "물량점수": 0,
-    "수락률점수": 0,
-    "총완료": 0,
-    "총거절": 0,
-    "수락률": 100.0,
-    "riders": [],
-    "mission_date": "2025-06-26"
-  },
-  "total_mission_progress": 0,
-  "total_mission_current": 0,
-  "total_mission_target": 0,
-  "active_rider_count": 0,
-  "total_rider_count": 0,
-  "avg_completion": 0,
-  "avg_acceptance_rate": 0,
-  "top_rider": null,
-  "current_peak": "심야논피크"
+  "riders": [
+    {
+      "name": "수락률",
+      "complete": 32,
+      "acceptance_rate": 100.0,
+      "reject": 0,
+      "cancel": 0,
+      "아침점심피크": 3,
+      "오후논피크": 4,
+      "저녁피크": 10,
+      "심야논피크": 15,
+      "오전피크": 3,
+      "오후피크": 4,
+      "심야피크": 15,
+      "contribution": 29.8,
+      "peak_contributions": {
+        "오전피크": 14.3,
+        "오후피크": 20.0,
+        "저녁피크": 33.3,
+        "심야피크": 51.7
+      }
+    },
+    {
+      "name": "수락률",
+      "complete": 22,
+      "acceptance_rate": 96.0,
+      "reject": 1,
+      "cancel": 0,
+      "아침점심피크": 0,
+      "오후논피크": 0,
+      "저녁피크": 7,
+      "심야논피크": 15,
+      "오전피크": 0,
+      "오후피크": 0,
+      "심야피크": 15,
+      "contribution": 18.8,
+      "peak_contributions": {
+        "오전피크": 0.0,
+        "오후피크": 0.0,
+        "저녁피크": 23.3,
+        "심야피크": 51.7
+      }
+    },
+    {
+      "name": "수락률",
+      "complete": 6,
+      "acceptance_rate": 100.0,
+      "reject": 0,
+      "cancel": 0,
+      "아침점심피크": 2,
+      "오후논피크": 2,
+      "저녁피크": 0,
+      "심야논피크": 2,
+      "오전피크": 2,
+      "오후피크": 2,
+      "심야피크": 2,
+      "contribution": 6.6,
+      "peak_contributions": {
+        "오전피크": 9.5,
+        "오후피크": 10.0,
+        "저녁피크": 0.0,
+        "심야피크": 6.9
+      }
+    },
+    {
+      "name": "수락률",
+      "complete": 15,
+      "acceptance_rate": 100.0,
+      "reject": 0,
+      "cancel": 0,
+      "아침점심피크": 3,
+      "오후논피크": 4,
+      "저녁피크": 4,
+      "심야논피크": 4,
+      "오전피크": 3,
+      "오후피크": 4,
+      "심야피크": 4,
+      "contribution": 15.4,
+      "peak_contributions": {
+        "오전피크": 14.3,
+        "오후피크": 20.0,
+        "저녁피크": 13.3,
+        "심야피크": 13.8
+      }
+    },
+    {
+      "name": "수락률",
+      "complete": 27,
+      "acceptance_rate": 100.0,
+      "reject": 0,
+      "cancel": 0,
+      "아침점심피크": 6,
+      "오후논피크": 0,
+      "저녁피크": 10,
+      "심야논피크": 11,
+      "오전피크": 6,
+      "오후피크": 0,
+      "심야피크": 11,
+      "contribution": 25.0,
+      "peak_contributions": {
+        "오전피크": 28.6,
+        "오후피크": 0.0,
+        "저녁피크": 33.3,
+        "심야피크": 37.9
+      }
+    },
+    {
+      "name": "수락률",
+      "complete": 33,
+      "acceptance_rate": 100.0,
+      "reject": 0,
+      "cancel": 0,
+      "아침점심피크": 10,
+      "오후논피크": 4,
+      "저녁피크": 12,
+      "심야논피크": 7,
+      "오전피크": 10,
+      "오후피크": 4,
+      "심야피크": 7,
+      "contribution": 32.9,
+      "peak_contributions": {
+        "오전피크": 47.6,
+        "오후피크": 20.0,
+        "저녁피크": 40.0,
+        "심야피크": 24.1
+      }
+    },
+    {
+      "name": "수락률",
+      "complete": 21,
+      "acceptance_rate": 95.0,
+      "reject": 1,
+      "cancel": 0,
+      "아침점심피크": 0,
+      "오후논피크": 4,
+      "저녁피크": 13,
+      "심야논피크": 4,
+      "오전피크": 0,
+      "오후피크": 4,
+      "심야피크": 4,
+      "contribution": 19.3,
+      "peak_contributions": {
+        "오전피크": 0.0,
+        "오후피크": 20.0,
+        "저녁피크": 43.3,
+        "심야피크": 13.8
+      }
+    }
+  ],
+  "timestamp": "2025-06-26 14:15:21",
+  "mission_date": "2025-06-26"
 }
