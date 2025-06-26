@@ -127,42 +127,11 @@ jobs:
       if: always()
       run: |
         cd semiauto
-        # 크롤링 결과 상세 분석
-        echo "🔍 크롤링 결과 상세 분석"
+        echo "🔍 크롤링 로그 분석"
         echo "================================"
         
-        # 디버그 파일 확인 (경로 수정)
-        if [ -f "../debug_grider_page.html" ]; then
-          echo "✅ 성공한 크롤링 페이지 발견"
-          echo "📄 파일 크기: $(ls -lh ../debug_grider_page.html | awk '{print $5}')"
-          echo "📊 HTML 내용 미리보기:"
-          head -n 20 ../debug_grider_page.html | grep -E "(title|login|error|alert)" || echo "   특별한 내용 없음"
-        else
-          echo "❌ 성공한 크롤링 페이지 없음"
-        fi
-        
-        # 실패한 크롤링 파일들 확인 (경로 수정)
-        for file in ../debug_failed_page_*.html; do
-          if [ -f "$file" ]; then
-            echo "⚠️ 실패한 크롤링 페이지: $file"
-            echo "📄 파일 크기: $(ls -lh "$file" | awk '{print $5}')"
-            echo "📊 실패 원인 분석:"
-            if grep -q "login" "$file"; then
-              echo "   🔐 로그인 페이지 감지됨"
-            fi
-            if grep -q "error" "$file"; then
-              echo "   ❌ 에러 메시지 발견"
-              grep -i "error" "$file" | head -n 3
-            fi
-            if grep -q "captcha" "$file"; then
-              echo "   🤖 캡차 감지됨"
-            fi
-            if grep -q "block" "$file"; then
-              echo "   🚫 접근 차단 감지됨"
-            fi
-          fi
-        done
-        
+        # ✨ 최종 정리: 디버그 HTML 파일 분석 로직 완전 삭제
+
         # 로그 파일 상세 분석 (경로 수정)
         if [ -f "../grider_automation.log" ]; then
           echo "📄 크롤링 관련 로그 분석:"
