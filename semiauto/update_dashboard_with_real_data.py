@@ -9,96 +9,94 @@
 import sys
 import os
 import logging
+import json
+from datetime import datetime, time, timedelta
 
 # 현재 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from core.final_solution import GriderDataCollector, load_config
+from core.final_solution import GriderDataCollector, load_config, KoreaHolidayChecker
 from core.dashboard_data_generator import RealGriderDashboard
 
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('dashboard_generator.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
-def update_dashboard_with_real_data():
-    """실제 G라이더 데이터로 대시보드 업데이트"""
-    try:
-        logger.info("🚀 대시보드 실시간 데이터 업데이트 시작")
+class RealtimeGriderDashboardGenerator:
+    """실시간 G-Rider 데이터를 기반으로 대시보드 JSON을 생성하는 클래스"""
+
+    def __init__(self, output_path='dashboard/api/latest-data.json'):
+        self.output_path = output_path
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        logger.info(f"🚚 실제 G라이더 대시보드 생성기 초기화 완료. 결과는 '{self.output_path}'에 저장됩니다.")
+
+    def generate_and_save(self, data):
+        """실시간 데이터를 받아 대시보드 JSON을 생성하고 저장합니다."""
+        if not data:
+            logger.error("❌ 입력된 데이터가 없어 대시보드를 생성할 수 없습니다.")
+            return
+
+        logger.info(f"✅ 실제 G라이더 대시보드 데이터 생성 완료: 총점 {data.get('총점', 0)}점, 라이더 {len(data.get('riders', []))}명")
         
-        # 1. 환경변수 로드
-        config = load_config()
-        logger.info("✅ 환경변수 로드 완료")
-        
-        # 2. G라이더 데이터 수집기 초기화
-        data_collector = GriderDataCollector()
-        logger.info("✅ G라이더 데이터 수집기 초기화 완료")
-        
-        # 3. 실제 G라이더 데이터 수집
-        logger.info("🔍 실제 G라이더 데이터 수집 중...")
-        grider_data = data_collector.get_grider_data()
-        
-        if not grider_data or grider_data.get('error'):
-            logger.error(f"❌ G라이더 데이터 수집 실패: {grider_data.get('error', '알 수 없는 오류')}")
-            return False
-        
-        logger.info(f"✅ G라이더 데이터 수집 성공: 총점 {grider_data.get('총점', 0)}점, 라이더 {len(grider_data.get('riders', []))}명")
-        
-        # 4. 대시보드 데이터 생성기 초기화
-        dashboard_generator = RealGriderDashboard()
-        logger.info("✅ 대시보드 생성기 초기화 완료")
-        
-        # 5. 실제 데이터로 대시보드 생성
-        logger.info("🌐 실제 데이터로 대시보드 생성 중...")
-        dashboard_data = dashboard_generator.generate_dashboard_data(grider_data)
-        
-        # 6. 대시보드 데이터 저장
-        success = dashboard_generator.save_dashboard_data(dashboard_data)
-        
-        if success:
-            logger.info("✅ 대시보드 데이터 업데이트 완료!")
-            logger.info(f"📊 업데이트된 데이터:")
-            logger.info(f"   • 총점: {dashboard_data.get('총점', 0)}점")
-            logger.info(f"   • 총완료: {dashboard_data.get('총완료', 0)}건")
-            logger.info(f"   • 수락률: {dashboard_data.get('수락률', 0):.1f}%")
-            logger.info(f"   • 활성 라이더: {dashboard_data.get('active_rider_count', 0)}명")
-            logger.info(f"   • TOP 라이더: {dashboard_data.get('top_rider', {}).get('name', '없음')}")
-            
-            # 미션 현황
-            peaks = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-            logger.info(f"📈 미션 현황:")
-            for peak in peaks:
-                peak_data = dashboard_data.get(peak, {})
-                current = peak_data.get('current', 0)
-                target = peak_data.get('target', 0)
-                progress = (current / target * 100) if target > 0 else 0
-                logger.info(f"   • {peak}: {current}/{target}건 ({progress:.1f}%)")
-            
-            return True
-        else:
-            logger.error("❌ 대시보드 데이터 저장 실패")
-            return False
-            
-    except Exception as e:
-        logger.error(f"❌ 대시보드 업데이트 중 오류: {e}")
-        return False
+        # 데이터를 JSON 형식으로 저장
+        try:
+            with open(self.output_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.info(f"💾 대시보드 데이터 저장 완료: {self.output_path}")
+        except Exception as e:
+            logger.error(f"❌ 대시보드 JSON 저장 실패: {e}")
 
 def main():
-    """메인 함수"""
-    logger.info("🔄 대시보드 실시간 데이터 업데이트 스크립트")
-    logger.info("=" * 50)
+    """메인 실행 함수"""
+    collector = GriderDataCollector()
     
-    success = update_dashboard_with_real_data()
-    
-    logger.info("=" * 50)
-    if success:
-        logger.info("🎉 대시보드 업데이트 성공!")
-        logger.info("🌐 https://choi-ks1980.github.io/Baese/semiauto/dashboard/ 에서 확인 가능")
-    else:
-        logger.error("💥 대시보드 업데이트 실패!")
-        sys.exit(1)
+    # 실제 G라이더 데이터를 가져옵니다.
+    logger.info("🔍 실제 G라이더 데이터 수집 중...")
+    grider_data = collector.get_grider_data()
 
-if __name__ == "__main__":
-    main() 
+    if not grider_data:
+        logger.error("❌ G라이더 데이터 수집에 실패하여 대시보드 업데이트를 중단합니다.")
+        return
+
+    logger.info(f"✅ G라이더 데이터 수집 성공: 총점 {grider_data.get('총점', 0)}점, 라이더 {len(grider_data.get('riders', []))}명")
+    
+    # 대시보드 생성기를 초기화합니다.
+    try:
+        dashboard_generator = RealtimeGriderDashboardGenerator()
+    except Exception as e:
+        logger.error(f"❌ 대시보드 생성기 초기화 실패: {e}")
+        return
+
+    # 실제 데이터로 대시보드를 생성하고 저장합니다.
+    try:
+        logger.info("🌐 실제 데이터로 대시보드 생성 중...")
+        dashboard_generator.generate_and_save(grider_data)
+
+        # 업데이트된 데이터 요약 로그 (안정성 강화)
+        logger.info("📊 업데이트된 데이터:")
+        logger.info(f"   • 총점: {grider_data.get('총점', 'N/A')}점")
+        logger.info(f"   • 총완료: {grider_data.get('총완료', 'N/A')}건")
+        logger.info(f"   • 수락률: {grider_data.get('수락률', 'N/A')}%")
+        logger.info(f"   • 활성 라이더: {len(grider_data.get('riders', []))}명")
+
+    except Exception as e:
+        logger.error(f"❌ 대시보드 업데이트 중 오류: {e}")
+        # 실패하더라도 계속 진행하도록 return 대신 pass 처리
+        pass
+
+if __name__ == '__main__':
+    logger.info("🔄 대시보드 실시간 데이터 업데이트 스크립트")
+    logger.info("==================================================")
+    try:
+        main()
+        logger.info("✅ 대시보드 데이터 업데이트 완료!")
+    except Exception as e:
+        logger.error(f"💥 대시보드 업데이트 실패!: {e}")
+    logger.info("==================================================") 

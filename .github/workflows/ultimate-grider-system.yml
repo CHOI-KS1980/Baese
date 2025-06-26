@@ -198,8 +198,10 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # 대시보드 데이터 커밋 (충돌 방지 로직 추가)
-          git pull --rebase # 푸시 전 최신 내역 받아오기
+          # 먼저 원격의 변경사항을 받아옵니다.
+          git pull --rebase
+          
+          # 대시보드 데이터 커밋
           git add dashboard/api/
           
           if ! git diff --staged --quiet; then
