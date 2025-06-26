@@ -306,43 +306,32 @@ class GriderDataCollector:
         self.base_url = "https://grider.co.kr"  # 실제 URL로 변경 필요
         self.mission_data_cache_file = 'mission_data_cache.json'
     
-    def get_grider_data(self):
+    def get_grider_data(self, use_sample=False):
         """G라이더 데이터 수집"""
         try:
-            # 캐시된 데이터 확인
-            korea_time = self._get_korea_time()
-            
-            # 🎯 미션 날짜 기준으로 캐시 확인
-            mission_date = self._get_mission_date()
-            cached_data = self._load_mission_data_cache()
-            
-            # GitHub Actions 또는 상위 스케줄러에서 이미 시간 검증을 했으므로
-            # 여기서는 추가 시간 체크를 하지 않고 바로 크롤링 진행
-            logger.info("🚀 스케줄러에서 검증된 실행 - 크롤링 진행")
-            
+            if use_sample:
+                return self._get_sample_data()
+
             logger.info("🚀 G라이더 실제 데이터 수집 시작...")
             
             html = self._crawl_jangboo()
             if not html:
                 logger.error("❌ 크롤링 실패 - HTML을 가져올 수 없습니다")
-                # 크롤링 실패 시 None 반환 (에러 메시지 전송 방지)
-                return None
+                return self._get_error_data("크롤링 실패(HTML 없음)")
             
             # HTML에서 데이터 파싱
             data = self._parse_data(html)
             
             if data.get('error'):
                 logger.error(f"❌ 데이터 파싱 실패: {data.get('error_reason', '알 수 없는 오류')}")
-                # 파싱 실패 시 None 반환 (에러 메시지 전송 방지)
-                return None
+                return data
             
             logger.info("✅ G라이더 데이터 수집 완료")
             return data
             
         except Exception as e:
-            logger.error(f"❌ 크롤링 중 오류 발생: {e}")
-            # 모든 예외 발생 시 None 반환 (에러 메시지 전송 방지)
-            return None
+            logger.error(f"❌ 크롤링 중 오류 발생: {e}", exc_info=True)
+            return self._get_error_data(f"크롤링 중 예외 발생: {e}")
 
     def _validate_data(self, data):
         """수집된 데이터가 유효한지 검증"""
@@ -862,148 +851,119 @@ class GriderDataCollector:
         return {} # 내용을 비워 단순화
 
     def _parse_data(self, html: str) -> dict:
-        """HTML을 파싱하여 최종 데이터 구조를 반환합니다."""
-        if not html:
-            return self._get_error_data("HTML 내용 없음")
-
+        """HTML을 파싱하여 핵심 데이터를 추출합니다."""
         soup = BeautifulSoup(html, 'html.parser')
         
-        # 각 부분별 데이터 파싱
-        score_data = self._parse_score_data(soup)
-        mission_data = self._parse_mission_data(soup)
-        riders_data = self._parse_riders_data(soup)
-        
-        # 데이터 종합
-        final_data = {**score_data, **mission_data, "riders": riders_data}
-        
-        # 타임스탬프 추가
-        korea_now = self._get_korea_time()
-        final_data.update({
-            "timestamp": korea_now.isoformat(),
-            "mission_date": self._get_mission_date(),
-            "crawl_time": korea_now.strftime("%Y-%m-%d %H:%M:%S")
-        })
-        
-        logger.info(f"데이터 파싱 완료: 총점={final_data['총점']}, 라이더={len(final_data['riders'])}명")
-        return final_data
-
-    def _parse_score_data(self, soup: BeautifulSoup) -> dict:
-        """점수, 완료/거절/취소 건수, 수락률을 파싱합니다."""
-        def get_int(selector):
-            node = soup.select_one(selector)
-            return int(re.sub(r'[^0-9]', '', node.text)) if node and node.text else 0
-
+        # 최상위 데이터 구조 초기화
         data = {
-            "총점": get_int('.total_score_text > strong'),
-            "물량점수": get_int('.delivery_score_text > strong'),
-            "수락률점수": get_int('.acceptance_rate_text > strong'),
-            "총완료": 0, "총거절": 0, "총취소": 0, "수락률": 100.0
+            '총점': 0, '물량점수': 0, '수락률점수': 0,
+            '총완료': 0, '총거절': 0, '수락률': 100.0,
+            'riders': [],
+            'mission_date': self._get_mission_date()
         }
 
-        for item in soup.select('.statics_box .statics_item'):
-            title_node = item.select_one('.title')
-            value_node = item.select_one('.value')
-            if title_node and value_node:
-                title = title_node.text.strip()
-                value = int(re.sub(r'[^0-9]', '', value_node.text) or 0)
-                if '완료' in title: data['총완료'] = value
-                elif '거절' in title: data['총거절'] = value
-                elif '취소' in title: data['총취소'] = value
+        # 점수 데이터 파싱
+        score_data = self._parse_score_data(soup)
+        data.update(score_data)
+
+        # 미션 데이터 파싱
+        mission_data = self._parse_mission_data(soup)
+        data.update(mission_data)
+
+        # 라이더 데이터 파싱
+        rider_data = self._parse_riders_data(soup)
+        data['riders'] = rider_data
         
-        if (total_requests := data['총완료'] + data['총거절']) > 0:
-            data['수락률'] = round((data['총완료'] / total_requests * 100), 2)
-            
+        # 총 완료 및 거절 건수 집계 (라이더 데이터 기반)
+        total_completes = sum(r.get('complete', 0) for r in rider_data)
+        total_rejects = sum(r.get('reject', 0) for r in rider_data)
+        
+        if (total_completes + total_rejects) > 0:
+            data['총완료'] = total_completes
+            data['총거절'] = total_rejects
+            data['수락률'] = (total_completes / (total_completes + total_rejects)) * 100
+        else:
+            # 라이더 데이터가 없을 경우, 점수판의 완료/거절 값을 사용
+            data['총완료'] = score_data.get('총완료', 0)
+            data['총거절'] = score_data.get('총거절', 0)
+            data['수락률'] = score_data.get('수락률', 100.0)
+
         return data
 
-    def _parse_mission_data(self, soup: BeautifulSoup) -> dict:
-        """미션별 완료/목표 건수를 파싱합니다."""
-        missions = {'아침점심피크': {}, '오후논피크': {}, '저녁피크': {}, '심야논피크': {}}
-        mission_keys = list(missions.keys())
+    def _parse_score_data(self, soup: BeautifulSoup) -> dict:
+        """점수 관련 데이터를 파싱합니다."""
+        scores = {}
+        
+        def get_int(selector):
+            # 안정적인 숫자 추출을 위해 정규식 사용
+            element = soup.select_one(selector)
+            if element:
+                match = re.search(r'(-?\d+)', element.text)
+                if match:
+                    return int(match.group(1))
+            return 0
 
-        for i, item in enumerate(soup.select('.quantity_item')):
-            if i >= len(mission_keys): break
-            try:
-                current_node = item.select_one('.performance_value')
-                target_node = item.select_one('.number_value span:not(.performance_value)')
-                missions[mission_keys[i]] = {
-                    "current": int(re.sub(r'[^0-9]', '', current_node.text)) if current_node else 0,
-                    "target": int(re.sub(r'[^0-9]', '', target_node.text)) if target_node else 0
-                }
-            except (AttributeError, ValueError, TypeError) as e:
-                logger.warning(f"{mission_keys[i]} 파싱 실패: {e}")
-                missions[mission_keys[i]] = {"current": 0, "target": 0}
+        scores['총점'] = get_int('div.total-score strong')
+        scores['물량점수'] = get_int('ul.score-board li:nth-of-type(1) strong')
+        scores['수락률점수'] = get_int('ul.score-board li:nth-of-type(2) strong')
+        scores['총완료'] = get_int('ul.score-board li:nth-of-type(3) strong')
+        scores['총거절'] = get_int('ul.score-board li:nth-of-type(4) strong')
+        
+        # 수락률 파싱 (별도 처리)
+        rate_element = soup.select_one('ul.score-board li:nth-of-type(5) strong')
+        if rate_element:
+            match = re.search(r'(-?[\d.]+)', rate_element.text)
+            if match:
+                scores['수락률'] = float(match.group(1))
+        else:
+            scores['수락률'] = 100.0
+
+        return scores
+
+    def _parse_mission_data(self, soup: BeautifulSoup) -> dict:
+        """미션 관련 데이터를 파싱합니다."""
+        missions = {}
+        mission_elements = soup.select('div.mission-board ul.mission-list li')
+        
+        for element in mission_elements:
+            title_element = element.select_one('span.title')
+            count_element = element.select_one('span.count strong')
+            
+            if title_element and count_element:
+                title = title_element.text.strip()
+                match = re.search(r'(\d+)\s*/\s*(\d+)', count_element.text)
+                if match:
+                    current, target = map(int, match.groups())
+                    missions[title] = {'current': current, 'target': target}
         return missions
 
     def _parse_riders_data(self, soup: BeautifulSoup) -> list:
-        """라이더 목록 및 상세 정보를 파싱합니다."""
+        """라이더 순위 데이터를 파싱합니다."""
         riders = []
-        rider_list = soup.select_one('.rider_list')
-        if not rider_list: return riders
-
-        for item in rider_list.select('.item'):
-            try:
-                complete_node = item.select_one('.count')
-                complete_count = int(complete_node.text) if complete_node and complete_node.text.isdigit() else 0
-                if complete_count > 0:
-                    name_node = item.select_one('.name')
-                    rate_node = item.select_one('.acceptance_rate .rate')
-                    status_node = item.select_one('.status')
-                    counts = [int(n.text) for n in item.select('.count') if n.text.isdigit()]
-                    riders.append({
-                        'name': name_node.text.strip() if name_node else 'N/A',
-                        'complete': complete_count,
-                        'reject': counts[1] if len(counts) > 1 else 0,
-                        'cancel': counts[2] if len(counts) > 2 else 0,
-                        'acceptance_rate': float(re.sub(r'[^0-9.]', '', rate_node.text) or 0) if rate_node else 0.0,
-                        'status': status_node.text.strip() if status_node else 'N/A'
-                    })
-            except Exception as e:
-                logger.warning(f"라이더 파싱 중 오류: {e}")
-                continue
-        return riders
-
-    def _save_mission_data_cache(self, mission_date, peak_data):
-        """오늘의 미션 데이터 캐시 저장"""
-        try:
-            cache_data = {
-                'date': mission_date,
-                'timestamp': datetime.now().isoformat(),
-                'peak_data': peak_data
-            }
-            
-            with open(self.mission_data_cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
-            
-            logger.info(f"✅ 미션 데이터 캐시 저장 완료: {mission_date}")
-            
-        except Exception as e:
-            logger.error(f"❌ 미션 데이터 캐시 저장 실패: {e}")
-
-    def _load_mission_data_cache(self):
-        """캐시된 미션 데이터 로드"""
-        try:
-            if not os.path.exists(self.mission_data_cache_file):
-                logger.info("📂 미션 데이터 캐시 파일이 없습니다.")
-                return None
-            
-            with open(self.mission_data_cache_file, 'r', encoding='utf-8') as f:
-                cache_data = json.load(f)
-            
-            # 캐시된 데이터의 날짜 확인
-            cached_date = cache_data.get('date')
-            current_mission_date = self._get_mission_date()
-            
-            if cached_date == current_mission_date:
-                logger.info(f"✅ 캐시된 미션 데이터 사용: {cached_date}")
-                return cache_data.get('peak_data')
-            else:
-                logger.info(f"🔄 날짜 변경 감지: {cached_date} → {current_mission_date}")
-                logger.info("새로운 미션 데이터 크롤링이 필요합니다.")
-                return None
+        rider_elements = soup.select('div.rider-board tbody tr')
         
-        except Exception as e:
-            logger.error(f"❌ 미션 데이터 캐시 로드 실패: {e}")
-            return None
+        for row in rider_elements:
+            cols = row.select('td')
+            if len(cols) >= 5:
+                try:
+                    name = cols[1].text.strip()
+                    complete = int(cols[2].text.strip())
+                    reject = int(cols[3].text.strip())
+                    
+                    # 수락률 파싱 및 계산
+                    acceptance_rate_str = cols[4].text.strip().replace('%', '')
+                    acceptance_rate = float(acceptance_rate_str)
+                    
+                    riders.append({
+                        'name': name,
+                        'complete': complete,
+                        'reject': reject,
+                        'acceptance_rate': acceptance_rate
+                    })
+                except (ValueError, IndexError) as e:
+                    logger.warning(f"라이더 데이터 파싱 중 오류 발생: {e} - 행: {row.text.strip()}")
+                    continue
+        return riders
 
     def _get_mission_date(self):
         """한국시간 기준 현재 미션 날짜 반환 (06시 기준)"""

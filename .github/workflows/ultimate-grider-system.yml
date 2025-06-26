@@ -1,6 +1,8 @@
 name: 🌟 차세대 G라이더 자동화 시스템
 
 on:
+  push:
+    branches: [ "main" ]
   schedule:
     # 비피크시간: 정각, 30분 (UTC 기준이므로 한국시간 -9시간)
     - cron: '0,30 1-8,14 * * *'    # 한국시간 10:00, 10:30, 11:00, 11:30, 12:00, 12:30, 17:00, 17:30, 23:00, 23:30
@@ -33,6 +35,9 @@ on:
 env:
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '18'
+
+permissions:
+  contents: write
 
 jobs:
   ultimate-automation:
