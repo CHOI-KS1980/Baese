@@ -1223,6 +1223,44 @@ class GriderDataCollector:
             logger.error(f"❌ HTML 파싱 실패: {e}")
             return None
 
+    def _get_weather_info(self, location="서울"):
+        """간단한 날씨 정보 가져오기 (wttr.in 사용)"""
+        try:
+            # wttr.in의 JSON 포맷을 사용하여 날씨 정보 요청
+            url = f"https://wttr.in/{location}?format=j1"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                weather_data = response.json()
+                current_condition = weather_data.get('current_condition', [{}])[0]
+                
+                temp = current_condition.get('temp_C', 'N/A')
+                feels_like = current_condition.get('FeelsLikeC', 'N/A')
+                weather_desc = current_condition.get('weatherDesc', [{}])[0].get('value', 'N/A')
+                humidity = current_condition.get('humidity', 'N/A')
+
+                # 이모지 매핑
+                weather_icons = {
+                    "Sunny": "☀️", "Clear": "☀️",
+                    "Partly cloudy": "⛅️", "Cloudy": "☁️", "Overcast": "☁️",
+                    "Mist": "🌫️", "Fog": "🌫️",
+                    "Patchy rain possible": "🌦️", "Light rain": "🌦️", "Rain": "🌧️",
+                    "Thundery outbreaks possible": "⛈️", "Thunderstorm": "⛈️",
+                    "Snow": "❄️", "Blizzard": "🌨️"
+                }
+                icon = ""
+                for key, value in weather_icons.items():
+                    if key in weather_desc:
+                        icon = value
+                        break
+                
+                return f"{icon} {weather_desc}, {temp}°C (체감 {feels_like}°C), 습도 {humidity}%"
+            else:
+                logger.warning(f"날씨 정보 로드 실패: {response.status_code}")
+                return "날씨 정보 로드 실패"
+        except Exception as e:
+            logger.error(f"날씨 정보 조회 중 오류: {e}")
+            return "날씨 정보 조회 불가"
+
 class GriderAutoSender:
     """G-Rider 자동화 메인 클래스"""
 
@@ -1253,9 +1291,12 @@ class GriderAutoSender:
             is_weekend_or_holiday = korea_time.weekday() >= 5 or holiday_checker.is_holiday_advanced(korea_time)[0]
             day_type = "휴일" if is_weekend_or_holiday else "평일"
 
-            # 1. 헤더 (인사말, 날짜)
+            # 날씨 정보 가져오기
+            weather_info = self.data_collector._get_weather_info()
+
+            # 1. 헤더 (인사말, 날짜, 날씨)
             greeting = "📊 G-Rider 실시간 현황"
-            header = f"📅 {korea_time.strftime('%Y-%m-%d %H:%M:%S')} ({day_type})"
+            header = f"📅 {korea_time.strftime('%Y-%m-%d %H:%M:%S')} ({day_type})\n{weather_info}"
 
             # 2. 미션 현황
             mission_parts = ["\n🎯 금일 미션 현황"]
@@ -1290,8 +1331,8 @@ class GriderAutoSender:
                     complete = rider.get('complete', 0)
                     acceptance = rider.get('acceptance_rate', 0.0)
                     
-                    prefix = f"{medals[i]} " if i < 3 else f"{i+1}. "
-                    rider_parts.append(f"{prefix}{name}: {complete}건 (수락률: {acceptance:.1f}%)")
+                    prefix = f"{medals[i]} " if i < 3 else f"{i+1}."
+                    rider_parts.append(f"{prefix} {name}: {complete}건 (수락률: {acceptance:.1f}%)")
 
             # 최종 조합
             full_message = "\n".join([greeting, header] + mission_parts + summary_parts + rider_parts)
