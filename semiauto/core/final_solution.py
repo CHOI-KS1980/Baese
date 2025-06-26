@@ -417,6 +417,12 @@ class GriderDataCollector:
                 USER_ID = os.getenv('GRIDER_ID')
                 USER_PW = os.getenv('GRIDER_PASSWORD')
                 
+                logger.info(f"🔍 환경변수 확인:")
+                logger.info(f"   • GRIDER_ID 존재: {'있음' if USER_ID else '없음'}")
+                logger.info(f"   • GRIDER_PASSWORD 존재: {'있음' if USER_PW else '없음'}")
+                if USER_ID:
+                    logger.info(f"   • GRIDER_ID 값: {USER_ID[:3]}***")
+                
                 # 환경변수가 없으면 config.txt에서 읽기
                 if not USER_ID or not USER_PW:
                     config_file = 'config.txt'
@@ -2021,10 +2027,15 @@ class GriderAutoSender:
 def load_config():
     """설정 파일 또는 환경변수에서 로드"""
     import os
-    rest_api_key = os.getenv('REST_API_KEY')
-    refresh_token = os.getenv('REFRESH_TOKEN')
+    
+    # GitHub Actions 환경변수에서 먼저 시도
+    rest_api_key = os.getenv('KAKAO_REST_API_KEY') or os.getenv('REST_API_KEY')
+    refresh_token = os.getenv('KAKAO_REFRESH_TOKEN') or os.getenv('REFRESH_TOKEN')
+    
     if rest_api_key and refresh_token:
-        logger.info("✅ 환경변수에서 REST_API_KEY, REFRESH_TOKEN 로드 완료")
+        logger.info("✅ 환경변수에서 카카오 API 키 로드 완료")
+        logger.info(f"   • REST_API_KEY: {rest_api_key[:10]}...")
+        logger.info(f"   • REFRESH_TOKEN: {refresh_token[:10]}...")
         return rest_api_key, refresh_token
     
     config_file = 'config.txt'
