@@ -182,8 +182,7 @@ jobs:
         KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
       run: |
-        # Git 변경사항 강제 초기화 및 동기화
-        git reset --hard HEAD
+        # 데이터 생성 전, 원격 저장소와 동기화 (충돌 방지)
         git pull --rebase
 
         # 데이터 생성 스크립트 실행

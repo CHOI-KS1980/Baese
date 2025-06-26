@@ -417,6 +417,7 @@ class GriderDataCollector:
 
             peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
             for idx, item in enumerate(soup.select('.quantity_item')):
+                if idx >= len(peak_names): continue
                 name = peak_names[idx]
                 current = fast_parse('.performance_value', parent=item)
                 target = fast_parse('.number_value span:not(.performance_value)', parent=item)
@@ -562,7 +563,10 @@ class GriderAutoSender:
                 for i, r in enumerate(sorted_riders[:10]):
                     name = r.get('name', '이름없음')
                     contribution = r.get('contribution', 0.0)
-                    bar = '' * int(round(contribution/10)) + '' * (10 - int(round(contribution/10)))
+                    
+                    bar_length = 10
+                    filled_count = int(round(contribution / 100 * bar_length))
+                    bar = '' * filled_count + '' * (10 - filled_count)
                     progress = f"[{bar}] {contribution:.1f}%"
                     
                     peak_counts = " ".join([f"{peak_emojis.get(p, '')}{r.get(p, 0)}" for p in peak_emojis])
