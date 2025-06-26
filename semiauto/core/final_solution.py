@@ -846,44 +846,22 @@ class GriderDataCollector:
         """HTML을 파싱하여 핵심 데이터를 추출합니다."""
         soup = BeautifulSoup(html, 'html.parser')
         
-        # 최상위 데이터 구조 초기화
-        data = {
-            '총점': 0, '물량점수': 0, '수락률점수': 0,
-            '총완료': 0, '총거절': 0, '수락률': 100.0,
-            'riders': [],
-            'mission_date': self._get_mission_date()
-        }
+        # 이전의 안정적인 파서 호출
+        logger.info("🔄 이전 버전의 안정적인 파서(v_old)를 사용하여 데이터 추출을 시도합니다.")
+        parsed_data = self._parse_grider_html_old(soup)
 
-        # 점수 데이터 파싱
-        score_data = self._parse_score_data(soup)
-        data.update(score_data)
+        if parsed_data is None:
+            # 파싱 실패 시 에러 데이터 반환
+            logger.error("❌ 안정 파서(v_old)를 사용한 HTML 파싱에 실패했습니다.")
+            return self._get_error_data("HTML 파싱 실패 (old parser)")
 
-        # 미션 데이터 파싱
-        mission_data = self._parse_mission_data(soup)
-        data.update(mission_data)
-
-        # 라이더 데이터 파싱
-        rider_data = self._parse_riders_data(soup)
-        data['riders'] = rider_data
-        
-        # 총 완료 및 거절 건수 집계 (라이더 데이터 기반)
-        total_completes = sum(r.get('complete', 0) for r in rider_data)
-        total_rejects = sum(r.get('reject', 0) for r in rider_data)
-        
-        if (total_completes + total_rejects) > 0:
-            data['총완료'] = total_completes
-            data['총거절'] = total_rejects
-            data['수락률'] = (total_completes / (total_completes + total_rejects)) * 100
-        else:
-            # 라이더 데이터가 없을 경우, 점수판의 완료/거절 값을 사용
-            data['총완료'] = score_data.get('총완료', 0)
-            data['총거절'] = score_data.get('총거절', 0)
-            data['수락률'] = score_data.get('수락률', 100.0)
-
-        return data
+        # mission_date 추가
+        parsed_data['mission_date'] = self._get_mission_date()
+        logger.info(f"✅ 안정 파서(v_old) 사용 데이터 추출 성공. 총점: {parsed_data.get('총점', 0)}")
+        return parsed_data
 
     def _parse_score_data(self, soup: BeautifulSoup) -> dict:
-        """점수 관련 데이터를 파싱합니다."""
+        """(사용되지 않음) 점수 관련 데이터를 파싱합니다."""
         scores = {}
         
         def get_int(selector):
@@ -930,7 +908,7 @@ class GriderDataCollector:
         return missions
 
     def _parse_riders_data(self, soup: BeautifulSoup) -> list:
-        """라이더 순위 데이터를 파싱합니다."""
+        """(사용되지 않음) 라이더 순위 데이터를 파싱합니다."""
         riders = []
         rider_elements = soup.select('div.rider-board tbody tr')
         
