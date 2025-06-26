@@ -1,10 +1,13 @@
 # G라이더 자동화 시스템 설정 파일
 # 각 값을 실제 정보로 변경해주세요
 
-# G라이더 로그인 정보 (필수!)
-# GitHub Secrets에 설정된 경우 환경변수가 우선 사용됩니다
-GRIDER_ID=실제_G라이더_아이디를_여기에_입력하세요
-GRIDER_PASSWORD=실제_G라이더_비밀번호를_여기에_입력하세요
+# G라이더 로그인 정보 (실제 값으로 변경하세요)
+GRIDER_ID=실제_아이디_입력
+GRIDER_PASSWORD=실제_비밀번호_입력
+
+# 카카오 API 정보 (GitHub Actions에서는 환경변수 사용)
+REST_API_KEY=실제_REST_API_KEY_입력
+REFRESH_TOKEN=실제_REFRESH_TOKEN_입력
 
 [KAKAO]
 rest_api_key=3f2716744254c8c199bd05c59b84142b

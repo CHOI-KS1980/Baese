@@ -137,17 +137,10 @@ jobs:
         echo "✅ Chrome 설치 완료: $(google-chrome --version)"
         echo "✅ ChromeDriver 설치 완료: $(chromedriver --version)"
         
-    - name: ⚙️ 환경변수 설정 및 검증
+    - name: ⚙️ GitHub Secrets 검증
       run: |
-        # GitHub Actions 환경변수로 설정 (Python에서 os.getenv()로 읽기 가능)
-        echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> $GITHUB_ENV
-        echo "KAKAO_REFRESH_TOKEN=${{ secrets.KAKAO_REFRESH_TOKEN }}" >> $GITHUB_ENV
-        echo "GRIDER_ID=${{ secrets.GRIDER_ID }}" >> $GITHUB_ENV
-        echo "GRIDER_PASSWORD=${{ secrets.GRIDER_PASSWORD }}" >> $GITHUB_ENV
-        echo "KOREA_HOLIDAY_API_KEY=${{ secrets.KOREA_HOLIDAY_API_KEY || 'default_key' }}" >> $GITHUB_ENV
-        
-        # 환경변수 설정 검증
-        echo "🔍 환경변수 검증:"
+        # GitHub Secrets 존재 여부 검증
+        echo "🔍 GitHub Secrets 검증:"
         if [ -n "${{ secrets.KAKAO_REST_API_KEY }}" ]; then
           echo "✅ KAKAO_REST_API_KEY: $(echo '${{ secrets.KAKAO_REST_API_KEY }}' | cut -c1-10)..."
         else
@@ -158,15 +151,17 @@ jobs:
           echo "✅ GRIDER_ID: $(echo '${{ secrets.GRIDER_ID }}' | cut -c1-3)***"
         else
           echo "❌ GRIDER_ID가 비어있습니다!"
+          echo "🔧 GitHub 저장소 Settings → Secrets and variables → Actions에서 GRIDER_ID를 확인하세요"
         fi
         
         if [ -n "${{ secrets.GRIDER_PASSWORD }}" ]; then
           echo "✅ GRIDER_PASSWORD: ***"
         else
           echo "❌ GRIDER_PASSWORD가 비어있습니다!"
+          echo "🔧 GitHub 저장소 Settings → Secrets and variables → Actions에서 GRIDER_PASSWORD를 확인하세요"
         fi
         
-        echo "✅ 환경변수 설정 완료 (GitHub Secrets 사용)"
+        echo "✅ GitHub Secrets 검증 완료"
         
     - name: 🎯 고도화된 자동화 실행
       env:
@@ -179,11 +174,23 @@ jobs:
         cd semiauto
         echo "🚀 고도화된 시스템 시작..."
         
-        # 환경변수 재확인
+        # 환경변수 재확인 (실행 시점)
         echo "🔍 실행 시점 환경변수 확인:"
-        echo "KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:+설정됨}"
-        echo "GRIDER_ID: ${GRIDER_ID:+설정됨}"
-        echo "GRIDER_PASSWORD: ${GRIDER_PASSWORD:+설정됨}"
+        echo "KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:+설정됨} (길이: ${#KAKAO_REST_API_KEY})"
+        echo "GRIDER_ID: ${GRIDER_ID:+설정됨} (길이: ${#GRIDER_ID})"
+        echo "GRIDER_PASSWORD: ${GRIDER_PASSWORD:+설정됨} (길이: ${#GRIDER_PASSWORD})"
+        
+        # 디버깅: 직접 Secret 값 확인
+        echo "🔍 직접 Secret 확인:"
+        echo "Direct GRIDER_ID from secret: '${{ secrets.GRIDER_ID }}' (길이: $(echo '${{ secrets.GRIDER_ID }}' | wc -c))"
+        
+        # 환경변수가 비어있다면 강제로 설정
+        if [ -z "$GRIDER_ID" ] && [ -n "${{ secrets.GRIDER_ID }}" ]; then
+          echo "⚠️ 환경변수가 비어있어서 강제로 설정합니다"
+          export GRIDER_ID="${{ secrets.GRIDER_ID }}"
+          export GRIDER_PASSWORD="${{ secrets.GRIDER_PASSWORD }}"
+          echo "✅ 강제 설정 완료: GRIDER_ID=${GRIDER_ID:+설정됨}"
+        fi
         
         # 실행 모드에 따른 분기
         MODE="${{ github.event.inputs.mode }}"
