@@ -56,12 +56,18 @@ jobs:
       with:
         fetch-depth: 1
 
-    - name: 🐍 Python 환경 설정
+    - name: 🐍 Python 환경 설정 (캐싱 전략 개선)
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
-        cache-dependency-path: 'requirements.txt'
+
+    - name: 📦 의존성 캐시 로드 및 설치
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-
 
     - name: 📦 의존성 설치
       run: |
