@@ -1547,6 +1547,11 @@ class GriderDataCollector:
             logger.info("🔧 테스트 시간대 - 크롤링 테스트 허용")
             return True
         
+        # 추가 테스트 시간 (CloudFlare 우회 테스트용)
+        if current_hour == 18 and 50 <= current_minute <= 59:  # 오후 6:50~6:59 테스트 시간
+            logger.info("🔧 CloudFlare 우회 테스트 시간 - 크롤링 테스트 허용")
+            return True
+        
         return False
 
     def _parse_mission_table_data(self, html):
