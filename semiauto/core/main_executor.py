@@ -20,6 +20,11 @@ import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup  # BeautifulSoup import 추가
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 
+# Selenium 명시적 대기를 위한 모듈 추가
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+
 # selenium 등 동적으로 import 되는 모듈에 대한 Linter 경고 무시
 # pyright: reportMissingImports=false
 
@@ -317,10 +322,13 @@ class GriderDataCollector:
                 driver = webdriver.Chrome(options=options)
                 driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
                 driver.set_page_load_timeout(60)
-                driver.implicitly_wait(15)
                 
+                wait = WebDriverWait(driver, 20) # 명시적 대기 객체 생성
+
                 driver.get('https://jangboo.grider.ai/login')
-                time.sleep(5)
+                
+                # ID 필드가 나타날 때까지 최대 20초 대기
+                wait.until(EC.presence_of_element_located((By.ID, 'id')))
                 
                 USER_ID = os.getenv('GRIDER_ID')
                 USER_PW = os.getenv('GRIDER_PASSWORD')
@@ -330,8 +338,10 @@ class GriderDataCollector:
                 driver.find_element(By.ID, 'id').send_keys(USER_ID)
                 driver.find_element(By.ID, 'password').send_keys(USER_PW)
                 driver.find_element(By.ID, 'loginBtn').click()
-                time.sleep(3)
                 
+                # 로그인 성공 후 대시보드 URL로 변경될 때까지 대기
+                wait.until(EC.url_contains('/dashboard'))
+
                 target_date = self._get_mission_date()
                 html = self._navigate_to_date_data(driver, target_date)
                 
@@ -359,7 +369,12 @@ class GriderDataCollector:
         """URL 파라미터 방식으로 날짜별 데이터 조회"""
         url_with_date = f"https://jangboo.grider.ai/dashboard?date={target_date}"
         driver.get(url_with_date)
-        time.sleep(5)
+        
+        # 날짜 데이터 로딩 확인 (총점 요소가 나타날 때까지 대기)
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".score_total_value"))
+        )
+
         if self._verify_date_in_html(driver.page_source, target_date):
             return driver.page_source
         raise Exception("날짜 검증 실패")

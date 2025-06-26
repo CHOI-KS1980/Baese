@@ -55,7 +55,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        check-latest: false
         cache: 'pip'
         cache-dependency-path: 'requirements.txt'
 
@@ -65,37 +64,41 @@ jobs:
         pip install --prefer-binary -r requirements.txt --quiet
         pip install psutil --quiet
 
-    - name: 🚀 Chrome 최적화 설정
+    - name: 🚀 Chrome 및 ChromeDriver 설정 최적화
+      id: setup-chrome
       run: |
         # Chrome이 이미 설치되어 있는지 확인
-        if command -v google-chrome >/dev/null 2>&1; then
-          echo "✅ Chrome 이미 설치됨: $(google-chrome --version)"
-        else
+        if ! command -v google-chrome >/dev/null 2>&1; then
           echo "🔄 Chrome 설치 중..."
           sudo apt-get update -qq
           sudo apt-get install -y google-chrome-stable --quiet
         fi
-        
-        # ChromeDriver 동적으로 다운로드 (안정성 강화 v2)
-        CHROME_BUILD_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-        echo "🤔 Chrome 빌드 버전: $CHROME_BUILD_VERSION"
-        
-        # 해당 빌드 버전에 맞는 최신 드라이버 버전 찾기
-        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_BUILD_VERSION}")
-        
-        if [ -z "$CHROMEDRIVER_VERSION" ]; then
-          echo "❌ ${CHROME_BUILD_VERSION} 버전에 맞는 ChromeDriver를 찾을 수 없습니다. 알려진 최신 안정 버전으로 대체합니다."
-          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | jq -r '.channels.Stable.version')
+        CHROME_VERSION=$(google-chrome --version | cut -d' ' -f3 | cut -d'.' -f1-3)
+        echo "CHROME_VERSION=${CHROME_VERSION}" >> $GITHUB_ENV
+        echo "✅ Chrome 버전 ${CHROME_VERSION} 확인"
+
+    - name: 📥 ChromeDriver 캐시 복원 또는 다운로드
+      uses: actions/cache@v4
+      id: cache-chromedriver
+      with:
+        path: /usr/local/bin/chromedriver
+        key: chromedriver-${{ runner.os }}-${{ env.CHROME_VERSION }}
+
+    - name: 🚀 ChromeDriver 다운로드 (캐시 없는 경우)
+      if: steps.cache-chromedriver.outputs.cache-hit != 'true'
+      run: |
+        echo "📥 ChromeDriver 캐시 없음. 다운로드를 시작합니다."
+        LATEST_DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${{ env.CHROME_VERSION }}")
+        if [ -z "$LATEST_DRIVER_VERSION" ]; then
+          echo "❌ 버전에 맞는 드라이버를 찾을 수 없음. 안정 버전으로 대체."
+          LATEST_DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | jq -r '.channels.Stable.version')
         fi
-        
-        echo "📥 ChromeDriver 버전: $CHROMEDRIVER_VERSION"
-        
-        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
-        unzip -q chromedriver-linux64.zip
-        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+        echo "ℹ️ 다운로드할 ChromeDriver 버전: $LATEST_DRIVER_VERSION"
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${LATEST_DRIVER_VERSION}/linux64/chromedriver-linux64.zip" -P /tmp
+        unzip -q /tmp/chromedriver-linux64.zip -d /tmp
+        sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
-        
-        echo "✅ Chrome 설정 완료"
+        echo "✅ ChromeDriver 다운로드 및 설치 완료"
 
     - name: 🌟 차세대 시스템 실행
       env:
