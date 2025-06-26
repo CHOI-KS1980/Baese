@@ -213,8 +213,23 @@ jobs:
         
         if ! git diff --staged --quiet; then
           git commit -m "🚀 대시보드 배포: $(date '+%Y-%m-%d %H:%M:%S')"
-          git push
-          echo "✅ 대시보드 데이터 및 앱 푸시 완료"
+          
+          # 재시도를 포함한 강력한 푸시 로직
+          echo "🔄 푸시 시도..."
+          for i in 1 2 3
+          do
+            git pull --rebase && git push && break
+            echo "❗️ 푸시 실패, 5초 후 재시도... ($i/3)"
+            sleep 5
+          done
+          
+          # 최종 확인
+          if git diff --quiet origin/main; then
+            echo "✅ 대시보드 데이터 및 앱 푸시 완료"
+          else
+            echo "❌ 여러 번의 재시도 후에도 푸시에 실패했습니다."
+            exit 1
+          fi
         else
           echo "ℹ️ 대시보드 변경사항 없음"
         fi
