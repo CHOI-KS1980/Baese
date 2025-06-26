@@ -277,6 +277,9 @@ class GriderDataCollector:
             if data.get('error'):
                 logger.error(f" 데이터 파싱 실패: {data.get('error_reason', '알 수 없는 오류')}")
                 return data
+
+            # 날씨 정보 추가
+            data['weather_info'] = self._get_weather_info_detailed()
             
             logger.info(" G라이더 데이터 수집 완료")
             return data
@@ -477,13 +480,22 @@ class GriderDataCollector:
             
             for item in rider_items:
                 rider_data = {}
-                cols = item.select('.rider_contents')
                 
-                # 이름과 아이디 먼저 추출
-                rider_data['name'] = item.select_one('.rider_name').get_text(strip=True).replace('이름', '')
-                rider_data['id'] = item.select_one('.user_id').get_text(strip=True).replace('아이디', '')
-                
+                # 이름과 아이디 먼저 추출 (이름 파싱 강화)
+                name_node = item.select_one('.rider_name')
+                if name_node:
+                    # '수락률' 같은 불필요한 자식 태그가 있다면 먼저 제거
+                    for child_tag in name_node.find_all(['span', 'div']):
+                        child_tag.decompose()
+                    rider_data['name'] = name_node.get_text(strip=True).replace('이름', '')
+                else:
+                    rider_data['name'] = '이름없음'
+
+                id_node = item.select_one('.user_id')
+                rider_data['id'] = id_node.get_text(strip=True).replace('아이디', '') if id_node else ''
+
                 # 나머지 데이터는 헤더 순서에 맞춰 파싱
+                cols = item.select('.rider_contents')
                 col_data = {header: node.get_text(strip=True) for header, node in zip(headers, cols)}
                 
                 rider_data['수락률'] = get_number(item.select_one('.acceptance_rate_box').get_text(), to_float=True)
@@ -522,7 +534,13 @@ class GriderDataCollector:
             am_temps, pm_temps = [], []
             am_icons, pm_icons = [], []
 
-            weather_icon_map = {"Sunny": "", "Clear": "", "Partly cloudy": "", "Cloudy": "", "Overcast": "", "Mist": "", "Fog": "", "Patchy rain possible": "", "Light rain": "", "Rain": "", "Thundery outbreaks possible": "", "Thunderstorm": "", "Snow": "", "Blizzard": ""}
+            weather_icon_map = {
+                "Sunny": "☀️", "Clear": "☀️", "Partly cloudy": "⛅️", "Cloudy": "☁️", 
+                "Overcast": "☁️", "Mist": "🌫️", "Fog": "🌫️", 
+                "Patchy rain possible": "🌦️", "Light rain": "🌦️", "Rain": "🌧️", 
+                "Thundery outbreaks possible": "⛈️", "Thunderstorm": "⛈️", 
+                "Snow": "❄️", "Blizzard": "🌨️"
+            }
             def get_icon(desc):
                 return next((icon for key, icon in weather_icon_map.items() if key in desc), "")
 
@@ -540,9 +558,9 @@ class GriderDataCollector:
             am_line = f" 오전: {am_icon} {min(am_temps)}~{max(am_temps)}C" if am_temps else ""
             pm_line = f" 오후: {pm_icon} {min(pm_temps)}~{max(pm_temps)}C" if pm_temps else ""
             
-            return f" 오늘의 날씨 (기상청)\n{am_line}\n{pm_line}".strip()
+            return f"🌍 오늘의 날씨 (기상청)\n{am_line}\n{pm_line}".strip()
         except Exception:
-            return " 오늘의 날씨 (기상청)\n날씨 정보 조회 불가"
+            return "🌍 오늘의 날씨 (기상청)\n날씨 정보 조회 불가"
 
 class GriderAutoSender:
     """G-Rider 자동화 메인 클래스"""
