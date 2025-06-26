@@ -78,8 +78,23 @@ jobs:
         fi
         google-chrome --version
 
-    - name: 🚀 ChromeDriver 설정
-      uses: nanasess/setup-chromedriver@v2
+    - name: 🚀 ChromeDriver 직접 설치 및 설정
+      run: |
+        CHROME_VERSION=$(google-chrome --version | cut -f 3 -d ' ' | cut -d '.' -f 1-3)
+        echo "Chrome version: $CHROME_VERSION"
+        
+        # Chrome 버전에 맞는 최신 ChromeDriver 버전 확인
+        DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" | jq -r ".versions[] | select(.version | startswith(\\"$CHROME_VERSION\\")) | .downloads.chromedriver[0].url" | head -n 1)
+        echo "ChromeDriver download URL: $DRIVER_VERSION"
+        
+        # ChromeDriver 다운로드 및 압축 해제
+        curl -s -L "$DRIVER_VERSION" -o chromedriver.zip
+        unzip -q chromedriver.zip
+        
+        # 실행 경로에 추가
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        chromedriver --version
 
     - name: 🌟 차세대 시스템 실행
       env:
