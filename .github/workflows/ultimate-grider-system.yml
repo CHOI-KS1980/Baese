@@ -78,17 +78,19 @@ jobs:
         fi
         google-chrome --version
 
-    - name: 🚀 ChromeDriver 직접 설치 및 설정 (안정화 버전)
+    - name: 🚀 ChromeDriver 설치 (버전 자동 매칭 최종판)
       run: |
-        # 가장 안정적인 최신 ChromeDriver 다운로드 URL 확보
-        DRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url')
-        echo "ChromeDriver (Stable) download URL: $DRIVER_URL"
-        
-        # ChromeDriver 다운로드 및 압축 해제
-        curl -s -L "$DRIVER_URL" -o chromedriver.zip
+        # 1. 설치된 Chrome의 Major 버전을 정확히 가져옵니다 (e.g., 137)
+        CHROME_MAJOR_VERSION=$(google-chrome --product-version | cut -d. -f1)
+        echo "Installed Chrome Major Version: $CHROME_MAJOR_VERSION"
+
+        # 2. 해당 Major 버전에 맞는 최신 ChromeDriver 다운로드 URL을 찾습니다.
+        DRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json | jq -r --arg ver "$CHROME_MAJOR_VERSION" '[.versions[] | select(.version | startswith($ver))] | last | .downloads.chromedriver[] | select(.platform=="linux64") | .url')
+        echo "Found ChromeDriver URL for $CHROME_MAJOR_VERSION: $DRIVER_URL"
+
+        # 3. ChromeDriver를 다운로드하고 설치합니다.
+        curl -sL "$DRIVER_URL" -o chromedriver.zip
         unzip -q chromedriver.zip
-        
-        # 실행 경로에 추가 (chromedriver-linux64 디렉토리 확인)
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
         chromedriver --version
