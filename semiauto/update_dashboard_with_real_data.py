@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class RealtimeGriderDashboardGenerator:
     """실시간 G-Rider 데이터를 기반으로 대시보드 JSON을 생성하는 클래스"""
 
-    def __init__(self, output_path='dashboard/api/latest-data.json'):
+    def __init__(self, output_path='docs/api/latest-data.json'):
         self.output_path = output_path
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
         logger.info(f"🚚 실제 G라이더 대시보드 생성기 초기화 완료. 결과는 '{self.output_path}'에 저장됩니다.")
