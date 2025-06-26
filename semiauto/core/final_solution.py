@@ -497,7 +497,6 @@ class GriderDataCollector:
                     
                     # 대안 URL들 시도
                     alternative_urls = [
-                        'https://www.grider.ai/',
                         'https://jangboo.grider.ai/login',
                         'https://jangboo.grider.ai/dashboard'
                     ]
