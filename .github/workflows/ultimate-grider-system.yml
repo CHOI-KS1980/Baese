@@ -128,18 +128,18 @@ jobs:
         echo "🔍 크롤링 결과 상세 분석"
         echo "================================"
         
-        # 디버그 파일 확인
-        if [ -f "debug_grider_page.html" ]; then
+        # 디버그 파일 확인 (경로 수정)
+        if [ -f "../debug_grider_page.html" ]; then
           echo "✅ 성공한 크롤링 페이지 발견"
-          echo "📄 파일 크기: $(ls -lh debug_grider_page.html | awk '{print $5}')"
+          echo "📄 파일 크기: $(ls -lh ../debug_grider_page.html | awk '{print $5}')"
           echo "📊 HTML 내용 미리보기:"
-          head -n 20 debug_grider_page.html | grep -E "(title|login|error|alert)" || echo "   특별한 내용 없음"
+          head -n 20 ../debug_grider_page.html | grep -E "(title|login|error|alert)" || echo "   특별한 내용 없음"
         else
           echo "❌ 성공한 크롤링 페이지 없음"
         fi
         
-        # 실패한 크롤링 파일들 확인
-        for file in debug_failed_page_*.html; do
+        # 실패한 크롤링 파일들 확인 (경로 수정)
+        for file in ../debug_failed_page_*.html; do
           if [ -f "$file" ]; then
             echo "⚠️ 실패한 크롤링 페이지: $file"
             echo "📄 파일 크기: $(ls -lh "$file" | awk '{print $5}')"
@@ -160,21 +160,27 @@ jobs:
           fi
         done
         
-        # 로그 파일 상세 분석
-        if [ -f "grider_automation.log" ]; then
+        # 로그 파일 상세 분석 (경로 수정)
+        if [ -f "../grider_automation.log" ]; then
           echo "📄 크롤링 관련 로그 분석:"
           echo "🔍 마지막 크롤링 시도:"
-          grep -A 5 -B 5 "크롤링" grider_automation.log | tail -n 20
+          grep -A 5 -B 5 "크롤링" ../grider_automation.log | tail -n 20
           
           echo "🔍 에러 메시지:"
-          grep -i "error\|실패\|오류" grider_automation.log | tail -n 10
+          grep -i "error\|실패\|오류" ../grider_automation.log | tail -n 10
           
           echo "🔍 로그인 관련:"
-          grep -i "login\|로그인" grider_automation.log | tail -n 5
+          grep -i "login\|로그인" ../grider_automation.log | tail -n 5
         fi
 
     - name: 🌐 대시보드 데이터 업데이트
       if: success()
+      env:
+        GRIDER_ID: ${{ secrets.GRIDER_ID }}
+        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
+        KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+        KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+        KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
       run: |
         cd semiauto
         echo "🌐 대시보드 데이터 업데이트 시작"
@@ -235,13 +241,13 @@ jobs:
           tail -n 10 ultimate_grider.log
         fi
         
-        # 메시지 히스토리 확인
-        if [ -f "message_history.json" ]; then
+        # 메시지 히스토리 확인 (경로 수정)
+        if [ -f "../message_history.json" ]; then
           echo "📨 메시지 히스토리 상태:"
           python -c "
         import json
         try:
-            with open('message_history.json', 'r') as f:
+            with open('../message_history.json', 'r') as f:
                 data = json.load(f)
                 total_sent = len(data.get('sent_messages', {}))
                 total_failed = len(data.get('failed_messages', {}))
