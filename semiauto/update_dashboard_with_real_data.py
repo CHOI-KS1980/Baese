@@ -15,7 +15,7 @@ from datetime import datetime, time, timedelta
 # 현재 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from core.final_solution import GriderDataCollector, load_config, KoreaHolidayChecker
+from core.main_executor import GriderDataCollector, load_config, KoreaHolidayChecker
 from core.dashboard_data_generator import RealGriderDashboard
 
 # 로깅 설정
