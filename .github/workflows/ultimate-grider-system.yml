@@ -248,11 +248,8 @@ jobs:
                 total_failed = len(data.get('failed_messages', {}))
                 print(f'✅ 전송 성공: {total_sent}개')
                 print(f'❌ 전송 실패: {total_failed}개')
-                if total_sent > 0:
-                    latest = max(data['sent_messages'].items(), key=lambda x: x[0])
-                    print(f'📅 마지막 전송: {latest[0]}')
-        except Exception as e:
-            print(f'❌ 히스토리 분석 실패: {e}')
+        except:
+            print('   히스토리 파일 분석 실패')
         "
         fi
         
@@ -292,6 +289,17 @@ jobs:
             print(f'❌ 대시보드 데이터 분석 실패: {e}')
         "
         fi
+
+    - name: 📤 실패 시 아티팩트 업로드
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: grider-debug-artifacts
+        path: |
+          debug_failed_page_*.html
+          debug_date_nav_failed.html
+          debug_failed_screenshot_*.png
+          grider_automation.log
 
     - name: 📁 아티팩트 업로드
       if: always()
