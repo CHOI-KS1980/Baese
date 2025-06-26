@@ -591,56 +591,49 @@ class GriderAutoSender:
             day_type = "휴일" if korea_time.weekday() >= 5 or is_holiday else "평일"
 
             greeting = self._get_time_based_greeting(korea_time.hour, korea_time.minute)
-            header = f"{greeting}\n\n 심플 배민 플러스 미션 알리미 ({day_type})"
+            header = f"{greeting}\n\n📊 심플 배민 플러스 미션 알리미 ({day_type})"
 
-            mission_parts = ["\n 금일 미션 현황"]
+            mission_parts = ["\n📈 금일 미션 현황"]
             missions_behind_summary = []
-            peak_emojis = {'아침점심피크': '', '오후논피크': '', '저녁피크': '', '심야논피크': ''}
+            peak_emojis = {'아침점심피크': '☀️', '오후논피크': '☕', '저녁피크': '🌙', '심야논피크': '🌃'}
             for key, emoji in peak_emojis.items():
                 mission = data.get(key, {})
                 current, target = mission.get('current', 0), mission.get('target', 0)
                 if target > 0:
                     remaining = target - current
-                    status = f" ({remaining}건 남음)" if '논피크' in key and remaining > 0 else f" ({remaining}건 부족)" if remaining > 0 else ''
-                    if remaining > 0: missions_behind_summary.append(f"{key.replace('피크','').replace('논','')} {remaining}건")
-                    mission_parts.append(f"{emoji} {key}: {current}/{target} {status}")
+                    status = f" ({remaining}건 남음)" if '논피크' in key and remaining > 0 else f" ({remaining}건 부족)" if remaining > 0 else ' ✅'
+                    if remaining > 0 and '논피크' not in key: missions_behind_summary.append(f"{key.replace('피크','')} {remaining}건")
+                    mission_parts.append(f"{emoji} {key}: {current}/{target}{status}")
 
             weather_info = self.data_collector._get_weather_info_detailed()
 
             all_riders = data.get('riders', [])
-            total_daily_complete = sum(r.get('complete', 0) for r in all_riders)
-            total_daily_reject_cancel = sum(r.get('reject', 0) + r.get('cancel', 0) for r in all_riders)
-            total_attempts = total_daily_complete + total_daily_reject_cancel
-            daily_acceptance_rate = (total_daily_complete / total_attempts * 100) if total_attempts > 0 else 0.0
+            total_daily_complete = sum(r.get('완료', 0) for r in all_riders)
+            total_daily_reject = sum(r.get('거절', 0) for r in all_riders)
             
-            daily_perf_parts = ["\n 금일 수행 내역", f"수락률: {daily_acceptance_rate:.1f}% | 완료: {total_daily_complete} | 거절: {total_daily_reject_cancel}"]
+            daily_perf_parts = [
+                "\n🛵 금일 수행 내역",
+                f"수락률: {data.get('수락률', 0.0):.1f}% | 완료: {data.get('총완료', 0)} | 거절: {total_daily_reject}"
+            ]
             
-            weekly_score_parts = ["\n 금주 미션 수행 예상점수", f"총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})"]
+            weekly_score_parts = ["\n🏆 금주 미션 수행 예상점수", f"총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})"]
 
-            riders = [r for r in all_riders if r.get('complete', 0) > 0]
-            rider_parts = [f"\n 라이더 순위 (운행 : {len(riders)}명)"]
-            if riders:
-                sorted_riders = sorted(riders, key=lambda x: x.get('contribution', 0.0), reverse=True)
-                medals = ['', '', '']
-                for i, r in enumerate(sorted_riders[:10]):
+            active_riders = [r for r in all_riders if r.get('완료', 0) > 0]
+            rider_parts = [f"\n🏍️ 라이더 순위 (운행 : {len(active_riders)}명)"]
+            if active_riders:
+                sorted_riders = sorted(active_riders, key=lambda x: x.get('완료', 0), reverse=True)
+                medals = ['🥇', '🥈', '🥉']
+                for i, r in enumerate(sorted_riders[:5]):
                     name = r.get('name', '이름없음')
-                    contribution = r.get('contribution', 0.0)
+                    completed_count = r.get('완료', 0)
+                    acceptance_rate = r.get('수락률', 0.0)
+                    rejects = r.get('거절', 0)
                     
-                    bar_length = 10
-                    filled_count = int(round(contribution / 100 * bar_length))
-                    bar = '' * filled_count + '' * (10 - filled_count)
-                    progress = f"[{bar}] {contribution:.1f}%"
-                    
-                    peak_counts = " ".join([f"{peak_emojis.get(p, '')}{r.get(p, 0)}" for p in peak_emojis])
-                    
-                    prefix = f"{medals[i]} {name}" if i < 3 else f"{i+1}. {name}"
-                    line1 = f"**{prefix}** | {progress}"
-                    line2 = f"    총 {r.get('complete', 0)}건 ({peak_counts})"
-                    line3 = f"    수락률: {r.get('acceptance_rate', 0.0):.1f}% (거절:{r.get('reject', 0)}, 취소:{r.get('cancel', 0)})"
-                    rider_parts.extend(["", line1, line2, line3])
+                    prefix = f"{medals[i]} " if i < 3 else f"{i+1}. "
+                    rider_parts.append(f"{prefix}{name}: {completed_count}건 (수락률 {acceptance_rate:.1f}%)")
 
-            warning_part = [f"\n 미션 부족: {', '.join(missions_behind_summary)}"] if missions_behind_summary else []
-            footer = "\n\n 자동화 시스템에 의해 전송됨"
+            warning_part = [f"\n⚠️ 미션 부족: {', '.join(missions_behind_summary)}"] if missions_behind_summary else []
+            footer = "\n\n- 자동화 시스템에 의해 전송됨 -"
             
             message_parts = [header] + mission_parts + [f"\n{weather_info}"] + daily_perf_parts + weekly_score_parts + rider_parts + warning_part + [footer]
             return "\n".join(filter(None, message_parts))
