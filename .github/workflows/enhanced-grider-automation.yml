@@ -137,7 +137,7 @@ jobs:
         echo "✅ Chrome 설치 완료: $(google-chrome --version)"
         echo "✅ ChromeDriver 설치 완료: $(chromedriver --version)"
         
-    - name: ⚙️ 환경변수 설정
+    - name: ⚙️ 환경변수 설정 및 검증
       run: |
         # GitHub Actions 환경변수로 설정 (Python에서 os.getenv()로 읽기 가능)
         echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> $GITHUB_ENV
@@ -145,19 +145,45 @@ jobs:
         echo "GRIDER_ID=${{ secrets.GRIDER_ID }}" >> $GITHUB_ENV
         echo "GRIDER_PASSWORD=${{ secrets.GRIDER_PASSWORD }}" >> $GITHUB_ENV
         echo "KOREA_HOLIDAY_API_KEY=${{ secrets.KOREA_HOLIDAY_API_KEY || 'default_key' }}" >> $GITHUB_ENV
+        
+        # 환경변수 설정 검증
+        echo "🔍 환경변수 검증:"
+        if [ -n "${{ secrets.KAKAO_REST_API_KEY }}" ]; then
+          echo "✅ KAKAO_REST_API_KEY: $(echo '${{ secrets.KAKAO_REST_API_KEY }}' | cut -c1-10)..."
+        else
+          echo "❌ KAKAO_REST_API_KEY가 비어있습니다!"
+        fi
+        
+        if [ -n "${{ secrets.GRIDER_ID }}" ]; then
+          echo "✅ GRIDER_ID: $(echo '${{ secrets.GRIDER_ID }}' | cut -c1-3)***"
+        else
+          echo "❌ GRIDER_ID가 비어있습니다!"
+        fi
+        
+        if [ -n "${{ secrets.GRIDER_PASSWORD }}" ]; then
+          echo "✅ GRIDER_PASSWORD: ***"
+        else
+          echo "❌ GRIDER_PASSWORD가 비어있습니다!"
+        fi
+        
         echo "✅ 환경변수 설정 완료 (GitHub Secrets 사용)"
         
-        # 백업용 config.txt 파일도 생성 (로컬 테스트용)
-        cd semiauto
-        echo "# 이 파일은 로컬 테스트용입니다. GitHub Actions에서는 환경변수를 사용합니다." > config.txt
-        echo "GRIDER_ID=로컬_테스트시_실제_아이디_입력" >> config.txt
-        echo "GRIDER_PASSWORD=로컬_테스트시_실제_비밀번호_입력" >> config.txt
-        echo "✅ 백업 설정 파일 생성 완료"
-        
     - name: 🎯 고도화된 자동화 실행
+      env:
+        KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+        KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+        GRIDER_ID: ${{ secrets.GRIDER_ID }}
+        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
+        KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
       run: |
         cd semiauto
         echo "🚀 고도화된 시스템 시작..."
+        
+        # 환경변수 재확인
+        echo "🔍 실행 시점 환경변수 확인:"
+        echo "KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:+설정됨}"
+        echo "GRIDER_ID: ${GRIDER_ID:+설정됨}"
+        echo "GRIDER_PASSWORD: ${GRIDER_PASSWORD:+설정됨}"
         
         # 실행 모드에 따른 분기
         MODE="${{ github.event.inputs.mode }}"
