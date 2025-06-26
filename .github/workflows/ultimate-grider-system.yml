@@ -178,8 +178,8 @@ jobs:
         if ! git diff --staged --quiet; then
           git commit -m "📊 대시보드 실시간 데이터 업데이트 (${{ github.run_number }})"
           
-          # 푸시 전 pull 실행 (충돌 시 로컬 변경사항 우선)
-          git pull origin main -X ours
+          # 푸시 전 pull 실행 (rebase 전략 사용)
+          git pull --rebase origin main
           git push
         else
           echo "✅ 변경된 데이터가 없어 커밋하지 않습니다."
