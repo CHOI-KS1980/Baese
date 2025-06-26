@@ -1,9 +1,10 @@
 # G라이더 자동화 시스템 설정 파일
 # 각 값을 실제 정보로 변경해주세요
 
-[GRIDER]
-username=test_user
-password=test_password
+# G라이더 로그인 정보 (필수!)
+# GitHub Secrets에 설정된 경우 환경변수가 우선 사용됩니다
+GRIDER_ID=실제_G라이더_아이디를_여기에_입력하세요
+GRIDER_PASSWORD=실제_G라이더_비밀번호를_여기에_입력하세요
 
 [KAKAO]
 rest_api_key=3f2716744254c8c199bd05c59b84142b

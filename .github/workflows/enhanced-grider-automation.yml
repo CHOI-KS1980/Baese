@@ -137,18 +137,22 @@ jobs:
         echo "✅ Chrome 설치 완료: $(google-chrome --version)"
         echo "✅ ChromeDriver 설치 완료: $(chromedriver --version)"
         
-    - name: ⚙️ 설정 파일 및 환경변수 생성
+    - name: ⚙️ 환경변수 설정
       run: |
-        cd semiauto
-        echo "REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" > config.txt
-        echo "REFRESH_TOKEN=${{ secrets.KAKAO_REFRESH_TOKEN }}" >> config.txt
-        echo "GRIDER_ID=${{ secrets.GRIDER_ID }}" >> config.txt
-        echo "GRIDER_PASSWORD=${{ secrets.GRIDER_PASSWORD }}" >> config.txt
-        echo "✅ 설정 파일 생성 완료"
-        
-        # 환경변수 설정 (한국 공휴일 API 키)
+        # GitHub Actions 환경변수로 설정 (Python에서 os.getenv()로 읽기 가능)
+        echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> $GITHUB_ENV
+        echo "KAKAO_REFRESH_TOKEN=${{ secrets.KAKAO_REFRESH_TOKEN }}" >> $GITHUB_ENV
+        echo "GRIDER_ID=${{ secrets.GRIDER_ID }}" >> $GITHUB_ENV
+        echo "GRIDER_PASSWORD=${{ secrets.GRIDER_PASSWORD }}" >> $GITHUB_ENV
         echo "KOREA_HOLIDAY_API_KEY=${{ secrets.KOREA_HOLIDAY_API_KEY || 'default_key' }}" >> $GITHUB_ENV
-        echo "✅ 환경변수 설정 완료"
+        echo "✅ 환경변수 설정 완료 (GitHub Secrets 사용)"
+        
+        # 백업용 config.txt 파일도 생성 (로컬 테스트용)
+        cd semiauto
+        echo "# 이 파일은 로컬 테스트용입니다. GitHub Actions에서는 환경변수를 사용합니다." > config.txt
+        echo "GRIDER_ID=로컬_테스트시_실제_아이디_입력" >> config.txt
+        echo "GRIDER_PASSWORD=로컬_테스트시_실제_비밀번호_입력" >> config.txt
+        echo "✅ 백업 설정 파일 생성 완료"
         
     - name: 🎯 고도화된 자동화 실행
       run: |
