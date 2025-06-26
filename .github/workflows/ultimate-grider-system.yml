@@ -189,57 +189,11 @@ jobs:
         git reset --hard HEAD
         git pull --rebase
 
-        # 데이터 생성 스크립트 실행
-        cd semiauto
-        python update_dashboard_with_real_data.py || echo "⚠️ 대시보드 업데이트 스크립트 실행 실패"
-        cd ..
-
-        # /docs 폴더 준비 (없으면 생성, 있으면 내용 비우기)
-        if [ -d "docs" ]; then
-          rm -rf docs/*
-        else
-          mkdir docs
-        fi
-
-        # 대시보드 관련 파일들을 /docs로 복사
-        cp -r semiauto/dashboard/* docs/
+        # ✨ 최종 정리: 아래의 불필요한 스크립트 실행 및 파일 복사 로직을 삭제합니다.
         
         # Git 설정
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        
-        # .gitignore에 의해 추적되어서는 안 되는 파일들의 Git 캐시를 강제로 제거
-        git rm -r --cached .
-        git add .
-        
-        # /docs 폴더의 모든 변경사항 추가
-        git add docs/
-        
-        # 변경사항이 있을 경우에만 커밋 및 푸시
-        if ! git diff --staged --quiet; then
-          git commit -m "🚀 대시보드 배포: $(date '+%Y-%m-%d %H:%M:%S')"
-          
-          # 재시도를 포함한 강력한 푸시 로직
-          echo "🔄 푸시 시도..."
-          for i in 1 2 3
-          do
-            # ✨수정✨: 충돌 발생 시, 우리(로컬)의 변경사항을 버리고 서버의 버전으로 강제 업데이트
-            git reset --hard HEAD
-            git pull --rebase -X theirs && git push && break
-            echo "❗️ 푸시 실패, 5초 후 재시도... ($i/3)"
-            sleep 5
-          done
-          
-          # 최종 확인
-          if git diff --quiet origin/main; then
-            echo "✅ 대시보드 데이터 및 앱 푸시 완료"
-          else
-            echo "❌ 여러 번의 재시도 후에도 푸시에 실패했습니다."
-            exit 1
-          fi
-        else
-          echo "ℹ️ 대시보드 변경사항 없음"
-        fi
 
     - name: 📊 실행 결과 분석
       if: always()
