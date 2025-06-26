@@ -208,6 +208,10 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
+        # .gitignore에 의해 추적되어서는 안 되는 파일들의 Git 캐시를 강제로 제거
+        git rm -r --cached .
+        git add .
+        
         # /docs 폴더의 모든 변경사항 추가
         git add docs/
         
