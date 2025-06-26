@@ -183,6 +183,23 @@ jobs:
         # 디버깅: 직접 Secret 값 확인
         echo "🔍 직접 Secret 확인:"
         echo "Direct GRIDER_ID from secret: '${{ secrets.GRIDER_ID }}' (길이: $(echo '${{ secrets.GRIDER_ID }}' | wc -c))"
+        echo "Direct GRIDER_PASSWORD from secret: '$(echo '${{ secrets.GRIDER_PASSWORD }}' | cut -c1-3)***' (길이: $(echo '${{ secrets.GRIDER_PASSWORD }}' | wc -c))"
+        
+        # GitHub Secrets가 비어있다면 오류 메시지
+        if [ -z "${{ secrets.GRIDER_ID }}" ]; then
+          echo "❌ GitHub Secret GRIDER_ID가 완전히 비어있습니다!"
+          echo "🔧 해결방법:"
+          echo "   1. GitHub 저장소 → Settings → Secrets and variables → Actions"
+          echo "   2. Repository secrets 섹션에서 GRIDER_ID 확인/재생성"
+          echo "   3. 대소문자 정확히: GRIDER_ID (언더스코어 사용)"
+        fi
+        
+        if [ -z "${{ secrets.GRIDER_PASSWORD }}" ]; then
+          echo "❌ GitHub Secret GRIDER_PASSWORD가 완전히 비어있습니다!"
+          echo "🔧 해결방법:"
+          echo "   1. GitHub 저장소 → Settings → Secrets and variables → Actions"  
+          echo "   2. Repository secrets 섹션에서 GRIDER_PASSWORD 확인/재생성"
+        fi
         
         # 환경변수가 비어있다면 강제로 설정
         if [ -z "$GRIDER_ID" ] && [ -n "${{ secrets.GRIDER_ID }}" ]; then
@@ -191,6 +208,11 @@ jobs:
           export GRIDER_PASSWORD="${{ secrets.GRIDER_PASSWORD }}"
           echo "✅ 강제 설정 완료: GRIDER_ID=${GRIDER_ID:+설정됨}"
         fi
+        
+        # 최종 환경변수 상태 확인
+        echo "🏁 최종 환경변수 상태:"
+        echo "GRIDER_ID 최종값: ${GRIDER_ID:+설정됨} (실제길이: ${#GRIDER_ID})"
+        echo "GRIDER_PASSWORD 최종값: ${GRIDER_PASSWORD:+설정됨} (실제길이: ${#GRIDER_PASSWORD})"
         
         # 실행 모드에 따른 분기
         MODE="${{ github.event.inputs.mode }}"
