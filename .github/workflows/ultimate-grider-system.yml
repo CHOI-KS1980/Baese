@@ -173,7 +173,7 @@ jobs:
           grep -i "login\|로그인" ../grider_automation.log | tail -n 5
         fi
 
-    - name: 🌐 대시보드 데이터 업데이트
+    - name: 대시보드 데이터 업데이트 및 배포
       if: success()
       env:
         GRIDER_ID: ${{ secrets.GRIDER_ID }}
@@ -184,51 +184,36 @@ jobs:
       run: |
         # Git 변경사항 강제 초기화 및 동기화
         git reset --hard HEAD
+        git pull --rebase
+
+        # 데이터 생성 스크립트 실행
+        cd semiauto
+        python update_dashboard_with_real_data.py || echo "⚠️ 대시보드 업데이트 스크립트 실행 실패"
+        cd ..
+
+        # /docs 폴더 준비 (없으면 생성, 있으면 내용 비우기)
+        if [ -d "docs" ]; then
+          rm -rf docs/*
+        else
+          mkdir docs
+        fi
+
+        # 대시보드 관련 파일들을 /docs로 복사
+        cp -r semiauto/dashboard/* docs/
         
-        # Git 설정 및 동기화 (모든 작업 시작 전)
+        # Git 설정
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git pull --rebase
         
-        cd semiauto
-        echo "�� 대시보드 데이터 업데이트 시작"
+        # /docs 폴더의 모든 변경사항 추가
+        git add docs/
         
-        # 실제 G라이더 데이터로 대시보드 강제 업데이트
-        echo "🔄 실제 G라이더 데이터로 대시보드 업데이트 중..."
-        python update_dashboard_with_real_data.py || echo "⚠️ 대시보드 업데이트 스크립트 실행 실패"
-        
-        # 대시보드 API 데이터가 생성되었는지 확인
-        if [ -f "dashboard/api/latest-data.json" ]; then
-          echo "✅ 대시보드 데이터 발견됨. 데이터 유효성 검증 시작..."
-          python verify_dashboard_data.py
-          
-          # Git 작업은 cd 바깥에서 수행
-          cd ..
-          
-          # 대시보드 데이터 커밋
-          git add semiauto/dashboard/api/
-          
-          if ! git diff --staged --quiet; then
-            git commit -m "✅ 실시간 대시보드 데이터 업데이트
-
-            📊 자동 업데이트: $(date '+%Y-%m-%d %H:%M:%S %Z')
-            🎯 실행 모드: ${{ env.MODE }}
-            ⚡ 우선순위: ${{ env.PRIORITY }}
-            
-            - 실시간 성과 데이터 갱신
-            - 실제 G라이더 크롤링 데이터 반영
-            - 차트 데이터 업데이트
-            - 메시지 설정 동기화"
-            
-            git push
-            echo "✅ 대시보드 데이터 푸시 완료"
-          else
-            echo "ℹ️ 대시보드 데이터 변경사항 없음"
-          fi
+        if ! git diff --staged --quiet; then
+          git commit -m "🚀 대시보드 배포: $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
+          echo "✅ 대시보드 데이터 및 앱 푸시 완료"
         else
-          echo "⚠️ 대시보드 데이터 파일이 생성되지 않았습니다"
-          echo "🔄 수동으로 대시보드 업데이트 재시도..."
-          python update_dashboard_with_real_data.py || echo "❌ 수동 업데이트도 실패"
+          echo "ℹ️ 대시보드 변경사항 없음"
         fi
 
     - name: 📊 실행 결과 분석

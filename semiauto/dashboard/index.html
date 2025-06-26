@@ -250,6 +250,7 @@
 
         .rider-item:hover {
             background: #f8f9fa;
+            cursor: pointer;
         }
 
         .rider-item:last-child {
@@ -322,6 +323,70 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+            animation: slide-down 0.4s ease-out;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+        }
+
+        @keyframes slide-down {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -409,6 +474,19 @@
         <button class="refresh-btn" onclick="refreshData()">
             <i class="fas fa-sync-alt"></i>
         </button>
+    </div>
+
+    <!-- 라이더 상세 정보 모달 -->
+    <div id="rider-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-rider-name">라이더 상세 정보</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div id="modal-rider-details">
+                <!-- 상세 정보가 여기에 동적으로 추가됩니다 -->
+            </div>
+        </div>
     </div>
 
     <script>
@@ -515,38 +593,76 @@
         // 라이더 현황 업데이트
         function updateRidersSection(data) {
             const ridersList = document.getElementById('riders-list');
-            const riders = data.riders || [];
-
             ridersList.innerHTML = '';
-
+            
+            const riders = data.riders || [];
             if (riders.length === 0) {
-                ridersList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">활동 중인 라이더가 없습니다.</div>';
+                ridersList.innerHTML = '<p style="text-align:center; color:#7f8c8d;">운행 중인 라이더가 없습니다.</p>';
                 return;
             }
 
-            // 완료 건수로 정렬
-            riders.sort((a, b) => (b.complete || 0) - (a.complete || 0));
+            // 완료 건수 순으로 정렬
+            const sortedRiders = [...riders].sort((a, b) => (b.complete || 0) - (a.complete || 0));
 
-            riders.forEach((rider, index) => {
-                const riderItem = document.createElement('div');
-                riderItem.className = 'rider-item';
+            sortedRiders.forEach((rider, index) => {
+                const item = document.createElement('div');
+                item.className = 'rider-item';
                 
-                const badge = index < 3 ? '🏆' : (rider.complete > 10 ? '⭐' : '');
+                // 라이더 상세 정보 표시를 위해 rider 객체를 data 속성에 저장
+                item.setAttribute('data-rider', JSON.stringify(rider));
+                item.onclick = () => showRiderDetails(rider);
+
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
                 
-                riderItem.innerHTML = `
+                item.innerHTML = `
                     <div class="rider-info">
-                        <div class="rider-name">${badge} ${rider.name || '이름없음'}</div>
+                        <div class="rider-name">${medal} ${rider.name}</div>
                         <div class="rider-stats">
                             완료: ${rider.complete || 0}건 | 
-                            수락률: ${(rider.acceptance_rate || 0).toFixed(1)}% | 
+                            수락률: ${(rider.acceptance_rate || 0).toFixed(1)}% |
                             기여도: ${(rider.contribution || 0).toFixed(1)}%
                         </div>
                     </div>
-                    <div class="rider-badge">${rider.complete || 0}건</div>
+                    <div class="rider-badge">상세보기</div>
                 `;
-
-                ridersList.appendChild(riderItem);
+                ridersList.appendChild(item);
             });
+        }
+
+        // 라이더 상세 정보 모달 표시
+        function showRiderDetails(rider) {
+            const modal = document.getElementById('rider-modal');
+            document.getElementById('modal-rider-name').textContent = `${rider.name} 상세 정보`;
+            
+            const detailsContainer = document.getElementById('modal-rider-details');
+            detailsContainer.innerHTML = `
+                <p><strong>완료:</strong> ${rider.complete || 0}건</p>
+                <p><strong>수락률:</strong> ${(rider.acceptance_rate || 0).toFixed(1)}%</p>
+                <p><strong>거절:</strong> ${rider.reject || 0}건</p>
+                <p><strong>배차취소:</strong> ${rider.cancel || 0}건</p>
+                <hr style="margin: 15px 0;">
+                <h4>피크별 기여도</h4>
+                <p><strong>아침점심피크:</strong> ${rider.아침점심피크 || 0}건</p>
+                <p><strong>오후논피크:</strong> ${rider.오후논피크 || 0}건</p>
+                <p><strong>저녁피크:</strong> ${rider.저녁피크 || 0}건</p>
+                <p><strong>심야논피크:</strong> ${rider.심야논피크 || 0}건</p>
+            `;
+            
+            modal.style.display = "block";
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            const modal = document.getElementById('rider-modal');
+            modal.style.display = "none";
+        }
+
+        // 모달 바깥 영역 클릭시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('rider-modal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
         }
 
         // 마지막 업데이트 시간 업데이트
@@ -558,8 +674,7 @@
 
         // 숫자 포맷팅
         function formatNumber(num) {
-            if (typeof num !== 'number') return num;
-            return num.toLocaleString('ko-KR');
+            return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,');
         }
 
         // 샘플 데이터 생성 (실제 데이터 구조에 맞춤)
