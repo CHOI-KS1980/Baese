@@ -101,7 +101,8 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
             should_send, reason = self.scheduler.should_send_now()
             if not should_send:
                 logger.info(f"⏸️ 전송 스킵: {reason}")
-                if "운영시간 외" in reason:
+                # 모든 정상적인 스킵 상황을 성공으로 처리
+                if any(keyword in reason for keyword in ["운영시간 외", "전송 시간 아님", "스킵"]):
                     execution_result["success"] = True
                     execution_result["reason"] = reason
                 return execution_result
