@@ -1053,7 +1053,7 @@ class GriderDataCollector:
         # 물량 점수관리 테이블 찾기 (다양한 선택자 시도)
         sla_table = None
         
-        # 여러 가능한 선택자들을 시도
+        # 여러 가능한 선택자들을 시도 (실제 웹사이트 구조 반영)
         possible_selectors = [
             'table.sla_table[data-type="partner"]',
             'table.sla_table',
@@ -1062,7 +1062,13 @@ class GriderDataCollector:
             'table[id*="sla"]',
             'table[class*="sla"]',
             '.mission_table',
-            '.quantity_table'
+            '.quantity_table',
+            'table.table.table-bordered',  # 일반적인 테이블 클래스
+            'table[class*="table"]',       # table 클래스 포함
+            'div.table_wrap table',        # 테이블 래퍼 내부
+            '.content_wrap table',         # 콘텐츠 래퍼 내부  
+            '#content table',              # 메인 콘텐츠 내부
+            'table'                        # 모든 테이블 (마지막 시도)
         ]
         
         # 1단계: CSS 선택자로 테이블 찾기
@@ -1075,14 +1081,31 @@ class GriderDataCollector:
             except Exception as e:
                 continue
         
-        # 2단계: 텍스트 내용으로 테이블 찾기
+        # 2단계: 텍스트 내용으로 테이블 찾기 (더 강화된 키워드)
         if not sla_table:
             tables = soup.find_all('table')
-            for table in tables:
-                table_text = table.get_text()
-                if any(keyword in table_text for keyword in ['물량 점수관리', '아침점심피크', '오후논피크', '저녁피크', '심야논피크']):
-                    sla_table = table
-                    logger.info(f"✅ 테이블 발견 (텍스트 기반 검색)")
+            keywords_sets = [
+                # 1순위: 완전 매칭
+                ['물량 점수관리', '아침점심피크', '오후논피크', '저녁피크', '심야논피크'],
+                # 2순위: 피크 용어들
+                ['아침점심피크', '오후논피크', '저녁피크', '심야논피크'],
+                ['오전피크', '오후피크', '저녁피크', '심야피크'],
+                # 3순위: 일부 키워드
+                ['물량', '점수', '피크'],
+                ['미션', '목표', '달성'],
+                # 4순위: 날짜 패턴 (2025-06-26 형식)
+                [target_date],
+                [target_date.replace('-', '.'), target_date.replace('-', '/')]
+            ]
+            
+            for keyword_set in keywords_sets:
+                for table in tables:
+                    table_text = table.get_text()
+                    if any(keyword in table_text for keyword in keyword_set):
+                        sla_table = table
+                        logger.info(f"✅ 테이블 발견 (텍스트 기반 검색: {keyword_set})")
+                        break
+                if sla_table:
                     break
         
         if not sla_table:
@@ -1090,9 +1113,14 @@ class GriderDataCollector:
             # 디버깅을 위해 모든 테이블 구조 출력
             all_tables = soup.find_all('table')
             logger.info(f"🔍 페이지에서 발견된 전체 테이블 수: {len(all_tables)}")
-            for i, table in enumerate(all_tables[:3]):  # 처음 3개만
-                table_text = table.get_text()[:200]  # 처음 200자만
+            for i, table in enumerate(all_tables[:5]):  # 처음 5개까지 확장
+                table_text = table.get_text()[:300]  # 더 많은 텍스트 확인
                 logger.info(f"📋 테이블 {i+1}: {table_text}")
+                # 테이블의 클래스와 ID도 출력
+                if table.get('class'):
+                    logger.info(f"   클래스: {table.get('class')}")
+                if table.get('id'):
+                    logger.info(f"   ID: {table.get('id')}")
             return None
         
         # 모든 행을 한 번에 가져오기
