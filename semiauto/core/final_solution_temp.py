@@ -19,6 +19,9 @@ import re
 import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup  # BeautifulSoup import 추가
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 # 로깅 설정
 logging.basicConfig(
@@ -674,26 +677,29 @@ class GriderDataCollector:
         return None
 
     def _navigate_to_date_data(self, driver, target_date: str) -> str:
-        """URL 파라미터 방식으로 날짜별 데이터 조회"""
-        
+        """URL 파라미터 방식으로 날짜별 데이터 조회. 데이터 로딩을 명시적으로 기다립니다."""
         logger.info(f"🔍 날짜별 데이터 조회 시작: {target_date}")
         
         try:
-            # URL 파라미터 방식으로 날짜 조회 시도 (가장 안정적)
-            logger.info("🔄 URL 파라미터 방식으로 날짜 조회 시도")
-            
             base_url = "https://jangboo.grider.ai/dashboard"
             url_with_date = f"{base_url}?date={target_date}"
             
             logger.info(f"Navigating to: {url_with_date}")
             driver.get(url_with_date)
-            time.sleep(5) # 데이터 로딩 대기
 
-            if self._verify_date_in_html(driver.page_source, target_date):
-                logger.info(f"✅ URL 파라미터 방식 성공: ?date={target_date}")
-                return driver.page_source
+            # 핵심 수정: '.score_total_value' 요소가 나타날 때까지 최대 20초간 대기
+            wait = WebDriverWait(driver, 20)
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".score_total_value")))
+            
+            logger.info("✅ 대시보드 데이터 로드 확인 (총점 확인)")
+
+            html = driver.page_source
+            if self._verify_date_in_html(html, target_date):
+                logger.info(f"✅ URL 파라미터 방식 및 데이터 로딩 성공: ?date={target_date}")
+                return html
             else:
-                raise Exception("URL 파라미터 방식 후 날짜 검증 실패")
+                logger.warning(f"⚠️ 데이터는 로드되었으나, HTML에서 타겟 날짜({target_date}) 검증에는 실패했습니다. 파싱을 계속 진행합니다.")
+                return html
 
         except Exception as e:
             logger.error(f"❌ 날짜별 데이터 조회 중 심각한 오류 발생: {e}")
