@@ -555,12 +555,31 @@ class GriderAutoSender:
         self.data_collector = GriderDataCollector()
 
     def send_report(self):
+        """데이터를 수집하고, 파일로 저장한 뒤, 카톡으로 리포트를 전송합니다."""
         data = self.data_collector.get_grider_data()
-        if not data: return
+        if not data:
+            logger.error("데이터 수집에 실패하여 리포트 전송을 중단합니다.")
+            return
+
+        # 1. 수집된 데이터를 JSON 파일로 저장
+        try:
+            with open('grider_results.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.info("✅ 크롤링 결과를 grider_results.json 파일로 성공적으로 저장했습니다.")
+        except Exception as e:
+            logger.error(f"❌ 크롤링 결과를 파일로 저장하는 중 오류 발생: {e}", exc_info=True)
+            # 파일 저장에 실패하더라도 카톡 전송은 시도할 수 있습니다.
+        
+        # 2. 카카오톡 리포트 전송
         access_token = self.token_manager.get_valid_token()
-        if not access_token: return
+        if not access_token:
+            logger.error("유효한 카카오 토큰이 없어 리포트 전송을 중단합니다.")
+            return
+            
         message = self.format_message(data)
-        KakaoSender(access_token).send_text_message(message)
+        kakao_sender = KakaoSender(access_token)
+        kakao_sender.send_text_message(message)
+        logger.info("카카오톡 리포트 전송을 요청했습니다.")
 
     def _get_time_based_greeting(self, hour: int, minute: int) -> str:
         """시간대별 인사말 생성"""

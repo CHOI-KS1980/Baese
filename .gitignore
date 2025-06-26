@@ -2,7 +2,7 @@
 *.log
 logs/
 semiauto/grider_automation.log
-grider_automation.log
+# grider_automation.log
 kakao_automation.log
 kakao_memo_automation.log
 kakao_scheduler.log
