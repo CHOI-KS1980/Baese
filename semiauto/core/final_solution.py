@@ -1081,6 +1081,12 @@ class GriderDataCollector:
         
         if not sla_table:
             logger.warning("물량 점수관리 테이블을 찾을 수 없습니다.")
+            # 디버깅을 위해 모든 테이블 구조 출력
+            all_tables = soup.find_all('table')
+            logger.info(f"🔍 페이지에서 발견된 전체 테이블 수: {len(all_tables)}")
+            for i, table in enumerate(all_tables[:3]):  # 처음 3개만
+                table_text = table.get_text()[:200]  # 처음 200자만
+                logger.info(f"📋 테이블 {i+1}: {table_text}")
             return None
         
         # 모든 행을 한 번에 가져오기
@@ -1105,6 +1111,15 @@ class GriderDataCollector:
         
         if not target_row:
             logger.warning(f"날짜 {target_date}에 해당하는 데이터를 찾을 수 없습니다.")
+            # 디버깅: 테이블의 모든 행 날짜 출력
+            logger.info("🔍 테이블에서 발견된 모든 날짜:")
+            for i, row in enumerate(rows[:5]):  # 처음 5행만
+                cells = row.select('td')
+                if cells:
+                    for j, cell in enumerate(cells[:3]):  # 처음 3셀만
+                        cell_text = cell.get_text(strip=True)
+                        if re.search(r'\d{4}-\d{2}-\d{2}', cell_text):
+                            logger.info(f"📅 행 {i+1}, 셀 {j+1}: {cell_text}")
             return None
         
         # 모든 셀을 한 번에 파싱
