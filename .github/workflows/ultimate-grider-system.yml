@@ -94,48 +94,26 @@ jobs:
 
     - name: 🌟 차세대 시스템 실행
       env:
+        GRIDER_ID: ${{ secrets.GRIDER_ID }}
+        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
         KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
         KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
         REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-        GRIDER_ID: ${{ secrets.GRIDER_ID }}
-        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
         MODE: ${{ github.event.inputs.mode || 'ultimate' }}
         PRIORITY: ${{ github.event.inputs.priority || 'normal' }}
       run: |
         cd semiauto
         
-        # 환경변수 검증 - 필수 정보가 없으면 실행 중단
+        # 환경변수 검증 및 config.txt 생성 (기존 로직 유지)
         echo "🔍 필수 환경변수 검증 중..."
-        
-        if [ -z "$GRIDER_ID" ]; then
-          echo "❌ GRIDER_ID가 설정되지 않았습니다!"
-          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 GRIDER_ID를 설정하세요"
+        if [ -z "$GRIDER_ID" ] || [ -z "$GRIDER_PASSWORD" ] || [ -z "$KAKAO_REST_API_KEY" ] || [ -z "$KAKAO_REFRESH_TOKEN" ]; then
+          echo "❌ 하나 이상의 필수 환경변수가 설정되지 않았습니다."
           exit 1
         fi
-        
-        if [ -z "$GRIDER_PASSWORD" ]; then
-          echo "❌ GRIDER_PASSWORD가 설정되지 않았습니다!"
-          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 GRIDER_PASSWORD를 설정하세요"
-          exit 1
-        fi
-        
-        if [ -z "$KAKAO_REST_API_KEY" ]; then
-          echo "❌ KAKAO_REST_API_KEY가 설정되지 않았습니다!"
-          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 KAKAO_REST_API_KEY를 설정하세요"
-          exit 1
-        fi
-        
-        if [ -z "$KAKAO_REFRESH_TOKEN" ]; then
-          echo "❌ KAKAO_REFRESH_TOKEN이 설정되지 않았습니다!"
-          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 KAKAO_REFRESH_TOKEN을 설정하세요"
-          exit 1
-        fi
-        
         echo "✅ 모든 필수 환경변수가 설정되었습니다!"
         
-        # 설정 파일 생성
         cat > config.txt << EOF
         REST_API_KEY=${KAKAO_REST_API_KEY}
         REFRESH_TOKEN=${KAKAO_REFRESH_TOKEN}
@@ -144,58 +122,46 @@ jobs:
         KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
         EOF
         
-        echo "🌟 차세대 G라이더 자동화 시스템 시작 (날짜별 데이터 검증 강화)"
-        echo "📅 실행 시간: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-        echo "🇰🇷 한국시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S %Z')"
-        echo "🎯 실행 모드: $MODE"
-        echo "⚡ 우선순위: $PRIORITY"
+        echo "🌟 차세대 G라이더 자동화 시스템 시작..."
         
-        echo "🔍 환경변수 확인:"
-        echo "  • GRIDER_ID: ${GRIDER_ID:+설정됨} (길이: ${#GRIDER_ID})"
-        echo "  • GRIDER_PASSWORD: ${GRIDER_PASSWORD:+설정됨} (길이: ${#GRIDER_PASSWORD})"
-        echo "  • KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:+설정됨} (길이: ${#KAKAO_REST_API_KEY})"
-        
-        echo "🎯 G라이더 미션 시간 정책 확인:"
-        echo "  • 미션 시간: 06:00 ~ 익일 03:00"
-        KOREA_HOUR=$(TZ='Asia/Seoul' date '+%H')
-        if [ $KOREA_HOUR -lt 6 ]; then
-          echo "  • 현재 시간대: 00:00~05:59 → 전날 미션 데이터 조회"
-        else
-          echo "  • 현재 시간대: 06:00~23:59 → 당일 미션 데이터 조회"
-        fi
-        
+        # 루트 디렉터리에서 파이썬 모듈 실행
+        cd ..
+
         case "$MODE" in
           "ultimate")
             echo "🚀 최고급 통합 모드 실행"
-            echo "🔍 상세 디버깅 모드 활성화..."
-            python core/ultimate_grider_system.py --mode single
+            python -m semiauto.core.ultimate_grider_system --mode single
             ;;
           "ai_only")
             echo "🤖 AI 분석 전용 모드"
-            python core/enhanced_final_solution.py --mode single --ai-only
+            python -m semiauto.core.enhanced_final_solution --mode single --ai-only
             ;;
           "optimization")
             echo "🔧 최적화 엔진 전용 모드"
-            python core/optimization_engine.py --analyze
+            python -m semiauto.core.optimization_engine --analyze
             ;;
           "status_check")
             echo "📊 상태 체크 모드"
-            python core/ultimate_grider_system.py --mode status
+            python -m semiauto.core.ultimate_grider_system --mode status
             ;;
           "date_validation")
             echo "🎯 날짜별 데이터 검증 강화 모드"
-            python core/final_solution.py
+            python -m semiauto.core.final_solution
             ;;
           "debug_mode")
             echo "🔍 전체 시스템 디버그 모드"
-            python core/final_solution.py
+            python -m semiauto.core.final_solution
             ;;
           *)
             echo "🚀 기본 통합 모드 실행"
-            python core/ultimate_grider_system.py --mode normal
+            python -m semiauto.core.ultimate_grider_system --mode normal
             ;;
         esac
-        
+
+    - name: 🔍 결과 분석
+      if: always()
+      run: |
+        cd semiauto
         # 크롤링 결과 상세 분석
         echo "🔍 크롤링 결과 상세 분석"
         echo "================================"
