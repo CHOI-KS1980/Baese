@@ -411,68 +411,113 @@ class GriderDataCollector:
     def _parse_data(self, html: str) -> dict:
         """HTML을 파싱하여 핵심 데이터를 추출합니다."""
         soup = BeautifulSoup(html, 'html.parser')
+        
         parsed_data = self._parse_dashboard_html(soup)
+
         if parsed_data is None:
-            return self._get_error_data("HTML 파싱 실패 (new parser)")
+            return self._get_error_data("HTML 파싱 실패 (dashboard parser)")
+
+        # mission_date 추가
         parsed_data['mission_date'] = self._get_mission_date()
+        logger.info(f"✅ 데이터 추출 성공. 총점: {parsed_data.get('총점', 0)}")
         return parsed_data
 
     def _parse_dashboard_html(self, soup):
-        """새로운 대시보드 구조에 맞게 HTML을 파싱하는 함수"""
+        """최신 대시보드 HTML 구조에 맞춰 데이터를 파싱하는 새로운 함수"""
         try:
             data = {}
-            int_pattern = re.compile(r'[\d,]+')
-            float_pattern = re.compile(r'(\d+(?:\.\d+)?)')
 
-            def fast_parse(selector, is_float=False, parent=None):
-                base = parent if parent else soup
-                node = base.select_one(selector)
-                if not node: return 0.0 if is_float else 0
-                text = node.get_text(strip=True)
-                pattern = float_pattern if is_float else int_pattern
-                match = pattern.search(text)
-                if not match: return 0.0 if is_float else 0
-                val_str = match.group(1) if is_float else match.group().replace(',', '')
-                return float(val_str) if is_float else int(val_str)
-
-            # 새로운 선택자 적용
-            data['총점'] = fast_parse('.score_total_value[data-text="total"]')
-            data['물량점수'] = fast_parse('.detail_score_value[data-text="quantity"]')
-            data['수락률점수'] = fast_parse('.detail_score_value[data-text="acceptance"]')
-
-            # etc_value는 span이 없음
-            data['총완료'] = fast_parse('.etc_value[data-etc="complete"]')
-            data['총거절'] = fast_parse('.etc_value[data-etc="reject"]')
-            data['수락률'] = fast_parse('.etc_value[data-etc="acceptance"]', is_float=True)
-            
-            # 피크 타임 파싱 로직 변경
-            peak_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
-            for item in soup.select('.quantity_item'):
-                title_node = item.select_one('.quantity_title')
-                info_node = item.select_one('.quantity_info')
+            # 헬퍼 함수: 텍스트에서 숫자만 추출
+            def get_number(text, to_float=False):
+                if not text:
+                    return 0.0 if to_float else 0
+                # 쉼표 제거 및 공백 제거
+                cleaned_text = text.replace(',', '').strip()
+                # 숫자 패턴 (소수점 포함)
+                match = re.search(r'(-?[\d\.]+)', cleaned_text)
+                if not match:
+                    return 0.0 if to_float else 0
                 
-                if title_node and info_node:
-                    title_text = title_node.get_text(strip=True)
-                    info_text = info_node.get_text(strip=True)
-                    
-                    if title_text in peak_map:
-                        key = peak_map[title_text]
-                        # "15 / 20" 같은 형식의 텍스트 파싱
-                        parts = [p.strip() for p in info_text.split('/')]
-                        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                            data[key] = {'current': int(parts[0]), 'target': int(parts[1])}
-                        else:
-                            data[key] = {'current': 0, 'target': 0}
+                num_str = match.group(1)
+                return float(num_str) if to_float else int(num_str)
 
-            # 라이더 리스트는 새로운 HTML 구조를 확인해야 하므로 일단 비워둠
-            data['riders'] = []
-            logger.info("라이더 리스트 파싱은 새로운 HTML 구조 확인 후 진행해야 합니다.")
+            # 1. 기본 점수 정보 (summary_score)
+            summary_area = soup.select_one('.summary_score')
+            if summary_area:
+                data['총점'] = get_number(summary_area.select_one('.score_total_value').get_text())
+                data['물량점수'] = get_number(summary_area.select_one('.detail_score_value[data-text="quantity"]').get_text())
+                data['수락률점수'] = get_number(summary_area.select_one('.detail_score_value[data-text="acceptance"]').get_text())
+            
+            summary_etc = soup.select_one('.summary_etc')
+            if summary_etc:
+                data['총완료'] = get_number(summary_etc.select_one('.etc_value[data-etc="complete"] span').get_text())
+                data['총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
+                data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
+            
+            logger.info(f"기본 점수 파싱: 총점={data.get('총점')}, 완료={data.get('총완료')}, 수락률={data.get('수락률')}%")
 
+            # 2. 미션 데이터 (quantity_item)
+            peak_data = {}
+            peak_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
+            
+            quantity_items = soup.select('.quantity_item')
+            for item in quantity_items:
+                title_node = item.select_one('.quantity_title')
+                if not title_node: continue
+                
+                title = title_node.get_text(strip=True)
+                # performance_value: 현재 달성 건수, number_value > span: 목표 건수
+                current = get_number(item.select_one('.performance_value').get_text())
+                target = get_number(item.select_one('.number_value span:not(.performance_value)').get_text())
+                
+                # 표준 이름으로 변환
+                standard_title = peak_map.get(title, title)
+                peak_data[standard_title] = {'current': current, 'target': target}
+
+            data.update(peak_data)
+            logger.info(f"미션 데이터 파싱: {len(peak_data)}개 피크")
+
+            # 3. 라이더 데이터 (rider_item)
+            riders = []
+            rider_items = soup.select('.rider_list .rider_item')
+            
+            # 헤더에서 컬럼 순서 파악
+            header_nodes = soup.select('.rider_th .rider_contents')
+            headers = [h.get_text(strip=True) for h in header_nodes]
+            
+            for item in rider_items:
+                rider_data = {}
+                cols = item.select('.rider_contents')
+                
+                # 이름과 아이디 먼저 추출
+                rider_data['name'] = item.select_one('.rider_name').get_text(strip=True).replace('이름', '')
+                rider_data['id'] = item.select_one('.user_id').get_text(strip=True).replace('아이디', '')
+                
+                # 나머지 데이터는 헤더 순서에 맞춰 파싱
+                col_data = {header: node.get_text(strip=True) for header, node in zip(headers, cols)}
+                
+                rider_data['수락률'] = get_number(item.select_one('.acceptance_rate_box').get_text(), to_float=True)
+                rider_data['완료'] = get_number(col_data.get('완료', '').replace('완료', ''))
+                rider_data['거절'] = get_number(col_data.get('거절', '').replace('거절', ''))
+                rider_data['배차취소'] = get_number(col_data.get('배차취소', '').replace('배차취소', ''))
+                rider_data['배달취소'] = get_number(col_data.get('배달취소', '').replace('배달취소', ''))
+                
+                # 피크 데이터 파싱
+                rider_data['아침점심피크'] = get_number(col_data.get('오전', '').replace('오전', ''))
+                rider_data['오후논피크'] = get_number(col_data.get('오후', '').replace('오후', ''))
+                rider_data['저녁피크'] = get_number(col_data.get('저녁', '').replace('저녁', ''))
+                rider_data['심야논피크'] = get_number(col_data.get('심야', '').replace('심야', ''))
+
+                riders.append(rider_data)
+
+            data['riders'] = riders
+            logger.info(f"라이더 데이터 파싱: {len(riders)}명")
+            
             data['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             return data
-            
+
         except Exception as e:
-            logger.error(f" HTML 파싱 실패: {e}", exc_info=True)
+            logger.error(f"❌ HTML 파싱 중 예외 발생: {e}", exc_info=True)
             return None
 
     def _get_weather_info_detailed(self, location="서울"):
