@@ -1261,6 +1261,55 @@ class GriderDataCollector:
             logger.error(f"날씨 정보 조회 중 오류: {e}")
             return "날씨 정보 조회 불가"
 
+    def _get_weather_info_detailed(self, location="서울"):
+        """상세 날씨 정보 (오전/오후) 가져오기"""
+        try:
+            url = f"https://wttr.in/{location}?format=j1"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            weather_data = response.json()
+
+            hourly_forecasts = weather_data.get('weather', [{}])[0].get('hourly', [])
+            
+            am_temps, pm_temps = [], []
+            am_icons, pm_icons = [], []
+
+            weather_icon_map = {
+                "Sunny": "☀️", "Clear": "☀️", "Partly cloudy": "⛅️", "Cloudy": "☁️", 
+                "Overcast": "☁️", "Mist": "🌫️", "Fog": "🌫️", "Patchy rain possible": "🌦️", 
+                "Light rain": "🌦️", "Rain": "🌧️", "Thundery outbreaks possible": "⛈️", 
+                "Thunderstorm": "⛈️", "Snow": "❄️", "Blizzard": "🌨️"
+            }
+
+            def get_icon(desc):
+                for key, icon in weather_icon_map.items():
+                    if key in desc: return icon
+                return "🌡️"
+
+            for forecast in hourly_forecasts:
+                hour = int(forecast.get('time', '0')) // 100
+                temp = int(forecast.get('tempC', '0'))
+                icon = get_icon(forecast.get('weatherDesc', [{}])[0].get('value', ''))
+                
+                if 6 <= hour < 12:
+                    am_temps.append(temp)
+                    am_icons.append(icon)
+                elif 12 <= hour < 18:
+                    pm_temps.append(temp)
+                    pm_icons.append(icon)
+
+            am_icon = max(set(am_icons), key=am_icons.count) if am_icons else "☀️"
+            pm_icon = max(set(pm_icons), key=pm_icons.count) if pm_icons else "☀️"
+            
+            am_line = f"🌅 오전: {am_icon} {min(am_temps)}~{max(am_temps)}°C" if am_temps else "🌅 오전: 날씨 정보 없음"
+            pm_line = f"🌇 오후: {pm_icon} {min(pm_temps)}~{max(pm_temps)}°C" if pm_temps else "🌇 오후: 날씨 정보 없음"
+            
+            return f"🌍 오늘의 날씨 (기상청)\n{am_line}\n{pm_line}"
+
+        except Exception as e:
+            logger.error(f"상세 날씨 정보 조회 중 오류: {e}")
+            return "🌍 오늘의 날씨 (기상청)\n날씨 정보 조회 불가"
+
 class GriderAutoSender:
     """G-Rider 자동화 메인 클래스"""
 
@@ -1288,21 +1337,15 @@ class GriderAutoSender:
         """사용자 정의 규칙에 따라 상세한 카카오톡 메시지를 생성합니다."""
         try:
             korea_time = self.data_collector._get_korea_time()
-            is_weekend_or_holiday = korea_time.weekday() >= 5 or holiday_checker.is_holiday_advanced(korea_time)[0]
-            day_type = "휴일" if is_weekend_or_holiday else "평일"
+            day_type = "휴일" if korea_time.weekday() >= 5 or holiday_checker.is_holiday_advanced(korea_time)[0] else "평일"
 
-            # 1. 날씨 정보 가져오기
-            weather_info = self.data_collector._get_weather_info()
+            # 1. 헤더
+            header1 = f"⏰ {korea_time.strftime('%H:%M')} 현재 상황을 알려드립니다!"
+            header2 = f"📊 심플 배민 플러스 미션 알리미 ({day_type})"
 
-            # 2. 헤더 구성
-            header_parts = [
-                "📊 G-Rider 실시간 현황",
-                f"📅 {korea_time.strftime('%Y-%m-%d %H:%M')} ({day_type})",
-                f"{weather_info}"
-            ]
-
-            # 3. 미션 현황 상세 구성
+            # 2. 미션 현황
             mission_parts = ["\n🎯 금일 미션 현황"]
+            missions_behind_summary = []
             peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
             
@@ -1312,38 +1355,71 @@ class GriderAutoSender:
                 target = mission.get('target', 0)
                 if target > 0:
                     remaining = target - current
-                    status = '✅' if remaining <= 0 else f'⏳ {remaining}건'
-                    mission_parts.append(f"{peak_emojis.get(key, '🎯')} {key}: {current}/{target} {status}")
+                    status_text = ""
+                    if remaining > 0:
+                        # '논피크'가 포함된 미션은 '남음', 나머지는 '부족'으로 표시
+                        if '논피크' in key:
+                            status_text = f"⏳ ({remaining}건 남음)"
+                        else:
+                            status_text = f"❌ ({remaining}건 부족)"
+                        missions_behind_summary.append(f"{key.replace('논피크','')} {remaining}건")
+                    else:
+                        status_text = '✅'
+                    mission_parts.append(f"{peak_emojis.get(key, '🎯')} {key}: {current}/{target} {status_text}")
 
-            # 4. 종합 점수 및 요약 구성
-            summary_parts = [
-                "\n📊 종합 점수",
-                f"총점: {data.get('총점', 0)} (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})",
+            # 3. 날씨 정보
+            weather_info = self.data_collector._get_weather_info_detailed()
+
+            # 4. 금일 수행 내역
+            daily_perf_parts = [
+                "\n📈 금일 수행 내역",
                 f"수락률: {data.get('수락률', 0.0):.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}"
             ]
 
-            # 5. 라이더 순위 상세 구성 (사용자 정의 규칙 완벽 복원)
+            # 5. 금주 예상 점수
+            weekly_score_parts = [
+                "\n📊 금주 미션 수행 예상점수",
+                f"총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})",
+                f"수락률: {data.get('수락률', 0.0):.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}"
+            ]
+
+            # 6. 라이더 순위
             riders = data.get('riders', [])
-            rider_parts = [f"\n🏆 라이더 순위 (운행: {len(riders)}명)"]
+            rider_parts = [f"\n🏆 라이더 순위 (운행 : {len(riders)}명)"]
             if riders:
-                sorted_riders = sorted(riders, key=lambda x: x.get('complete', 0), reverse=True)
+                sorted_riders = sorted(riders, key=lambda x: x.get('contribution', 0.0), reverse=True)
                 medals = ['🥇', '🥈', '🥉']
 
-                for i, rider in enumerate(sorted_riders[:10]):  # 상위 10명
+                for i, rider in enumerate(sorted_riders[:10]):
                     name = rider.get('name', 'N/A')
-                    complete = rider.get('complete', 0)
-                    reject = rider.get('reject', 0)
-                    cancel = rider.get('cancel', 0)
-                    acceptance = rider.get('acceptance_rate', 0.0)
+                    contribution = rider.get('contribution', 0.0)
                     
-                    prefix = f"{medals[i]} " if i < 3 else f"{i+1}."
+                    # 진행률 막대 생성
+                    bar_fill_count = int(contribution / 100 * 5)
+                    bar = '■' * bar_fill_count + '─' * (5 - bar_fill_count)
+                    progress_bar = f"[{bar}{contribution:.1f}%]"
+
+                    # 피크별 건수
+                    peak_counts = " ".join([f"{peak_emojis.get(p, '')}{rider.get(p, 0)}" for p in peak_order])
                     
-                    # (완료/거절/배취) 형태의 상세 정보 추가
-                    details = f"({complete}/{reject}/{cancel})"
-                    rider_parts.append(f"{prefix} {name}: {acceptance:.1f}% {details}")
-            
-            # 6. 메시지 최종 조합
-            full_message = "\n".join(header_parts + mission_parts + summary_parts + rider_parts)
+                    # 라이더 정보 라인 조합
+                    prefix = f"**{medals[i]} {name}**" if i < 3 else f"**{i+1}. {name}**"
+                    line1 = f"{prefix} | {progress_bar}"
+                    line2 = f"    총 {rider.get('complete', 0)}건 ({peak_counts})"
+                    line3 = f"    수락률: {rider.get('acceptance_rate', 0.0):.1f}% (거절:{rider.get('reject', 0)}, 취소:{rider.get('cancel', 0)})"
+                    rider_parts.extend(["", line1, line2, line3]) # 한 칸 띄우기 위해 "" 추가
+
+            # 7. 미션 부족 경고
+            warning_part = []
+            if missions_behind_summary:
+                warning_part = [f"\n⚠️ 미션 부족: {', '.join(missions_behind_summary)}"]
+
+            # 8. 푸터
+            footer = "\n\n🤖 자동화 시스템에 의해 전송됨"
+
+            # 최종 조합
+            message_parts = [header1, header2] + mission_parts + [f"\n{weather_info}"] + daily_perf_parts + weekly_score_parts + rider_parts + warning_part
+            full_message = "\n".join(filter(None, message_parts)) + footer
             return full_message
 
         except Exception as e:
