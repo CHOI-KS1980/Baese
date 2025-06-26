@@ -1909,6 +1909,14 @@ class GriderAutoSender:
             data = self.data_collector.get_grider_data()
             message = self.format_message(data)
             
+            # 2. 카카오톡 sender 초기화 (토큰 갱신 포함)
+            access_token = self.token_manager.get_valid_token()
+            if not access_token:
+                logger.error("❌ 유효한 액세스 토큰을 가져올 수 없습니다")
+                return False
+            
+            self.sender = KakaoSender(access_token)
+            
             # 3. 메시지 전송
             result = self.sender.send_text_message(
                 text=message,

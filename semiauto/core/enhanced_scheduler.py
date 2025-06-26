@@ -19,6 +19,13 @@ import hashlib
 # 한국시간 설정
 KST = pytz.timezone('Asia/Seoul')
 
+# KakaoSender import 추가
+try:
+    from .final_solution import KakaoSender
+except ImportError:
+    # 상대 import 실패시 절대 import 시도
+    from final_solution import KakaoSender
+
 logger = logging.getLogger(__name__)
 
 class MessageHistory:
@@ -245,8 +252,13 @@ class EnhancedScheduler:
         for missing_time in missing_times[-3:]:  # 최근 3개만 복구
             logger.info(f"🔄 누락 메시지 복구 시도: {missing_time.strftime('%H:%M')}")
             
-            # 강제 전송
+            # 강제 전송 (토큰 갱신 포함)
             try:
+                # 카카오톡 sender 초기화
+                access_token = self.auto_sender.token_manager.get_valid_token()
+                if access_token:
+                    self.auto_sender.sender = KakaoSender(access_token)
+                
                 success = self.auto_sender.send_report()
                 if success:
                     message_id = f"recovery_{int(time.time())}"
@@ -258,7 +270,16 @@ class EnhancedScheduler:
                 time.sleep(30)  # 복구 간 30초 대기
                 
             except Exception as e:
-                logger.error(f"❌ 누락 메시지 복구 실패: {missing_time.strftime('%H:%M')}")
+                logger.error(f"❌ 누락 메시지 복구 실패: {missing_time.strftime('%H:%M')} - {e}")
+                # 토큰 재갱신 후 재시도
+                try:
+                    access_token = self.auto_sender.token_manager.get_valid_token()
+                    if access_token:
+                        self.auto_sender.sender = KakaoSender(access_token)
+                        logger.info(f"🔄 토큰 갱신 후 재시도: {missing_time.strftime('%H:%M')}")
+                        self.auto_sender.send_report()
+                except Exception as retry_error:
+                    logger.error(f"❌ 재시도도 실패: {retry_error}")
     
     def get_status_report(self) -> str:
         """현재 상태 리포트"""
