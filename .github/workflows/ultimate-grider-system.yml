@@ -93,6 +93,8 @@ jobs:
         KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
         REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+        GRIDER_ID: ${{ secrets.GRIDER_ID }}
+        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
         MODE: ${{ github.event.inputs.mode || 'ultimate' }}
         PRIORITY: ${{ github.event.inputs.priority || 'normal' }}
@@ -103,6 +105,8 @@ jobs:
         cat > config.txt << EOF
         REST_API_KEY=${KAKAO_REST_API_KEY}
         REFRESH_TOKEN=${KAKAO_REFRESH_TOKEN}
+        GRIDER_ID=${GRIDER_ID}
+        GRIDER_PASSWORD=${GRIDER_PASSWORD}
         KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
         EOF
         
@@ -110,6 +114,11 @@ jobs:
         echo "📅 실행 시간: $(date '+%Y-%m-%d %H:%M:%S %Z')"
         echo "🎯 실행 모드: $MODE"
         echo "⚡ 우선순위: $PRIORITY"
+        
+        echo "🔍 환경변수 확인:"
+        echo "  • GRIDER_ID: ${GRIDER_ID:+설정됨} (길이: ${#GRIDER_ID})"
+        echo "  • GRIDER_PASSWORD: ${GRIDER_PASSWORD:+설정됨} (길이: ${#GRIDER_PASSWORD})"
+        echo "  • KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:+설정됨} (길이: ${#KAKAO_REST_API_KEY})"
         
         case "$MODE" in
           "ultimate")
