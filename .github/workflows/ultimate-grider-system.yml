@@ -63,44 +63,18 @@ jobs:
         python -m pip install --upgrade pip --quiet
         pip install --prefer-binary -r requirements.txt --quiet
 
-    - name: 🚀 Chrome 및 ChromeDriver 설정 최적화
-      id: setup-chrome
-      uses: nanasess/setup-chrome@v2
-
-    - name: 🌐 크롬 및 웹드라이버 캐싱/설정
+    - name: 🌐 Chrome 설치 (필요시)
       run: |
-        # Chrome이 이미 설치되어 있는지 확인
         if ! command -v google-chrome >/dev/null 2>&1; then
-          echo "🔄 Chrome 설치 중..."
-          sudo apt-get update -qq
-          sudo apt-get install -y google-chrome-stable --quiet
+          echo "🔄 Chrome이 설치되지 않았습니다. 설치를 시작합니다."
+          sudo apt-get update -qq && sudo apt-get install -y google-chrome-stable --quiet
+        else
+          echo "✅ Chrome이 이미 설치되어 있습니다."
         fi
-        CHROME_VERSION=$(google-chrome --version | cut -d' ' -f3 | cut -d'.' -f1-3)
-        echo "CHROME_VERSION=${CHROME_VERSION}" >> $GITHUB_ENV
-        echo "✅ Chrome 버전 ${CHROME_VERSION} 확인"
+        google-chrome --version
 
-    - name: 📥 ChromeDriver 캐시 복원 또는 다운로드
-      uses: actions/cache@v4
-      id: cache-chromedriver
-      with:
-        path: /usr/local/bin/chromedriver
-        key: chromedriver-${{ runner.os }}-${{ env.CHROME_VERSION }}
-
-    - name: 🚀 ChromeDriver 다운로드 (캐시 없는 경우)
-      if: steps.cache-chromedriver.outputs.cache-hit != 'true'
-      run: |
-        echo "📥 ChromeDriver 캐시 없음. 다운로드를 시작합니다."
-        LATEST_DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${{ env.CHROME_VERSION }}")
-        if [ -z "$LATEST_DRIVER_VERSION" ]; then
-          echo "❌ 버전에 맞는 드라이버를 찾을 수 없음. 안정 버전으로 대체."
-          LATEST_DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | jq -r '.channels.Stable.version')
-        fi
-        echo "ℹ️ 다운로드할 ChromeDriver 버전: $LATEST_DRIVER_VERSION"
-        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${LATEST_DRIVER_VERSION}/linux64/chromedriver-linux64.zip" -P /tmp
-        unzip -q /tmp/chromedriver-linux64.zip -d /tmp
-        sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        echo "✅ ChromeDriver 다운로드 및 설치 완료"
+    - name: 🚀 ChromeDriver 설정
+      uses: nanasess/setup-chromedriver@v2
 
     - name: 🌟 차세대 시스템 실행
       env:
