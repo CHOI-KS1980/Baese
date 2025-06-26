@@ -24,7 +24,11 @@ jobs:
               per_page: 100,
             });
 
-            const toDelete = workflow_runs.filter(run => run.id !== current_run_id);
+            const toDelete = workflow_runs.filter(run =>
+              run.id !== current_run_id &&
+              run.status !== 'in_progress' &&
+              run.status !== 'queued'
+            );
 
             if (toDelete.length === 0) {
               console.log("No workflow runs to delete.");
