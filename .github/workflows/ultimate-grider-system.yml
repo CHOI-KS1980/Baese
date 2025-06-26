@@ -182,6 +182,11 @@ jobs:
         KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
       run: |
+        # Git 설정 및 동기화 (모든 작업 시작 전)
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git pull --rebase
+        
         cd semiauto
         echo "🌐 대시보드 데이터 업데이트 시작"
         
@@ -192,17 +197,13 @@ jobs:
         # 대시보드 API 데이터가 생성되었는지 확인
         if [ -f "dashboard/api/latest-data.json" ]; then
           echo "✅ 대시보드 데이터 발견됨. 데이터 유효성 검증 시작..."
-          
-          # Git 설정 및 동기화 (스크립트 실행 전)
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git pull --rebase # 충돌 방지를 위해 먼저 pull
-          
-          # 데이터 유효성 검증 스크립트 실행
           python verify_dashboard_data.py
           
+          # Git 작업은 cd 바깥에서 수행
+          cd ..
+          
           # 대시보드 데이터 커밋
-          git add dashboard/api/
+          git add semiauto/dashboard/api/
           
           if ! git diff --staged --quiet; then
             git commit -m "�� 실시간 대시보드 데이터 업데이트

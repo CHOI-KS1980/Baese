@@ -1075,10 +1075,17 @@ class GriderDataCollector:
                 try:
                     rider_data = {}
                     
-                    # 라이더 이름
+                    # 라이더 이름 (정규식으로 정확하게 추출)
                     name_node = rider.select_one('.rider_name')
                     if name_node:
-                        rider_data['name'] = name_node.text.strip().split('수락률')[0].strip()
+                        # 정규 표현식을 사용하여 '이름'과 공백을 제외하고 실제 이름만 추출
+                        words = re.findall(r'[가-힣]+', name_node.text)
+                        if words:
+                            # 보통 마지막 단어가 이름
+                            rider_data['name'] = words[-1]
+                        else:
+                            # 패턴을 못찾을 경우 대비
+                            rider_data['name'] = name_node.text.strip()
                     else:
                         rider_data['name'] = '이름없음'
                     
