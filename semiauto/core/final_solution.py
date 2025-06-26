@@ -1428,183 +1428,99 @@ class GriderDataCollector:
 
     def _parse_mission_table_data(self, html):
         """
-        물량 점수관리 테이블에서 미션 데이터를 파싱합니다. (main_(2).py와 동일)
+        물량 점수관리 테이블에서 미션 데이터를 파싱합니다. (실제 웹사이트 구조 기반)
         """
         from bs4 import BeautifulSoup
-        import pytz
         import re
         
-        # html.parser 파서 사용으로 속도 향상
+        # BeautifulSoup으로 HTML 파싱
         soup = BeautifulSoup(html, 'html.parser')
         
         # 미션 기준 날짜 계산
         target_date = self._get_mission_date()
+        logger.info(f"🎯 타겟 날짜: {target_date}")
         
-        # 물량 점수관리 테이블 찾기 (다양한 선택자 시도)
-        sla_table = None
-        
-        # 여러 가능한 선택자들을 시도 (실제 웹사이트 구조 반영)
-        possible_selectors = [
-            'table.sla_table[data-type="partner"]',
-            'table.sla_table',
-            'table[data-type="partner"]',
-            '.sla_table',
-            'table[id*="sla"]',
-            'table[class*="sla"]',
-            '.mission_table',
-            '.quantity_table',
-            'table.table.table-bordered',  # 일반적인 테이블 클래스
-            'table[class*="table"]',       # table 클래스 포함
-            'div.table_wrap table',        # 테이블 래퍼 내부
-            '.content_wrap table',         # 콘텐츠 래퍼 내부  
-            '#content table',              # 메인 콘텐츠 내부
-            'table'                        # 모든 테이블 (마지막 시도)
-        ]
-        
-        # 1단계: CSS 선택자로 테이블 찾기
-        for selector in possible_selectors:
-            try:
-                sla_table = soup.select_one(selector)
-                if sla_table:
-                    logger.info(f"✅ 테이블 발견 (선택자: {selector})")
-                    break
-            except Exception as e:
-                continue
-        
-        # 2단계: 텍스트 내용으로 테이블 찾기 (더 강화된 키워드)
-        if not sla_table:
-            tables = soup.find_all('table')
-            keywords_sets = [
-                # 1순위: 완전 매칭
-                ['물량 점수관리', '아침점심피크', '오후논피크', '저녁피크', '심야논피크'],
-                # 2순위: 피크 용어들
-                ['아침점심피크', '오후논피크', '저녁피크', '심야논피크'],
-                ['오전피크', '오후피크', '저녁피크', '심야피크'],
-                # 3순위: 일부 키워드
-                ['물량', '점수', '피크'],
-                ['미션', '목표', '달성'],
-                # 4순위: 날짜 패턴 (2025-06-26 형식)
-                [target_date],
-                [target_date.replace('-', '.'), target_date.replace('-', '/')]
-            ]
-            
-            for keyword_set in keywords_sets:
-                for table in tables:
-                    table_text = table.get_text()
-                    if any(keyword in table_text for keyword in keyword_set):
-                        sla_table = table
-                        logger.info(f"✅ 테이블 발견 (텍스트 기반 검색: {keyword_set})")
-                        break
-                if sla_table:
-                    break
+        # 실제 테이블 구조에 맞는 선택자 사용
+        sla_table = soup.select_one('table.sla_table[data-type=\"partner\"]')
         
         if not sla_table:
-            logger.warning("물량 점수관리 테이블을 찾을 수 없습니다.")
-            # 디버깅을 위해 모든 테이블 구조 출력
-            all_tables = soup.find_all('table')
-            logger.info(f"🔍 페이지에서 발견된 전체 테이블 수: {len(all_tables)}")
-            for i, table in enumerate(all_tables[:5]):  # 처음 5개까지 확장
-                table_text = table.get_text()[:300]  # 더 많은 텍스트 확인
-                logger.info(f"📋 테이블 {i+1}: {table_text}")
-                # 테이블의 클래스와 ID도 출력
-                if table.get('class'):
-                    logger.info(f"   클래스: {table.get('class')}")
-                if table.get('id'):
-                    logger.info(f"   ID: {table.get('id')}")
-            return None
+            logger.warning("❌ 물량 점수관리 테이블을 찾을 수 없습니다.")
+            # 대체 선택자들 시도
+            sla_table = soup.select_one('table.sla_table') or soup.select_one('.sla_table table') or soup.select_one('table')
+            if not sla_table:
+                logger.error("❌ 어떤 테이블도 찾을 수 없습니다.")
+                return None
         
-        # 모든 행을 한 번에 가져오기
+        # tbody에서 모든 행 가져오기
         rows = sla_table.select('tbody tr')
         if not rows:
-            # tbody가 없는 경우 tr 직접 선택
-            rows = sla_table.select('tr')
+            logger.warning("❌ 테이블 행을 찾을 수 없습니다.")
+            return None
         
+        logger.info(f"📋 총 {len(rows)}개 행 발견")
+        
+        # 타겟 날짜와 일치하는 행 찾기
         target_row = None
-        
-        # 날짜 매칭 최적화 (정규표현식 미리 컴파일)
-        import re
-        date_pattern = re.compile(target_date)
         for row in rows:
-            # 첫 번째 또는 두 번째 셀에서 날짜 찾기
-            for idx in range(min(3, len(row.select('td')))):
-                date_cell = row.select('td')[idx] if row.select('td') else None
-                if date_cell and date_pattern.search(date_cell.get_text(strip=True)):
+            cells = row.select('td')
+            if len(cells) >= 7:  # 번호, 날짜, 점수, 4개 피크
+                date_cell = cells[1]  # 두 번째 열이 날짜
+                date_text = date_cell.get_text(strip=True)
+                
+                if date_text == target_date:
                     target_row = row
+                    logger.info(f"✅ 타겟 날짜 {target_date} 행 발견!")
                     break
-            if target_row:
-                break
         
         if not target_row:
-            logger.warning(f"날짜 {target_date}에 해당하는 데이터를 찾을 수 없습니다.")
-            # 디버깅: 테이블의 모든 행 날짜 출력
-            logger.info("🔍 테이블에서 발견된 모든 날짜:")
-            for i, row in enumerate(rows[:5]):  # 처음 5행만
+            logger.warning(f"❌ 날짜 {target_date}에 해당하는 행을 찾을 수 없습니다.")
+            # 디버깅: 발견된 모든 날짜 출력
+            logger.info("🔍 테이블에서 발견된 날짜들:")
+            for i, row in enumerate(rows[:5]):
                 cells = row.select('td')
-                if cells:
-                    for j, cell in enumerate(cells[:3]):  # 처음 3셀만
-                        cell_text = cell.get_text(strip=True)
-                        if re.search(r'\d{4}-\d{2}-\d{2}', cell_text):
-                            logger.info(f"📅 행 {i+1}, 셀 {j+1}: {cell_text}")
+                if len(cells) >= 2:
+                    date_text = cells[1].get_text(strip=True)
+                    logger.info(f"  행 {i+1}: {date_text}")
             return None
         
-        # 모든 셀을 한 번에 파싱
+        # 타겟 행에서 데이터 추출
         cells = target_row.select('td')
-        if len(cells) < 4:
-            logger.warning("테이블 구조가 예상과 다릅니다.")
+        if len(cells) < 7:
+            logger.error(f"❌ 행의 셀 수가 부족합니다. 예상: 7개, 실제: {len(cells)}개")
             return None
         
-        # 정규표현식 패턴 미리 컴파일 (성능 향상)
-        count_pattern = re.compile(r'(\d+)/(\d+)')
-        
-        def parse_mission_cell(cell_text):
-            """최적화된 미션 셀 파싱"""
-            match = count_pattern.search(cell_text)
-            if match:
-                return int(match.group(1)), int(match.group(2))
-            return 0, 0
-        
-        # 실제 웹사이트 테이블 헤더에 맞는 용어 사용
-        web_peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-        # 기존 코드와의 호환성을 위한 용어 매핑
-        legacy_peak_names = ['오전피크', '오후피크', '저녁피크', '심야피크']
-        
-        # 피크별 데이터 병렬 파싱
-        # 날짜 셀 다음부터 4개 피크 데이터 추출
-        peak_start_idx = 1  # 일반적으로 날짜 다음이 피크 데이터
-        for idx, cell in enumerate(cells):
-            if date_pattern.search(cell.get_text(strip=True)):
-                peak_start_idx = idx + 1
-                break
-        
+        # 피크별 데이터 파싱 (3번째 열부터 4개 피크)
+        peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
         peak_data = {}
-        peak_cells = cells[peak_start_idx:peak_start_idx + 4]
         
-        for idx, cell in enumerate(peak_cells):
-            if idx >= len(web_peak_names):
-                break
+        # 정규표현식으로 "숫자/숫자건" 패턴 추출
+        pattern = re.compile(r'(\d+)/(\d+)건')
+        
+        for i, peak_name in enumerate(peak_names):
+            cell_idx = i + 3  # 번호(0), 날짜(1), 점수(2), 피크 시작(3)
+            if cell_idx < len(cells):
+                cell = cells[cell_idx]
+                cell_text = cell.get_text(strip=True)
                 
-            text = cell.get_text(strip=True)
-            current, target = parse_mission_cell(text)
-            # 통일된 용어로 저장 (아침점심피크, 오후논피크, 저녁피크, 심야논피크)
-            unified_name = web_peak_names[idx] if idx < len(web_peak_names) else f'피크{idx+1}'
-            
-            peak_data[unified_name] = {
-                'current': current, 
-                'target': target,
-                'progress': (current / target * 100) if target > 0 else 0
-            }
-            
-            # 기존 코드 호환성을 위해 레거시 이름으로도 저장
-            if idx < len(legacy_peak_names):
-                legacy_name = legacy_peak_names[idx]
-                peak_data[legacy_name] = peak_data[unified_name]
+                # "24/21건" 패턴 찾기
+                match = pattern.search(cell_text)
+                if match:
+                    current = int(match.group(1))
+                    target = int(match.group(2))
+                    progress = (current / target * 100) if target > 0 else 0
+                    
+                    peak_data[peak_name] = {
+                        'current': current,
+                        'target': target, 
+                        'progress': progress
+                    }
+                    
+                    logger.info(f"✅ {peak_name}: {current}/{target}건 ({progress:.1f}%)")
+                else:
+                    logger.warning(f"⚠️ {peak_name} 데이터 파싱 실패: {cell_text}")
+                    peak_data[peak_name] = {'current': 0, 'target': 0, 'progress': 0}
         
-        logger.info(f"파싱된 미션 데이터 ({target_date}): {len(web_peak_names)}개 피크")
-        for name in web_peak_names:
-            if name in peak_data:
-                data = peak_data[name]
-                logger.info(f"✅ {name}: {data['current']}/{data['target']}건 ({data['progress']:.1f}%)")
-        
+        logger.info(f"📊 파싱 완료: {len(peak_data)}개 피크 데이터")
         return peak_data
     
     def _parse_grider_html_old(self, soup):
