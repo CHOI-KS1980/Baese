@@ -936,7 +936,6 @@ class GriderDataCollector:
             return datetime.now(korea_tz)
         except ImportError:
             # pytz가 없으면 UTC+9로 계산
-            from datetime import datetime, timedelta
             utc_now = datetime.utcnow()
             return utc_now + timedelta(hours=9)
 
@@ -954,7 +953,6 @@ class GriderDataCollector:
             if not cache_timestamp:
                 return False
             
-            from datetime import datetime, timedelta
             cache_time = datetime.fromisoformat(cache_timestamp.replace('Z', '+00:00'))
             current_time = self._get_korea_time()
             
@@ -1018,7 +1016,6 @@ class GriderDataCollector:
                 return validation_result
             
             # 5. 어제 데이터 패턴 감지
-            from datetime import timedelta
             yesterday = (korea_time - timedelta(days=1)).strftime('%Y-%m-%d')
             if self._verify_date_in_html(html, yesterday):
                 validation_result['is_valid'] = False
@@ -1105,7 +1102,6 @@ class GriderDataCollector:
             logger.error("🚨 어제 데이터 또는 잘못된 날짜 데이터가 크롤링되었을 가능성이 높습니다")
             
             # 추가 검증: 어제 날짜 체크
-            from datetime import datetime, timedelta
             import pytz
             
             korea_tz = pytz.timezone('Asia/Seoul')
@@ -1560,7 +1556,6 @@ class GriderDataCollector:
         """
         from bs4 import BeautifulSoup
         import re
-        from datetime import datetime, timedelta
         
         # BeautifulSoup으로 HTML 파싱
         soup = BeautifulSoup(html, 'html.parser')
