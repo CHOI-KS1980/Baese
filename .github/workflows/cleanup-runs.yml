@@ -8,11 +8,12 @@ on:
 jobs:
   delete-old-runs:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: 🚀 오래된 워크플로우 실행 기록 삭제
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.CUSTOM_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const runs = await github.rest.actions.listWorkflowRunsForRepo({
