@@ -350,6 +350,11 @@ class GriderDataCollector:
                 
                 logger.info(" 크롤링 성공")
 
+                # 임시 디버깅: 전체 HTML 로그 출력
+                logger.info("================ HTML START ================")
+                print(html)
+                logger.info("================ HTML END ================")
+
                 # 성공 시 디버깅을 위해 HTML 파일 저장
                 with open('debug_grider_page.html', 'w', encoding='utf-8') as f:
                     f.write(html)
