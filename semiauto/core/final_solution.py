@@ -19,11 +19,6 @@ import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup  # BeautifulSoup import 추가
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 
-from semiauto.utils import holiday_checker
-from .data_collection import GriderDataCollector
-from .kakao_sender import KakaoSender
-from .token_manager import TokenManager
-
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,

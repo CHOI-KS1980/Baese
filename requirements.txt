@@ -1,10 +1,11 @@
 # Auto Finance 고도화 시스템 의존성
 
 # 기본 라이브러리
-requests==2.31.0
-beautifulsoup4==4.12.2
-selenium==4.15.2
-lxml==4.9.3
+requests
+selenium
+pytz
+beautifulsoup4
+lxml
 urllib3==2.0.7
 fake-useragent==1.4.0
 
