@@ -562,11 +562,14 @@ class GriderAutoSender:
             logger.error("데이터 수집에 실패하여 리포트 전송을 중단합니다.")
             return
 
-        # 1. 수집된 데이터를 JSON 파일로 저장
+        # 1. 수집된 데이터를 대시보드가 읽을 수 있는 JSON 파일로 저장
+        output_path = 'docs/api/latest-data.json'
         try:
-            with open('grider_results.json', 'w', encoding='utf-8') as f:
+            # 디렉토리가 존재하지 않으면 생성
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            logger.info("✅ 크롤링 결과를 grider_results.json 파일로 성공적으로 저장했습니다.")
+            logger.info(f"✅ 크롤링 결과를 {output_path} 파일로 성공적으로 저장했습니다.")
         except Exception as e:
             logger.error(f"❌ 크롤링 결과를 파일로 저장하는 중 오류 발생: {e}", exc_info=True)
             # 파일 저장에 실패하더라도 카톡 전송은 시도할 수 있습니다.
@@ -621,9 +624,9 @@ class GriderAutoSender:
             weather_info = self.data_collector._get_weather_info_detailed().replace("C", "°C")
             weather_parts = [f"\n{weather_info.replace('오늘의 날씨', '🌍 오늘의 날씨').replace('오전:', '🌅 오전:').replace('오후:', '🌇 오후:')}"]
             
-            # Weekly data from the source
-            weekly_completed = data.get('주간완료', 0)
-            weekly_rejected = data.get('주간거절', 0)
+            # Weekly data from the source - using correct keys from parser
+            weekly_completed = data.get('총완료', 0)
+            weekly_rejected = data.get('총거절', 0)
             weekly_acceptance_rate = (weekly_completed / (weekly_completed + weekly_rejected) * 100) if (weekly_completed + weekly_rejected) > 0 else 100.0
 
             weekly_score_parts = [
@@ -654,6 +657,10 @@ class GriderAutoSender:
                     rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100.0
 
                     name = r.get('name', '이름없음')
+                    # 이름 형식 문제를 확실히 해결하기 위한 방어 코드
+                    if '수락률' in name:
+                        name = name.split('수락률')[0].strip()
+
                     progress_bar = get_progress_bar(avg_contribution)
                     peak_counts = f"({peak_emojis['아침점심피크']}{r.get('아침점심피크', 0)} {peak_emojis['오후논피크']}{r.get('오후논피크', 0)} {peak_emojis['저녁피크']}{r.get('저녁피크', 0)} {peak_emojis['심야논피크']}{r.get('심야논피크', 0)})"
                     
