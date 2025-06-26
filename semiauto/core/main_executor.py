@@ -612,18 +612,18 @@ class GriderAutoSender:
             filled_blocks = round(percentage / 10)
             return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
-        # 10칸짜리 라이더 기여도용 진행률 막대 함수
+        # 5칸짜리 라이더 기여도용 진행률 막대 함수
         def get_rider_progress_bar(contribution: float) -> str:
             if not isinstance(contribution, (int, float)) or contribution < 0:
                 contribution = 0
             # 기여도는 100%를 넘을 수 있으므로 시각적 표현을 위해 100으로 제한
             contribution = min(contribution, 100)
-            filled_blocks = round(contribution / 10)
-            return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
+            filled_blocks = round(contribution / 20)  # 100 / 5칸 = 20
+            return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
 
         try:
             # 헤더
-            header = "📊 심플 배민 플러스 미션 알리미"
+            header = "�� 심플 배민 플러스 미션 알리미"
 
             # 시간대별 미션 현황
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
