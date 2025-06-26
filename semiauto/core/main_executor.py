@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
  최종 검증된 솔루션: 카카오톡 나에게 보내기 + 수동 복사
@@ -718,4 +718,4 @@ def main():
         logger.error(f" 실행 실패: {e}", exc_info=True)
 
 if __name__ == '__main__':
-    main()
+    main() 
