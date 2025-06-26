@@ -541,14 +541,14 @@ class GriderDataCollector:
                 
                 # 환경변수 또는 config.txt에서 로그인 정보 가져오기
                 import os
-                USER_ID = os.getenv('GRIDER_ID')
-                USER_PW = os.getenv('GRIDER_PASSWORD')
+                USER_ID = None # os.getenv('GRIDER_ID')
+                USER_PW = None # os.getenv('GRIDER_PASSWORD')
                 
-                logger.info(f"🔍 환경변수 확인:")
-                logger.info(f"   • GRIDER_ID 존재: {'있음' if USER_ID else '없음'}")
-                logger.info(f"   • GRIDER_PASSWORD 존재: {'있음' if USER_PW else '없음'}")
-                if USER_ID:
-                    logger.info(f"   • GRIDER_ID 값: {USER_ID[:3]}***")
+                logger.info(f"🔍 config.txt 우선 읽기 모드로 변경됨.")
+                # logger.info(f"   • GRIDER_ID 존재: {'있음' if USER_ID else '없음'}")
+                # logger.info(f"   • GRIDER_PASSWORD 존재: {'있음' if USER_PW else '없음'}")
+                # if USER_ID:
+                #     logger.info(f"   • GRIDER_ID 값: {USER_ID[:3]}***")
                 
                 # 환경변수가 없으면 config.txt에서 읽기
                 if not USER_ID or not USER_PW:
