@@ -258,7 +258,7 @@ class EnhancedScheduler:
                 time.sleep(30)  # 복구 간 30초 대기
                 
             except Exception as e:
-                logger.error(f"❌ 누락 메시지 복구 중 오류: {e}")
+                logger.error(f"❌ 누락 메시지 복구 실패: {missing_time.strftime('%H:%M')}")
     
     def get_status_report(self) -> str:
         """현재 상태 리포트"""
