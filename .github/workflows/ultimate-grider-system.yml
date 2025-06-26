@@ -149,9 +149,46 @@ jobs:
         cd semiauto
         echo "🌐 대시보드 데이터 업데이트 시작"
         
+        # 실제 G라이더 데이터로 대시보드 강제 업데이트
+        echo "🔄 실제 G라이더 데이터로 대시보드 업데이트 중..."
+        python update_dashboard_with_real_data.py || echo "⚠️ 대시보드 업데이트 스크립트 실행 실패"
+        
         # 대시보드 API 데이터가 생성되었는지 확인
         if [ -f "dashboard/api/latest-data.json" ]; then
           echo "✅ 대시보드 데이터 발견됨"
+          
+          # 실제 데이터인지 확인 (테스트 데이터가 아닌지)
+          python -c "
+          import json
+          try:
+              with open('dashboard/api/latest-data.json', 'r', encoding='utf-8') as f:
+                  data = json.load(f)
+              
+              riders = data.get('riders', [])
+              test_names = ['김철수', '이영희', '박민수', '정수진']
+              real_data = True
+              
+              if len(riders) > 0:
+                  for rider in riders[:4]:
+                      if rider.get('name', '') in test_names:
+                          real_data = False
+                          break
+              
+              if real_data:
+                  print('✅ 실제 G라이더 데이터 확인됨')
+                  print('📊 총점: {}점'.format(data.get('총점', 0)))
+                  print('🏍️ 라이더: {}명'.format(len(riders)))
+                  if len(riders) > 0:
+                      top_rider = max(riders, key=lambda x: x.get('complete', 0))
+                      print('🏆 TOP 라이더: {} ({}건)'.format(top_rider.get('name', '이름없음'), top_rider.get('complete', 0)))
+              else:
+                  print('⚠️ 테스트 데이터 감지됨 - 실제 데이터로 재시도 필요')
+                  exit(1)
+                  
+          except Exception as e:
+              print('❌ 데이터 검증 실패: {}'.format(str(e)))
+              exit(1)
+          "
           
           # Git 설정
           git config --local user.email "action@github.com"
@@ -168,6 +205,7 @@ jobs:
             ⚡ 우선순위: ${{ env.PRIORITY }}
             
             - 실시간 성과 데이터 갱신
+            - 실제 G라이더 크롤링 데이터 반영
             - 차트 데이터 업데이트
             - 메시지 설정 동기화"
             
@@ -178,6 +216,8 @@ jobs:
           fi
         else
           echo "⚠️ 대시보드 데이터 파일이 생성되지 않았습니다"
+          echo "🔄 수동으로 대시보드 업데이트 재시도..."
+          python update_dashboard_with_real_data.py || echo "❌ 수동 업데이트도 실패"
         fi
 
     - name: 📊 실행 결과 분석
