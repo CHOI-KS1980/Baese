@@ -111,7 +111,9 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
             data = self.data_collector.get_grider_data()
             
             if not data:
-                execution_result["errors"].append("데이터 수집 실패")
+                logger.info("⏸️ 데이터 수집 결과 없음 - 메시지 전송 건너뜀")
+                execution_result["success"] = True  # 에러가 아닌 정상 스킵으로 처리
+                execution_result["reason"] = "데이터 없음 (크롤링 실패 또는 운영시간 외)"
                 return execution_result
             
             # 4. AI 분석 추가

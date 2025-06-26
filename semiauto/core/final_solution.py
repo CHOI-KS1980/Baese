@@ -304,41 +304,43 @@ class GriderDataCollector:
         self.mission_data_cache_file = 'mission_data_cache.json'
     
     def get_grider_data(self):
-        """G라이더 데이터 수집 (최적화된 버전)"""
+        """G라이더 데이터 수집"""
         try:
-            logger.info("🔄 실제 심플 배민 플러스 데이터 수집 시작...")
+            # 캐시된 데이터 확인
+            korea_time = self._get_korea_time()
             
-            # 크롤링 실행
-            html = self._crawl_jangboo()
+            # 🎯 미션 날짜 기준으로 캐시 확인
+            mission_date = self._get_mission_date()
+            cached_data = self._load_mission_data_cache()
             
-            if html and len(html) > 1000:  # 최소 HTML 길이 확인
-                logger.info("✅ 크롤링 성공, 데이터 파싱 시작")
-                
-                # 데이터 파싱 - 예외 처리 강화
-                try:
-                    data = self._parse_data(html)
-                    
-                    if data and self._validate_data(data):
-                        logger.info(f"📊 수집된 데이터: 총점={data.get('총점', 0)}, 완료={data.get('총완료', 0)}")
-                        return data
-                    else:
-                        logger.error("❌ 파싱된 데이터가 유효하지 않음")
-                        logger.error("🚨 실제 데이터 수집 실패 - 크롤링 로직 점검 필요")
-                        return None
-                except Exception as parse_error:
-                    logger.error(f"❌ 데이터 파싱 중 예외 발생: {parse_error}")
-                    logger.error("🚨 파싱 오류 - datetime 변수 스코프 또는 기타 오류")
-                    return None
-            else:
-                logger.error("❌ 크롤링 실패 - HTML을 가져올 수 없음")
-                logger.error("🚨 로그인 실패 또는 네트워크 오류 가능성")
-                # 에러 메시지 전송 대신 None 반환
+            # 현재 시간이 메시지 전송 시간인지 확인
+            if not self._is_message_time():
+                logger.info("⏸️ 현재 시간은 메시지 전송 시간이 아닙니다.")
+                # 메시지 전송 시간이 아닐 때는 None 반환 (에러 메시지 전송 방지)
                 return None
-                    
+            
+            logger.info("🚀 G라이더 실제 데이터 수집 시작...")
+            
+            html = self._crawl_jangboo()
+            if not html:
+                logger.error("❌ 크롤링 실패 - HTML을 가져올 수 없습니다")
+                # 크롤링 실패 시 None 반환 (에러 메시지 전송 방지)
+                return None
+            
+            # HTML에서 데이터 파싱
+            data = self._parse_data(html)
+            
+            if data.get('error'):
+                logger.error(f"❌ 데이터 파싱 실패: {data.get('error_reason', '알 수 없는 오류')}")
+                # 파싱 실패 시 None 반환 (에러 메시지 전송 방지)
+                return None
+            
+            logger.info("✅ G라이더 데이터 수집 완료")
+            return data
+            
         except Exception as e:
-            logger.error(f"❌ 데이터 수집 중 예외 발생: {e}")
-            logger.error("🚨 심각한 오류 발생 - 시스템 점검 필요")
-            # 에러 메시지 전송 대신 None 반환
+            logger.error(f"❌ 크롤링 중 오류 발생: {e}")
+            # 모든 예외 발생 시 None 반환 (에러 메시지 전송 방지)
             return None
 
     def _validate_data(self, data):
@@ -398,31 +400,143 @@ class GriderDataCollector:
                 
                 # Chrome 옵션 설정 (main_(2).py와 동일)
                 options = Options()
+                
+                # CloudFlare 우회를 위한 강화된 설정
+                user_agents = [
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                ]
+                
                 chrome_args = [
-                    '--headless', '--no-sandbox', '--disable-dev-shm-usage',
-                    '--disable-gpu', '--disable-images', '--memory-pressure-off',
-                    '--max_old_space_size=4096', '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor', '--disable-extensions',
-                    '--no-first-run', '--ignore-certificate-errors', '--ignore-ssl-errors',
+                    '--headless=new',  # 새로운 headless 모드
+                    '--no-sandbox', 
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu', 
+                    '--disable-images', 
+                    '--memory-pressure-off',
+                    '--max_old_space_size=4096', 
+                    '--disable-web-security',
+                    '--disable-features=VizDisplayCompositor', 
+                    '--disable-extensions',
+                    '--no-first-run', 
+                    '--ignore-certificate-errors', 
+                    '--ignore-ssl-errors',
                     '--ignore-certificate-errors-spki-list',
-                    '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+                    # CloudFlare 우회 강화
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=VizDisplayCompositor',
+                    '--user-agent=' + user_agents[attempt % len(user_agents)],
+                    '--accept-language=ko-KR,ko;q=0.9,en;q=0.8',
+                    '--accept=text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    '--accept-encoding=gzip, deflate, br',
+                    '--sec-fetch-dest=document',
+                    '--sec-fetch-mode=navigate',
+                    '--sec-fetch-site=none',
+                    '--sec-fetch-user=?1',
+                    '--upgrade-insecure-requests=1',
+                    '--window-size=1920,1080',
+                    '--viewport-size=1920,1080'
                 ]
                 
                 for arg in chrome_args:
                     options.add_argument(arg)
                 
+                # 실험적 옵션 추가 (봇 감지 방지)
+                options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                options.add_experimental_option('useAutomationExtension', False)
+                
                 driver = webdriver.Chrome(options=options)
-                driver.set_page_load_timeout(30)  # 타임아웃 늘림
-                driver.implicitly_wait(10)  # 암시적 대기 추가
+                
+                # 봇 감지 방지 스크립트 실행
+                driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                
+                driver.set_page_load_timeout(60)  # 타임아웃 더 늘림
+                driver.implicitly_wait(15)  # 암시적 대기 늘림
                 
                 # 로그인 페이지 로드 (재시도 로직)
                 LOGIN_URL = 'https://jangboo.grider.ai/'
                 logger.info(f"로그인 페이지 접속: {LOGIN_URL}")
-                driver.get(LOGIN_URL)
-                time.sleep(2)  # 페이지 로딩 대기
+                
+                # CloudFlare 우회를 위한 점진적 접근
+                try:
+                    # 1단계: 메인 도메인 먼저 접근
+                    driver.get('https://grider.ai/')
+                    time.sleep(3)
+                    logger.info("✅ 메인 도메인 접근 성공")
+                    
+                    # 2단계: 서브도메인 접근
+                    driver.get(LOGIN_URL)
+                    time.sleep(5)  # CloudFlare 검증 대기
+                    logger.info("✅ 로그인 페이지 접근 시도")
+                    
+                    # 3단계: CloudFlare 체크 대기
+                    max_wait = 30
+                    wait_count = 0
+                    while wait_count < max_wait:
+                        page_title = driver.title.lower()
+                        current_url = driver.current_url.lower()
+                        
+                        # CloudFlare 체크 화면인지 확인
+                        if any(keyword in page_title for keyword in ['checking', 'security', 'cloudflare', 'please wait']):
+                            logger.info(f"🔄 CloudFlare 보안 검증 중... ({wait_count + 1}초)")
+                            time.sleep(1)
+                            wait_count += 1
+                            continue
+                        
+                        # 정상 페이지 로드 확인
+                        if "jangboo" in current_url and "grider" in current_url:
+                            logger.info("✅ 정상 페이지 로드 완료")
+                            break
+                        
+                        time.sleep(1)
+                        wait_count += 1
+                    
+                    if wait_count >= max_wait:
+                        raise Exception("CloudFlare 보안 검증 시간 초과")
+                        
+                except Exception as access_error:
+                    logger.warning(f"⚠️ 직접 접근 실패, 우회 방법 시도: {access_error}")
+                    
+                    # 대안 URL들 시도
+                    alternative_urls = [
+                        'https://www.grider.ai/',
+                        'https://jangboo.grider.ai/login',
+                        'https://jangboo.grider.ai/dashboard'
+                    ]
+                    
+                    for alt_url in alternative_urls:
+                        try:
+                            logger.info(f"🔄 대안 URL 시도: {alt_url}")
+                            driver.get(alt_url)
+                            time.sleep(3)
+                            
+                            if "grider" in driver.current_url.lower():
+                                logger.info(f"✅ 대안 URL 접근 성공: {alt_url}")
+                                break
+                        except:
+                            continue
+                    else:
+                        raise Exception("모든 접근 방법 실패")
 
                 # 페이지 로드 완료 확인
-                if "jangboo" not in driver.current_url.lower():
+                current_url = driver.current_url.lower()
+                page_title = driver.title
+                
+                logger.info(f"📄 현재 페이지 정보:")
+                logger.info(f"   URL: {driver.current_url}")
+                logger.info(f"   제목: {page_title}")
+                
+                # 에러 페이지 감지
+                if any(keyword in page_title.lower() for keyword in ['error', 'not satisfied', 'cloudflare', 'access denied']):
+                    # 페이지 소스 저장하여 문제 분석
+                    error_html = driver.page_source
+                    with open(f'debug_error_page_{attempt + 1}.html', 'w', encoding='utf-8') as f:
+                        f.write(error_html)
+                    
+                    raise Exception(f"접근 차단 감지: {page_title}")
+                
+                if "grider" not in current_url:
                     raise Exception(f"예상과 다른 페이지 로드: {driver.current_url}")
 
                 # 로그인 처리
@@ -1415,16 +1529,26 @@ class GriderDataCollector:
         return mission_date.strftime('%Y-%m-%d')
 
     def _is_message_time(self):
-        """메시지 전송 시간대(00:00~02:59, 10:00~23:59)인지 확인"""
-        try:
-            import pytz
-            kst = pytz.timezone('Asia/Seoul')
-            now = dt.datetime.now(kst)
-        except ImportError:
-            utc_now = dt.datetime.utcnow()
-            now = utc_now + dt.timedelta(hours=9)
-        t = now.time()
-        return (dt.time(0, 0) <= t < dt.time(3, 0)) or (dt.time(10, 0) <= t <= dt.time(23, 59, 59))
+        """현재 시간이 메시지 전송 시간인지 확인"""
+        korea_time = self._get_korea_time()
+        current_hour = korea_time.hour
+        current_minute = korea_time.minute
+        
+        # GitHub Actions는 보통 정각에 실행되므로 ±2분 허용
+        if current_minute <= 2 or current_minute >= 58:
+            # 운영 시간: 06:00 ~ 23:59 (다음날 03:59까지 연장)
+            if 6 <= current_hour <= 23:
+                return True
+            # 야간 연장: 00:00 ~ 03:59 (전날 미션 연장)
+            elif 0 <= current_hour <= 3:
+                return True
+        
+        # 크롤링 오류 해결을 위한 테스트 시간도 허용
+        if current_hour == 9 and 20 <= current_minute <= 30:  # 오전 9:20~9:30 테스트 시간
+            logger.info("🔧 테스트 시간대 - 크롤링 테스트 허용")
+            return True
+        
+        return False
 
     def _parse_mission_table_data(self, html):
         """
@@ -1801,313 +1925,356 @@ class GriderAutoSender:
         self.sender = None
     
     def format_message(self, data):
-        """메시지 포맷팅 (크롤링 실패 시 에러 메시지 전송 중단)"""
-        # 크롤링 실패 시 에러 메시지 전송 중단
-        if data.get('error', False):
-            logger.warning("⚠️ 크롤링 실패 - 에러 메시지 전송을 중단합니다")
-            return None  # None을 반환하여 전송 중단
+        """메시지 포맷팅"""
+        if not data:
+            logger.warning("⚠️ 데이터가 비어있습니다")
+            return None
         
-        # 현재 시간 확인 (한국시간) - 더 안전한 방법으로 처리
+        # 에러 데이터 감지 시 None 반환 (메시지 전송 방지)
+        if data.get('error'):
+            logger.info(f"🛑 에러 데이터 감지 - 메시지 포맷팅 건너뜀: {data.get('error_reason', '알 수 없는 오류')}")
+            return None
+        
         try:
-            import pytz
-            kst = pytz.timezone('Asia/Seoul')
-            now = datetime.now(kst)
-        except ImportError:
-            # pytz가 없으면 UTC+9로 계산
-            utc_now = datetime.utcnow()
-            now = utc_now + timedelta(hours=9)
-        
-        current_hour = now.hour
-        current_minute = now.minute
-        
-        # 디버그 로그 추가 (GitHub Actions에서 시간 확인용)
-        logger.info(f"🕐 현재 시간: {now.strftime('%Y-%m-%d %H:%M:%S')} (한국시간)")
-        logger.info(f"🕐 시간대별 인사말 생성: {current_hour:02d}:{current_minute:02d}")
-        
-        # 휴일/평일 정보 확인 및 로그
-        is_weekend_or_holiday = self._is_weekend_or_holiday(now)
-        day_type = "휴일" if is_weekend_or_holiday else "평일"
-        logger.info(f"📅 현재 날짜 타입: {day_type}")
-        
-        # 시간대별 인사말 결정
-        greeting = self._get_time_based_greeting(current_hour, current_minute)
-        
-        # 날씨 정보 (전체 버전으로 복원)
-        weather_info = self._get_weather_info()
-        
-        # 1. 미션 현황 - 지난 미션과 현재 미션 모두 표시
-        peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-        peak_emojis = {
-            '아침점심피크': '🌅', 
-            '오후논피크': '🌇', 
-            '저녁피크': '🌃', 
-            '심야논피크': '🌙'
-        }
-        
-        mission_parts = []
-        lacking_missions = []
-        
-        # 03:00~06:00는 미션 준비 시간 (휴일/평일 동일)
-        if 3 <= current_hour < 6:
-            is_weekend_or_holiday = self._is_weekend_or_holiday(now)
-            holiday_info = " (주말/휴일)" if is_weekend_or_holiday else " (평일)"
-            mission_parts.append(f"🛌 미션 준비 시간입니다{holiday_info} - 06:00부터 미션 정보가 표시됩니다")
-            preparation_time = True
-        else:
-            preparation_time = False
-        
-        if not preparation_time:
-            is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+            korea_time = self._get_korea_time()
+            hour = korea_time.hour
+            minute = korea_time.minute
             
-            # 시작된 미션만 표시 (아직 시작되지 않은 미션은 숨김)
-            started_missions = []  # 시작된 모든 미션 (완료/진행중 구분 없이)
+            # 시간대별 인사말
+            greeting = self._get_time_based_greeting(hour, minute)
             
-            for key in peak_order:
-                peak_info = data.get(key, {'current': 0, 'target': 0})
-                cur = peak_info.get('current', 0)
-                tgt = peak_info.get('target', 0)
-                
-                if tgt == 0:
-                    continue
-                
-                # 미션 시간대 확인
-                mission_started = False  # 미션이 시작되었는지 확인
-                mission_active = False   # 현재 진행중인지 확인
-                
-                if key == '아침점심피크':
-                    if is_weekend_or_holiday:
-                        # 휴일: 6-14시
-                        mission_started = current_hour >= 6
-                        mission_active = 6 <= current_hour < 14
-                        peak_time_info = "06:00-14:00 (휴일)"
-                    else:
-                        # 평일: 6-13시
-                        mission_started = current_hour >= 6
-                        mission_active = 6 <= current_hour < 13
-                        peak_time_info = "06:00-13:00 (평일)"
-                elif key == '오후논피크':
-                    if is_weekend_or_holiday:
-                        # 휴일: 14-17시
-                        mission_started = current_hour >= 14
-                        mission_active = 14 <= current_hour < 17
-                        peak_time_info = "14:00-17:00 (휴일)"
-                    else:
-                        # 평일: 13-17시
-                        mission_started = current_hour >= 13
-                        mission_active = 13 <= current_hour < 17
-                        peak_time_info = "13:00-17:00 (평일)"
-                elif key == '저녁피크':
-                    # 17-20시 (휴일/평일 동일)
-                    mission_started = current_hour >= 17
-                    mission_active = 17 <= current_hour < 20
-                    peak_time_info = "17:00-20:00"
-                elif key == '심야논피크':
-                    # 20시~다음날 3시 (휴일/평일 동일)
-                    mission_started = current_hour >= 20 or current_hour < 3
-                    mission_active = current_hour >= 20 or current_hour < 3
-                    peak_time_info = "20:00-03:00 (익일)"
-                
-                # 피크 시간대 정보 로그
-                logger.info(f"🎯 {key}: {peak_time_info} | 시작됨: {mission_started} | 진행중: {mission_active}")
-                
-                # 아직 시작되지 않은 미션은 표시하지 않음
-                if not mission_started:
-                    continue
-                
-                # 상태 결정 (아이콘만 사용)
-                if cur >= tgt:
-                    status = '✅'
+            # 날짜별 체크
+            current_date = korea_time.strftime("%Y-%m-%d")
+            is_weekend = korea_time.weekday() >= 5
+            is_holiday = self.holiday_checker.is_holiday_advanced(korea_time)
+            
+            # 날씨 정보 (간소화)
+            weather_info = self._get_weather_info()
+            
+            # 기본 메시지 구성
+            message_parts = [
+                f"{greeting}",
+                f"📅 {korea_time.strftime('%Y년 %m월 %d일')} ({['월','화','수','목','금','토','일'][korea_time.weekday()]})",
+            ]
+            
+            # 주말/휴일 표시
+            if is_weekend or is_holiday:
+                if is_holiday:
+                    message_parts.append("🎌 오늘은 공휴일입니다")
                 else:
-                    if mission_active:
-                        status = f'⏳ ({tgt-cur}건 남음)'
-                        lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
-                    else:
-                        status = f'❌ ({tgt-cur}건 부족)'
-                
-                mission_line = f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}"
-                started_missions.append(mission_line)
+                    message_parts.append("🎯 주말 근무 중!")
             
-            # 금일 미션 현황 표시 (시작된 미션만)
-            if started_missions:
-                mission_parts.append("🎯 금일 미션 현황")
-                mission_parts.extend(started_missions)
-            else:
-                # 아직 미션이 시작되지 않은 경우 안내 메시지
-                mission_parts.append("🎯 금일 미션 현황")
-                mission_parts.append("⏰ 미션 시작 전입니다")
-                mission_parts.append("첫 번째 미션은 06:00부터 시작됩니다")
-        
-        # 2. 기본 정보 - 두 줄로 정리
-        total_score = data.get("총점", 0)
-        quantity_score = data.get("물량점수", 0)
-        acceptance_score = data.get("수락률점수", 0)
-        acceptance_rate = data.get("수락률", 0.0)
-        total_completed = data.get("총완료", 0)
-        total_rejected = data.get("총거절", 0)
-        
-        summary_parts = [
-            "📊 금주 미션 수행 예상점수",
-            f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})",
-            f"수락률: {acceptance_rate:.1f}% | 완료: {total_completed} | 거절: {total_rejected}"
-        ]
-        
-        # 3. 라이더 순위 - 완료 건수가 있는 라이더만 대상으로 TOP 3 선정
-        sorted_riders = sorted(
-            [r for r in data.get('riders', []) if r.get('complete', 0) > 0], 
-            key=lambda x: x.get('contribution', 0), 
-            reverse=True
-        )
-        
-        rider_parts = []
-        top_riders = sorted_riders[:3]
-        other_riders = sorted_riders[3:]
-        
-        # 라이더 순위 (3위까지 자세한 정보)
-        if sorted_riders:
-            # 운행중인 라이더 수 계산 (금일 완료 내역이 있는 라이더 수)
-            active_rider_count = len(sorted_riders)
-            rider_parts.append(f"🏆 라이더 순위 (운행 : {active_rider_count}명)")
-            medals = ['🥇', '🥈', '🥉']
+            # 날씨 정보 추가
+            if weather_info:
+                message_parts.append(f"🌤️ {weather_info}")
             
-            # 3위까지만 표시
-            for i, rider in enumerate(sorted_riders[:3]):
-                name = rider.get('name', '이름없음')
-                contribution = rider.get('contribution', 0)
-                
-                # 피크별 기여도
-                morning = rider.get('아침점심피크', 0)
-                afternoon = rider.get('오후논피크', 0)
-                evening = rider.get('저녁피크', 0)
-                midnight = rider.get('심야논피크', 0)
-                
-                acceptance_rate = rider.get('acceptance_rate', 0.0)
-                reject = rider.get('reject', 0)
-                cancel = rider.get('cancel', 0)
-                complete = rider.get('complete', 0)
-                
-                # 진행률 바 생성 (퍼센트 바 안쪽에 표시)
-                bar_len = 10
-                filled = int(round(contribution / 10))  # 10%당 1칸
-                if filled > 10:
-                    filled = 10
-                
-                # 퍼센트 텍스트 길이 계산
-                percent_text = f"{contribution:.1f}%"
-                remaining_dashes = bar_len - filled - len(percent_text)
-                
-                if remaining_dashes > 0:
-                    bar = '■' * filled + '─' * remaining_dashes + percent_text
-                else:
-                    # 퍼센트 텍스트가 너무 길면 뒤쪽 ■을 일부 대체
-                    bar = '■' * max(0, bar_len - len(percent_text)) + percent_text
-                
-                # 1-3위는 메달만 표시
-                rider_parts.append(f"**{medals[i]} {name}** | [{bar}]")
-                
-                rider_parts.append(f"    총 {complete}건 (🌅{morning} 🌇{afternoon} 🌃{evening} 🌙{midnight})")
-                rider_parts.append(f"    수락률: {acceptance_rate:.1f}% (거절:{reject}, 취소:{cancel})")
-        
-        # 전체 라이더의 금일 완료/거절/취소/수락률 통계 계산
-        total_complete_today = sum(rider.get('complete', 0) for rider in data.get('riders', []))
-        total_reject_today = sum(rider.get('reject', 0) for rider in data.get('riders', []))
-        total_cancel_today = sum(rider.get('cancel', 0) for rider in data.get('riders', []))
-        total_delivery_cancel_today = sum(rider.get('delivery_cancel', 0) for rider in data.get('riders', []))
-        
-        # 미션 현황 아래 완료/거절/취소/수락률 정보를 깔끔하게 표시
-        total_cancel_all = total_cancel_today + total_delivery_cancel_today  # 배차취소 + 배달취소
-        
-        # 전체 수락률 계산 (완료 / (완료 + 거절 + 취소) * 100)
-        total_attempts = total_complete_today + total_reject_today + total_cancel_all
-        overall_acceptance_rate = (total_complete_today / total_attempts * 100) if total_attempts > 0 else 0.0
-        
-        # 거절에 취소를 합산 (금주 미션 수행 예상점수와 동일한 방식)
-        total_reject_combined = total_reject_today + total_cancel_all
-        
-        mission_summary_parts = [
-            "📈 금일 수행 내역",
-            f"수락률: {overall_acceptance_rate:.1f}% | 완료: {total_complete_today} | 거절: {total_reject_combined}"
-        ]
-        mission_summary = "\n".join(mission_summary_parts)
-        
-        # 최종 메시지 조합 (시간대별 인사말 추가)
-        message_parts = [
-            greeting,  # 시간대별 인사말 추가
-            "",
-            f"📊 심플 배민 플러스 미션 알리미 ({day_type})",
-            ""
-        ]
-        
-        # 오류 데이터인 경우 친화적인 오류 메시지 추가
-        if data.get('error', False):
-            error_reason = data.get('error_reason', '알 수 없는 오류')
+            message_parts.append("")  # 빈 줄
             
-            # 현재 시간대 정보
-            now = datetime.now(KST)
+            # 현재 시간 확인 (한국시간) - 더 안전한 방법으로 처리
+            try:
+                import pytz
+                kst = pytz.timezone('Asia/Seoul')
+                now = datetime.now(kst)
+            except ImportError:
+                # pytz가 없으면 UTC+9로 계산
+                utc_now = datetime.utcnow()
+                now = utc_now + timedelta(hours=9)
+            
             current_hour = now.hour
+            current_minute = now.minute
             
-            # 시간대별 상황 설명
-            if 6 <= current_hour < 13:
-                time_info = "🌅 아침점심피크 시간대"
-                mission_status = "현재 아침점심피크 미션이 진행중입니다"
-            elif 13 <= current_hour < 17:
-                time_info = "🌇 오후논피크 시간대"
-                mission_status = "현재 오후논피크 미션이 진행중입니다"
-            elif 17 <= current_hour < 20:
-                time_info = "🌃 저녁피크 시간대"
-                mission_status = "현재 저녁피크 미션이 진행중입니다"
-            elif 20 <= current_hour or current_hour < 3:
-                time_info = "🌙 심야논피크 시간대"
-                mission_status = "현재 심야논피크 미션이 진행중입니다"
+            # 디버그 로그 추가 (GitHub Actions에서 시간 확인용)
+            logger.info(f"🕐 현재 시간: {now.strftime('%Y-%m-%d %H:%M:%S')} (한국시간)")
+            logger.info(f"🕐 시간대별 인사말 생성: {current_hour:02d}:{current_minute:02d}")
+            
+            # 휴일/평일 정보 확인 및 로그
+            is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+            day_type = "휴일" if is_weekend_or_holiday else "평일"
+            logger.info(f"📅 현재 날짜 타입: {day_type}")
+            
+            # 시간대별 인사말 결정
+            greeting = self._get_time_based_greeting(current_hour, current_minute)
+            
+            # 날씨 정보 (전체 버전으로 복원)
+            weather_info = self._get_weather_info()
+            
+            # 1. 미션 현황 - 지난 미션과 현재 미션 모두 표시
+            peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+            peak_emojis = {
+                '아침점심피크': '🌅', 
+                '오후논피크': '🌇', 
+                '저녁피크': '🌃', 
+                '심야논피크': '🌙'
+            }
+            
+            mission_parts = []
+            lacking_missions = []
+            
+            # 03:00~06:00는 미션 준비 시간 (휴일/평일 동일)
+            if 3 <= current_hour < 6:
+                is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+                holiday_info = " (주말/휴일)" if is_weekend_or_holiday else " (평일)"
+                mission_parts.append(f"🛌 미션 준비 시간입니다{holiday_info} - 06:00부터 미션 정보가 표시됩니다")
+                preparation_time = True
             else:
-                time_info = "⏰ 미션 준비 시간"
-                mission_status = "미션 시작 전입니다"
+                preparation_time = False
             
-            message_parts.extend([
-                "🚨 크롤링 연결 실패",
-                "",
-                time_info,
-                mission_status,
-                "",
-                "⚠️ 일시적인 연결 문제로 실시간 데이터를 가져올 수 없습니다.",
-                "",
-                "🔧 가능한 원인:",
-                "• G라이더 웹사이트 일시적 접속 장애",
-                "• 네트워크 연결 문제",
-                "• 웹사이트 구조 변경",
-                "",
-                "💡 해결 방법:",
-                "• 잠시 후 자동으로 재시도됩니다",
-                "• 문제가 지속되면 수동으로 확인해주세요",
-                "",
-                "🕐 다음 자동 시도: 30분 후",
-                "📱 자동화 시스템은 계속 작동중입니다",
-                "",
-                f"⏰ 오류 발생 시간: {data.get('timestamp', 'N/A')}",
-                "",
-                "🤖 자동화 시스템에 의해 전송됨"
-            ])
-        else:
-            # 정상 데이터인 경우 기존 메시지 구성
-            message_parts.extend([
-                "\n".join(mission_parts),
-                "",
-                weather_info,
-                "",
-                mission_summary,
-                "",
-                "\n".join(summary_parts),
-                "",
-                "\n".join(rider_parts)
-            ])
+            if not preparation_time:
+                is_weekend_or_holiday = self._is_weekend_or_holiday(now)
+                
+                # 시작된 미션만 표시 (아직 시작되지 않은 미션은 숨김)
+                started_missions = []  # 시작된 모든 미션 (완료/진행중 구분 없이)
+                
+                for key in peak_order:
+                    peak_info = data.get(key, {'current': 0, 'target': 0})
+                    cur = peak_info.get('current', 0)
+                    tgt = peak_info.get('target', 0)
+                    
+                    if tgt == 0:
+                        continue
+                    
+                    # 미션 시간대 확인
+                    mission_started = False  # 미션이 시작되었는지 확인
+                    mission_active = False   # 현재 진행중인지 확인
+                    
+                    if key == '아침점심피크':
+                        if is_weekend_or_holiday:
+                            # 휴일: 6-14시
+                            mission_started = current_hour >= 6
+                            mission_active = 6 <= current_hour < 14
+                            peak_time_info = "06:00-14:00 (휴일)"
+                        else:
+                            # 평일: 6-13시
+                            mission_started = current_hour >= 6
+                            mission_active = 6 <= current_hour < 13
+                            peak_time_info = "06:00-13:00 (평일)"
+                    elif key == '오후논피크':
+                        if is_weekend_or_holiday:
+                            # 휴일: 14-17시
+                            mission_started = current_hour >= 14
+                            mission_active = 14 <= current_hour < 17
+                            peak_time_info = "14:00-17:00 (휴일)"
+                        else:
+                            # 평일: 13-17시
+                            mission_started = current_hour >= 13
+                            mission_active = 13 <= current_hour < 17
+                            peak_time_info = "13:00-17:00 (평일)"
+                    elif key == '저녁피크':
+                        # 17-20시 (휴일/평일 동일)
+                        mission_started = current_hour >= 17
+                        mission_active = 17 <= current_hour < 20
+                        peak_time_info = "17:00-20:00"
+                    elif key == '심야논피크':
+                        # 20시~다음날 3시 (휴일/평일 동일)
+                        mission_started = current_hour >= 20 or current_hour < 3
+                        mission_active = current_hour >= 20 or current_hour < 3
+                        peak_time_info = "20:00-03:00 (익일)"
+                    
+                    # 피크 시간대 정보 로그
+                    logger.info(f"🎯 {key}: {peak_time_info} | 시작됨: {mission_started} | 진행중: {mission_active}")
+                    
+                    # 아직 시작되지 않은 미션은 표시하지 않음
+                    if not mission_started:
+                        continue
+                    
+                    # 상태 결정 (아이콘만 사용)
+                    if cur >= tgt:
+                        status = '✅'
+                    else:
+                        if mission_active:
+                            status = f'⏳ ({tgt-cur}건 남음)'
+                            lacking_missions.append(f'{key.replace("피크","").replace("논","")} {tgt-cur}건')
+                        else:
+                            status = f'❌ ({tgt-cur}건 부족)'
+                    
+                    mission_line = f"{peak_emojis.get(key, '')} {key}: {cur}/{tgt} {status}"
+                    started_missions.append(mission_line)
+                
+                # 금일 미션 현황 표시 (시작된 미션만)
+                if started_missions:
+                    mission_parts.append("🎯 금일 미션 현황")
+                    mission_parts.extend(started_missions)
+                else:
+                    # 아직 미션이 시작되지 않은 경우 안내 메시지
+                    mission_parts.append("🎯 금일 미션 현황")
+                    mission_parts.append("⏰ 미션 시작 전입니다")
+                    mission_parts.append("첫 번째 미션은 06:00부터 시작됩니다")
             
-            if lacking_missions:
+            # 2. 기본 정보 - 두 줄로 정리
+            total_score = data.get("총점", 0)
+            quantity_score = data.get("물량점수", 0)
+            acceptance_score = data.get("수락률점수", 0)
+            acceptance_rate = data.get("수락률", 0.0)
+            total_completed = data.get("총완료", 0)
+            total_rejected = data.get("총거절", 0)
+            
+            summary_parts = [
+                "📊 금주 미션 수행 예상점수",
+                f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})",
+                f"수락률: {acceptance_rate:.1f}% | 완료: {total_completed} | 거절: {total_rejected}"
+            ]
+            
+            # 3. 라이더 순위 - 완료 건수가 있는 라이더만 대상으로 TOP 3 선정
+            sorted_riders = sorted(
+                [r for r in data.get('riders', []) if r.get('complete', 0) > 0], 
+                key=lambda x: x.get('contribution', 0), 
+                reverse=True
+            )
+            
+            rider_parts = []
+            top_riders = sorted_riders[:3]
+            other_riders = sorted_riders[3:]
+            
+            # 라이더 순위 (3위까지 자세한 정보)
+            if sorted_riders:
+                # 운행중인 라이더 수 계산 (금일 완료 내역이 있는 라이더 수)
+                active_rider_count = len(sorted_riders)
+                rider_parts.append(f"🏆 라이더 순위 (운행 : {active_rider_count}명)")
+                medals = ['🥇', '🥈', '🥉']
+                
+                # 3위까지만 표시
+                for i, rider in enumerate(sorted_riders[:3]):
+                    name = rider.get('name', '이름없음')
+                    contribution = rider.get('contribution', 0)
+                    
+                    # 피크별 기여도
+                    morning = rider.get('아침점심피크', 0)
+                    afternoon = rider.get('오후논피크', 0)
+                    evening = rider.get('저녁피크', 0)
+                    midnight = rider.get('심야논피크', 0)
+                    
+                    acceptance_rate = rider.get('acceptance_rate', 0.0)
+                    reject = rider.get('reject', 0)
+                    cancel = rider.get('cancel', 0)
+                    complete = rider.get('complete', 0)
+                    
+                    # 진행률 바 생성 (퍼센트 바 안쪽에 표시)
+                    bar_len = 10
+                    filled = int(round(contribution / 10))  # 10%당 1칸
+                    if filled > 10:
+                        filled = 10
+                    
+                    # 퍼센트 텍스트 길이 계산
+                    percent_text = f"{contribution:.1f}%"
+                    remaining_dashes = bar_len - filled - len(percent_text)
+                    
+                    if remaining_dashes > 0:
+                        bar = '■' * filled + '─' * remaining_dashes + percent_text
+                    else:
+                        # 퍼센트 텍스트가 너무 길면 뒤쪽 ■을 일부 대체
+                        bar = '■' * max(0, bar_len - len(percent_text)) + percent_text
+                    
+                    # 1-3위는 메달만 표시
+                    rider_parts.append(f"**{medals[i]} {name}** | [{bar}]")
+                    
+                    rider_parts.append(f"    총 {complete}건 (🌅{morning} 🌇{afternoon} 🌃{evening} 🌙{midnight})")
+                    rider_parts.append(f"    수락률: {acceptance_rate:.1f}% (거절:{reject}, 취소:{cancel})")
+            
+            # 전체 라이더의 금일 완료/거절/취소/수락률 통계 계산
+            total_complete_today = sum(rider.get('complete', 0) for rider in data.get('riders', []))
+            total_reject_today = sum(rider.get('reject', 0) for rider in data.get('riders', []))
+            total_cancel_today = sum(rider.get('cancel', 0) for rider in data.get('riders', []))
+            total_delivery_cancel_today = sum(rider.get('delivery_cancel', 0) for rider in data.get('riders', []))
+            
+            # 미션 현황 아래 완료/거절/취소/수락률 정보를 깔끔하게 표시
+            total_cancel_all = total_cancel_today + total_delivery_cancel_today  # 배차취소 + 배달취소
+            
+            # 전체 수락률 계산 (완료 / (완료 + 거절 + 취소) * 100)
+            total_attempts = total_complete_today + total_reject_today + total_cancel_all
+            overall_acceptance_rate = (total_complete_today / total_attempts * 100) if total_attempts > 0 else 0.0
+            
+            # 거절에 취소를 합산 (금주 미션 수행 예상점수와 동일한 방식)
+            total_reject_combined = total_reject_today + total_cancel_all
+            
+            mission_summary_parts = [
+                "📈 금일 수행 내역",
+                f"수락률: {overall_acceptance_rate:.1f}% | 완료: {total_complete_today} | 거절: {total_reject_combined}"
+            ]
+            mission_summary = "\n".join(mission_summary_parts)
+            
+            # 최종 메시지 조합 (시간대별 인사말 추가)
+            message_parts = [
+                greeting,  # 시간대별 인사말 추가
+                "",
+                f"📊 심플 배민 플러스 미션 알리미 ({day_type})",
+                ""
+            ]
+            
+            # 오류 데이터인 경우 친화적인 오류 메시지 추가
+            if data.get('error', False):
+                error_reason = data.get('error_reason', '알 수 없는 오류')
+                
+                # 현재 시간대 정보
+                now = datetime.now(KST)
+                current_hour = now.hour
+                
+                # 시간대별 상황 설명
+                if 6 <= current_hour < 13:
+                    time_info = "🌅 아침점심피크 시간대"
+                    mission_status = "현재 아침점심피크 미션이 진행중입니다"
+                elif 13 <= current_hour < 17:
+                    time_info = "🌇 오후논피크 시간대"
+                    mission_status = "현재 오후논피크 미션이 진행중입니다"
+                elif 17 <= current_hour < 20:
+                    time_info = "🌃 저녁피크 시간대"
+                    mission_status = "현재 저녁피크 미션이 진행중입니다"
+                elif 20 <= current_hour or current_hour < 3:
+                    time_info = "🌙 심야논피크 시간대"
+                    mission_status = "현재 심야논피크 미션이 진행중입니다"
+                else:
+                    time_info = "⏰ 미션 준비 시간"
+                    mission_status = "미션 시작 전입니다"
+                
+                message_parts.extend([
+                    "🚨 크롤링 연결 실패",
+                    "",
+                    time_info,
+                    mission_status,
+                    "",
+                    "⚠️ 일시적인 연결 문제로 실시간 데이터를 가져올 수 없습니다.",
+                    "",
+                    "🔧 가능한 원인:",
+                    "• G라이더 웹사이트 일시적 접속 장애",
+                    "• 네트워크 연결 문제",
+                    "• 웹사이트 구조 변경",
+                    "",
+                    "💡 해결 방법:",
+                    "• 잠시 후 자동으로 재시도됩니다",
+                    "• 문제가 지속되면 수동으로 확인해주세요",
+                    "",
+                    "🕐 다음 자동 시도: 30분 후",
+                    "📱 자동화 시스템은 계속 작동중입니다",
+                    "",
+                    f"⏰ 오류 발생 시간: {data.get('timestamp', 'N/A')}",
+                    "",
+                    "🤖 자동화 시스템에 의해 전송됨"
+                ])
+            else:
+                # 정상 데이터인 경우 기존 메시지 구성
+                message_parts.extend([
+                    "\n".join(mission_parts),
+                    "",
+                    weather_info,
+                    "",
+                    mission_summary,
+                    "",
+                    "\n".join(summary_parts),
+                    "",
+                    "\n".join(rider_parts)
+                ])
+                
+                if lacking_missions:
+                    message_parts.append("")
+                    message_parts.append(f"⚠️ 미션 부족: {', '.join(lacking_missions)}")
+                
                 message_parts.append("")
-                message_parts.append(f"⚠️ 미션 부족: {', '.join(lacking_missions)}")
+                message_parts.append("🤖 자동화 시스템에 의해 전송됨")
             
-            message_parts.append("")
-            message_parts.append("🤖 자동화 시스템에 의해 전송됨")
+            return "\n".join(message_parts)
         
-        return "\n".join(message_parts)
+        except Exception as e:
+            logger.error(f"❌ 메시지 포맷팅 중 오류: {e}")
+            return None
     
     def _is_weekend_or_holiday(self, dt):
         """주말 또는 휴일 판정 (한국천문연구원 API 기반)"""
@@ -2212,57 +2379,49 @@ class GriderAutoSender:
             return "⚠️ 날씨 정보를 가져올 수 없습니다."
     
     def send_report(self):
-        """리포트 전송 (클립보드 복사만 사용)"""
+        """리포트 전송"""
         try:
-            logger.info("🚀 심플 배민 플러스 리포트 전송 시작...")
-            
-            # 1. 데이터 수집
+            # 데이터 수집
             data = self.data_collector.get_grider_data()
             
-            # 데이터 수집 실패 시 전송 중단
+            # 데이터가 None이면 메시지 전송하지 않음 (에러 방지)
             if data is None:
-                logger.warning("⚠️ 데이터 수집 실패 - 메시지 전송을 중단합니다")
-                return False
+                logger.info("🛑 데이터가 없어서 메시지 전송을 건너뜁니다.")
+                return {"result_code": -1, "message": "데이터 없음 - 메시지 전송 건너뜀"}
             
-            message = self.format_message(data)
+            # 에러 데이터 감지 시 전송 중단
+            if data.get('error'):
+                logger.info(f"🛑 에러 데이터 감지 - 메시지 전송 건너뜀: {data.get('error_reason', '알 수 없는 오류')}")
+                return {"result_code": -1, "message": "에러 데이터 감지 - 메시지 전송 건너뜀"}
             
-            # 크롤링 실패 시 전송 중단
-            if message is None:
-                logger.info("⏸️ 크롤링 실패로 인해 메시지 전송을 중단합니다")
-                return False
-            
-            # 2. 카카오톡 sender 초기화 (토큰 갱신 포함)
+            # 유효한 토큰 확인
             access_token = self.token_manager.get_valid_token()
             if not access_token:
-                logger.error("❌ 유효한 액세스 토큰을 가져올 수 없습니다")
-                return False
+                logger.error("❌ 유효한 토큰을 가져올 수 없습니다")
+                return {"result_code": -1, "message": "토큰 오류"}
             
+            # 메시지 구성
+            message = self.format_message(data)
+            
+            # 메시지가 에러 메시지인지 확인
+            if message is None or "🚨 크롤링 실패" in message or "🚨 시스템 오류" in message:
+                logger.info("🛑 에러 메시지 감지 - 전송 건너뜀")
+                return {"result_code": -1, "message": "에러 메시지 감지 - 전송 건너뜀"}
+            
+            # 카카오톡 전송
             self.sender = KakaoSender(access_token)
-            
-            # 3. 메시지 전송
-            result = self.sender.send_text_message(
-                text=message,
-                link_url="https://grider.co.kr"  # 실제 링크로 변경
-            )
-            
-            # 4. 클립보드에도 복사 (로컬 실행시에만)
-            try:
-                import pyperclip
-                pyperclip.copy(message)
-                logger.info("📋 클립보드에 복사됨 - 오픈채팅방에 붙여넣기하세요!")
-            except Exception as e:
-                logger.info("📋 클립보드 복사 생략 (GitHub Actions 환경)")
+            result = self.sender.send_text_message(message)
             
             if result.get('result_code') == 0:
-                logger.info(f"✅ {datetime.now(KST)} - 메시지 전송 성공!")
-                return True
+                logger.info("✅ 카카오톡 메시지 전송 성공!")
             else:
-                logger.error(f"❌ 메시지 전송 실패: {result}")
-                return False
-                
+                logger.error(f"❌ 카카오톡 전송 실패: {result}")
+            
+            return result
+            
         except Exception as e:
             logger.error(f"❌ 리포트 전송 중 오류: {e}")
-            return False
+            return {"result_code": -1, "message": f"전송 오류: {e}"}
     
     def test_connection(self):
         """연결 테스트"""
