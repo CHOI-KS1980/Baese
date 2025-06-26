@@ -350,11 +350,6 @@ class GriderDataCollector:
                 
                 logger.info(" 크롤링 성공")
 
-                # 임시 디버깅: 전체 HTML 로그 출력
-                logger.info("================ HTML START ================")
-                print(html)
-                logger.info("================ HTML END ================")
-
                 # 성공 시 디버깅을 위해 HTML 파일 저장
                 with open('debug_grider_page.html', 'w', encoding='utf-8') as f:
                     f.write(html)
@@ -380,10 +375,14 @@ class GriderDataCollector:
         url_with_date = f"https://jangboo.grider.ai/dashboard?date={target_date}"
         driver.get(url_with_date)
         
-        # 날짜 데이터 로딩 확인 (총점 요소가 나타날 때까지 대기)
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".score_total_value"))
-        )
+        # 데이터가 로드될 때까지 명시적으로 대기 (총점 값에 숫자가 나타날 때까지)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: re.search(r'\d', d.find_element(By.CSS_SELECTOR, ".score_total_value").text)
+            )
+            logger.info("✅ 대시보드 데이터 로드 확인 (총점 확인)")
+        except Exception:
+            logger.warning("⚠️ 총점 데이터 로드 확인 시간 초과, 페이지 소스를 그대로 반환합니다.")
 
         if self._verify_date_in_html(driver.page_source, target_date):
             return driver.page_source
@@ -407,14 +406,14 @@ class GriderDataCollector:
     def _parse_data(self, html: str) -> dict:
         """HTML을 파싱하여 핵심 데이터를 추출합니다."""
         soup = BeautifulSoup(html, 'html.parser')
-        parsed_data = self._parse_grider_html_old(soup)
+        parsed_data = self._parse_dashboard_html(soup)
         if parsed_data is None:
-            return self._get_error_data("HTML 파싱 실패 (old parser)")
+            return self._get_error_data("HTML 파싱 실패 (new parser)")
         parsed_data['mission_date'] = self._get_mission_date()
         return parsed_data
 
-    def _parse_grider_html_old(self, soup):
-        """안정적인 HTML 파싱 함수"""
+    def _parse_dashboard_html(self, soup):
+        """새로운 대시보드 구조에 맞게 HTML을 파싱하는 함수"""
         try:
             data = {}
             int_pattern = re.compile(r'[\d,]+')
@@ -431,51 +430,39 @@ class GriderDataCollector:
                 val_str = match.group(1) if is_float else match.group().replace(',', '')
                 return float(val_str) if is_float else int(val_str)
 
-            selectors = {
-                '총점': '.score_total_value', '물량점수': '.detail_score_value[data-text="quantity"]',
-                '수락률점수': '.detail_score_value[data-text="acceptance"]', '총완료': '.etc_value[data-etc="complete"] span',
-                '총거절': '.etc_value[data-etc="reject"] span', '수락률': ('.etc_value[data-etc="acceptance"] span', True)
-            }
-            for key, val in selectors.items():
-                selector, is_float = val if isinstance(val, tuple) else (val, False)
-                data[key] = fast_parse(selector, is_float)
+            # 새로운 선택자 적용
+            data['총점'] = fast_parse('.score_total_value[data-text="total"]')
+            data['물량점수'] = fast_parse('.detail_score_value[data-text="quantity"]')
+            data['수락률점수'] = fast_parse('.detail_score_value[data-text="acceptance"]')
 
-            peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-            for idx, item in enumerate(soup.select('.quantity_item')):
-                if idx >= len(peak_names): continue
-                name = peak_names[idx]
-                current = fast_parse('.performance_value', parent=item)
-                target = fast_parse('.number_value span:not(.performance_value)', parent=item)
-                data[name] = {'current': current, 'target': target}
-
-            riders = []
-            for rider_item in soup.select('.rider_item'):
-                name_node = rider_item.select_one('.rider_name')
-                name = '이름없음'
-                if name_node:
-                    found_names = re.findall(r'[가-힣]+', name_node.text)
-                    if found_names:
-                        name = found_names[-1]
-
-                rider_data = {'name': name}
-                rider_selectors = {
-                    'complete': ('.complete_count', False), 'acceptance_rate': ('.rider_contents.acceptance_rate', True),
-                    'reject': ('.rider_contents.reject_count', False), 'cancel': ('.rider_contents.accept_cancel_count', False),
-                    '아침점심피크': ('.morning_peak_count', False), '오후논피크': ('.afternoon_peak_count', False),
-                    '저녁피크': ('.evening_peak_count', False), '심야논피크': ('.midnight_peak_count', False)
-                }
-                for key, (selector, is_float) in rider_selectors.items():
-                    rider_data[key] = fast_parse(selector, is_float, parent=rider_item)
+            # etc_value는 span이 없음
+            data['총완료'] = fast_parse('.etc_value[data-etc="complete"]')
+            data['총거절'] = fast_parse('.etc_value[data-etc="reject"]')
+            data['수락률'] = fast_parse('.etc_value[data-etc="acceptance"]', is_float=True)
+            
+            # 피크 타임 파싱 로직 변경
+            peak_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
+            for item in soup.select('.quantity_item'):
+                title_node = item.select_one('.quantity_title')
+                info_node = item.select_one('.quantity_info')
                 
-                if rider_data['complete'] > 0:
-                    riders.append(rider_data)
+                if title_node and info_node:
+                    title_text = title_node.get_text(strip=True)
+                    info_text = info_node.get_text(strip=True)
+                    
+                    if title_text in peak_map:
+                        key = peak_map[title_text]
+                        # "15 / 20" 같은 형식의 텍스트 파싱
+                        parts = [p.strip() for p in info_text.split('/')]
+                        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                            data[key] = {'current': int(parts[0]), 'target': int(parts[1])}
+                        else:
+                            data[key] = {'current': 0, 'target': 0}
 
-            total_targets = {p: data.get(p, {}).get('target', 0) for p in peak_names}
-            for rider in riders:
-                contributions = [(rider.get(p, 0) / total_targets[p] * 100) if total_targets.get(p, 0) > 0 else 0 for p in peak_names]
-                rider['contribution'] = round(sum(contributions) / len(contributions), 1) if contributions else 0.0
+            # 라이더 리스트는 새로운 HTML 구조를 확인해야 하므로 일단 비워둠
+            data['riders'] = []
+            logger.info("라이더 리스트 파싱은 새로운 HTML 구조 확인 후 진행해야 합니다.")
 
-            data['riders'] = riders
             data['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             return data
             
