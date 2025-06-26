@@ -16,33 +16,30 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+            const current_run_id = context.runId;
+
+            const { data: { workflow_runs } } = await github.rest.actions.listWorkflowRunsForRepo({
               owner,
               repo,
-              per_page: 100, // 한 번에 가져올 최대 개수
+              per_page: 100,
             });
 
-            // 3일 이상 지난 실행 기록 필터링
-            const threeDaysAgo = new Date();
-            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+            const toDelete = workflow_runs.filter(run => run.id !== current_run_id);
 
-            let toDelete = runs.data.workflow_runs.filter(run => {
-              const createdAt = new Date(run.created_at);
-              return createdAt < threeDaysAgo;
-            });
-
-            // 최소 5개는 남기도록 조정
-            const keepMinimum = 5;
-            if (runs.data.total_count - toDelete.length < keepMinimum) {
-              const deleteCount = runs.data.total_count - keepMinimum;
-              toDelete = toDelete.slice(0, deleteCount > 0 ? deleteCount : 0);
+            if (toDelete.length === 0) {
+              console.log("No workflow runs to delete.");
+              return;
             }
 
+            console.log(`Found ${toDelete.length} runs to delete.`);
+
             for (const run of toDelete) {
-              console.log(`Deleting run: ${run.id}`);
+              console.log(`Deleting run: ID=${run.id}, Name='${run.name}', Status=${run.status}`);
               await github.rest.actions.deleteWorkflowRun({
                 owner,
                 repo,
                 run_id: run.id,
               });
-            } 
+            }
+
+            console.log(`Deletion process completed. ${toDelete.length} runs have been requested for deletion.`); 
