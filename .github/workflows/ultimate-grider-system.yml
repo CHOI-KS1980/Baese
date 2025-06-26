@@ -101,6 +101,35 @@ jobs:
       run: |
         cd semiauto
         
+        # 환경변수 검증 - 필수 정보가 없으면 실행 중단
+        echo "🔍 필수 환경변수 검증 중..."
+        
+        if [ -z "$GRIDER_ID" ]; then
+          echo "❌ GRIDER_ID가 설정되지 않았습니다!"
+          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 GRIDER_ID를 설정하세요"
+          exit 1
+        fi
+        
+        if [ -z "$GRIDER_PASSWORD" ]; then
+          echo "❌ GRIDER_PASSWORD가 설정되지 않았습니다!"
+          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 GRIDER_PASSWORD를 설정하세요"
+          exit 1
+        fi
+        
+        if [ -z "$KAKAO_REST_API_KEY" ]; then
+          echo "❌ KAKAO_REST_API_KEY가 설정되지 않았습니다!"
+          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 KAKAO_REST_API_KEY를 설정하세요"
+          exit 1
+        fi
+        
+        if [ -z "$KAKAO_REFRESH_TOKEN" ]; then
+          echo "❌ KAKAO_REFRESH_TOKEN이 설정되지 않았습니다!"
+          echo "💡 GitHub 저장소 Settings → Secrets and variables → Actions에서 KAKAO_REFRESH_TOKEN을 설정하세요"
+          exit 1
+        fi
+        
+        echo "✅ 모든 필수 환경변수가 설정되었습니다!"
+        
         # 설정 파일 생성
         cat > config.txt << EOF
         REST_API_KEY=${KAKAO_REST_API_KEY}
@@ -133,7 +162,8 @@ jobs:
         case "$MODE" in
           "ultimate")
             echo "🚀 최고급 통합 모드 실행"
-            python core/ultimate_grider_system.py --mode single
+            echo "🔍 상세 디버깅 모드 활성화..."
+            python core/ultimate_grider_system.py --mode single --debug
             ;;
           "ai_only")
             echo "🤖 AI 분석 전용 모드"
@@ -149,13 +179,68 @@ jobs:
             ;;
           "date_validation")
             echo "🎯 날짜별 데이터 검증 강화 모드"
-            python core/final_solution.py
+            python core/final_solution.py --debug
+            ;;
+          "debug_mode")
+            echo "🔍 디버그 모드 실행"
+            echo "📄 크롤링 디버그 정보 수집 중..."
+            python core/final_solution.py --debug --verbose
             ;;
           *)
             echo "🚀 기본 고도화 모드 (날짜별 검증 강화)"
-            python core/final_solution.py
+            echo "🔍 디버깅 정보 포함..."
+            python core/final_solution.py --debug
             ;;
         esac
+        
+        # 크롤링 결과 상세 분석
+        echo "🔍 크롤링 결과 상세 분석"
+        echo "================================"
+        
+        # 디버그 파일 확인
+        if [ -f "debug_grider_page.html" ]; then
+          echo "✅ 성공한 크롤링 페이지 발견"
+          echo "📄 파일 크기: $(ls -lh debug_grider_page.html | awk '{print $5}')"
+          echo "📊 HTML 내용 미리보기:"
+          head -n 20 debug_grider_page.html | grep -E "(title|login|error|alert)" || echo "   특별한 내용 없음"
+        else
+          echo "❌ 성공한 크롤링 페이지 없음"
+        fi
+        
+        # 실패한 크롤링 파일들 확인
+        for file in debug_failed_page_*.html; do
+          if [ -f "$file" ]; then
+            echo "⚠️ 실패한 크롤링 페이지: $file"
+            echo "📄 파일 크기: $(ls -lh "$file" | awk '{print $5}')"
+            echo "📊 실패 원인 분석:"
+            if grep -q "login" "$file"; then
+              echo "   🔐 로그인 페이지 감지됨"
+            fi
+            if grep -q "error" "$file"; then
+              echo "   ❌ 에러 메시지 발견"
+              grep -i "error" "$file" | head -n 3
+            fi
+            if grep -q "captcha" "$file"; then
+              echo "   🤖 캡차 감지됨"
+            fi
+            if grep -q "block" "$file"; then
+              echo "   🚫 접근 차단 감지됨"
+            fi
+          fi
+        done
+        
+        # 로그 파일 상세 분석
+        if [ -f "grider_automation.log" ]; then
+          echo "📄 크롤링 관련 로그 분석:"
+          echo "🔍 마지막 크롤링 시도:"
+          grep -A 5 -B 5 "크롤링" grider_automation.log | tail -n 20
+          
+          echo "🔍 에러 메시지:"
+          grep -i "error\|실패\|오류" grider_automation.log | tail -n 10
+          
+          echo "🔍 로그인 관련:"
+          grep -i "login\|로그인" grider_automation.log | tail -n 5
+        fi
 
     - name: 🌐 대시보드 데이터 업데이트
       if: success()

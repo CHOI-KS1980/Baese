@@ -304,34 +304,38 @@ class GriderDataCollector:
         self.mission_data_cache_file = 'mission_data_cache.json'
     
     def get_grider_data(self):
-        """심플 배민 플러스 데이터 수집 (main_(2).py와 동일한 로직)"""
+        """G라이더 데이터 수집 (최적화된 버전)"""
         try:
             logger.info("🔄 실제 심플 배민 플러스 데이터 수집 시작...")
             
-            # main_(2).py의 검증된 크롤링 로직 사용
-            html = self._crawl_jangboo(max_retries=3, retry_delay=5)
+            # 크롤링 실행
+            html = self._crawl_jangboo()
             
-            if html:
+            if html and len(html) > 1000:  # 최소 HTML 길이 확인
                 logger.info("✅ 크롤링 성공, 데이터 파싱 시작")
+                
+                # 데이터 파싱
                 data = self._parse_data(html)
                 
                 if data and self._validate_data(data):
-                    logger.info("✅ 실제 심플 배민 플러스 데이터 수집 완료")
                     logger.info(f"📊 수집된 데이터: 총점={data.get('총점', 0)}, 완료={data.get('총완료', 0)}")
                     return data
                 else:
                     logger.error("❌ 파싱된 데이터가 유효하지 않음")
                     logger.error("🚨 실제 데이터 수집 실패 - 크롤링 로직 점검 필요")
-                    return self._get_error_data("데이터 파싱 실패")
+                    # 에러 메시지 전송 대신 None 반환
+                    return None
             else:
                 logger.error("❌ 크롤링 실패 - HTML을 가져올 수 없음")
                 logger.error("🚨 로그인 실패 또는 네트워크 오류 가능성")
-                return self._get_error_data("크롤링 실패")
+                # 에러 메시지 전송 대신 None 반환
+                return None
                     
         except Exception as e:
             logger.error(f"❌ 데이터 수집 중 예외 발생: {e}")
             logger.error("🚨 심각한 오류 발생 - 시스템 점검 필요")
-            return self._get_error_data(f"예외 발생: {str(e)}")
+            # 에러 메시지 전송 대신 None 반환
+            return None
 
     def _validate_data(self, data):
         """수집된 데이터가 유효한지 검증"""
@@ -1423,6 +1427,8 @@ class GriderDataCollector:
         물량 점수관리 테이블에서 미션 데이터를 파싱합니다. (main_(2).py와 동일)
         """
         from bs4 import BeautifulSoup
+        from datetime import datetime, timedelta
+        import pytz
         
         # html.parser 파서 사용으로 속도 향상
         soup = BeautifulSoup(html, 'html.parser')
@@ -1874,7 +1880,11 @@ class GriderAutoSender:
         self.sender = None
     
     def format_message(self, data):
-        """깔끔하고 읽기 좋은 메시지 포맷 (시간대별 인사말 포함)"""
+        """메시지 포맷팅 (크롤링 실패 시 에러 메시지 전송 중단)"""
+        # 크롤링 실패 시 에러 메시지 전송 중단
+        if data.get('error', False):
+            logger.warning("⚠️ 크롤링 실패 - 에러 메시지 전송을 중단합니다")
+            return None  # None을 반환하여 전송 중단
         
         # 현재 시간 확인 (한국시간) - 더 안전한 방법으로 처리
         try:
@@ -2287,7 +2297,18 @@ class GriderAutoSender:
             
             # 1. 데이터 수집
             data = self.data_collector.get_grider_data()
+            
+            # 데이터 수집 실패 시 전송 중단
+            if data is None:
+                logger.warning("⚠️ 데이터 수집 실패 - 메시지 전송을 중단합니다")
+                return False
+            
             message = self.format_message(data)
+            
+            # 크롤링 실패 시 전송 중단
+            if message is None:
+                logger.info("⏸️ 크롤링 실패로 인해 메시지 전송을 중단합니다")
+                return False
             
             # 2. 카카오톡 sender 초기화 (토큰 갱신 포함)
             access_token = self.token_manager.get_valid_token()
@@ -2510,40 +2531,52 @@ def load_config():
         return None, None
 
 def main():
-    """메인 실행 함수"""
+    """메인 함수"""
     import sys
     
-    # GitHub Actions용 단일 실행 모드 체크
-    single_run = '--single-run' in sys.argv
-    
-    logger.info("🎯 심플 배민 플러스 카카오톡 자동화 시작")
-    
-    # 설정 로드
-    rest_api_key, refresh_token = load_config()
-    if not rest_api_key or not refresh_token:
-        return
-    
-    # 자동화 객체 생성
-    auto_sender = GriderAutoSender(rest_api_key, refresh_token)
-    
-    # 연결 테스트
-    if not auto_sender.test_connection():
-        logger.error("❌ 연결 테스트 실패. 설정을 확인해주세요.")
-        return
-    
-    if single_run:
-        # GitHub Actions용 단일 실행
-        logger.info("🤖 GitHub Actions 단일 실행 모드")
-        success = auto_sender.send_report()
-        if success:
-            logger.info("✅ GitHub Actions 실행 완료")
+    try:
+        logger.info("🚀 G라이더 자동화 시스템 시작...")
+        
+        # 설정 로드
+        rest_api_key, refresh_token = load_config()
+        if not rest_api_key or not refresh_token:
+            logger.error("❌ 카카오 API 설정이 누락되었습니다")
+            return
+        
+        # 데이터 수집 테스트
+        data_collector = GriderDataCollector()
+        test_data = data_collector.get_grider_data()
+        
+        # 크롤링 실패 시 스케줄러 시작 중단
+        if test_data.get('error', False):
+            logger.error("❌ 크롤링 실패 - 스케줄러를 시작하지 않습니다")
+            logger.error("💡 해결 방법: config.txt에서 GRIDER_ID와 GRIDER_PASSWORD를 설정하세요")
+            return
+        
+        # 자동화 객체 생성
+        auto_sender = GriderAutoSender(rest_api_key, refresh_token)
+        
+        # 연결 테스트
+        if not auto_sender.test_connection():
+            logger.error("❌ 연결 테스트 실패. 설정을 확인해주세요.")
+            return
+        
+        if '--single-run' in sys.argv:
+            # GitHub Actions용 단일 실행
+            logger.info("🤖 GitHub Actions 단일 실행 모드")
+            success = auto_sender.send_report()
+            if success:
+                logger.info("✅ GitHub Actions 실행 완료")
+            else:
+                logger.error("❌ GitHub Actions 실행 실패")
+                sys.exit(1)
         else:
-            logger.error("❌ GitHub Actions 실행 실패")
-            sys.exit(1)
-    else:
-        # 로컬 스케줄러 모드
-        logger.info("🧪 연결 테스트 완료. 스케줄러에서 자동 시작됩니다.")
-        auto_sender.start_scheduler()
+            # 로컬 스케줄러 모드
+            logger.info("🧪 연결 테스트 완료. 스케줄러에서 자동 시작됩니다.")
+            auto_sender.start_scheduler()
+    except Exception as e:
+        logger.error(f"❌ 메인 함수 실행 중 오류: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 
