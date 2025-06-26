@@ -673,10 +673,11 @@ class GriderAutoSender:
             )
 
             # 라이더 순위
-            total_delivery_count = today_completed if today_completed > 0 else 1
-            
             # 완료 건수가 1 이상인 라이더만 필터링 및 정렬
             active_riders = sorted([r for r in data.get('riders', []) if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
+            
+            # 실제 라이더들의 완료 건수 합계를 총 완료 건수로 사용
+            total_delivery_count = sum(r.get('완료', 0) for r in active_riders)
             
             rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
             for i, rider in enumerate(active_riders):
