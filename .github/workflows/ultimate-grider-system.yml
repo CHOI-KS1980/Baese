@@ -198,11 +198,12 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # 대시보드 데이터 커밋
+          # 대시보드 데이터 커밋 (충돌 방지 로직 추가)
+          git pull --rebase # 푸시 전 최신 내역 받아오기
           git add dashboard/api/
           
           if ! git diff --staged --quiet; then
-            git commit -m "🌐 실시간 대시보드 데이터 업데이트
+            git commit -m "�� 실시간 대시보드 데이터 업데이트
 
             📊 자동 업데이트: $(date '+%Y-%m-%d %H:%M:%S %Z')
             🎯 실행 모드: ${{ env.MODE }}
