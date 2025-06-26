@@ -529,8 +529,12 @@ class GriderDataCollector:
                 current_url = driver.current_url
                 logger.info(f"로그인 후 현재 URL: {current_url}")
                 
-                # HTML 추출
-                html = driver.page_source
+                # 🎯 날짜별 데이터 조회 로직 추가
+                target_date = self._get_mission_date()
+                logger.info(f"🎯 타겟 미션 날짜: {target_date}")
+                
+                # 날짜별 데이터 조회 시도
+                html = self._navigate_to_date_data(driver, target_date)
                 
                 if len(html) < 1000:  # HTML이 너무 짧으면 실패로 판단
                     raise Exception("HTML 길이가 너무 짧습니다. 페이지 로딩 실패 가능성")
@@ -601,6 +605,346 @@ class GriderDataCollector:
         
         return None
 
+    def _navigate_to_date_data(self, driver, target_date: str) -> str:
+        """특정 날짜의 데이터로 이동하여 HTML 추출"""
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.common.exceptions import TimeoutException, NoSuchElementException
+        
+        try:
+            logger.info(f"🔍 날짜별 데이터 조회 시작: {target_date}")
+            
+            # 1. 현재 페이지에서 날짜 선택기 찾기
+            date_selectors = [
+                # 일반적인 날짜 선택기 패턴들
+                'input[type="date"]',
+                '.date-picker',
+                '#date-picker',
+                '[name*="date"]',
+                '[id*="date"]',
+                '.datepicker',
+                '#datepicker',
+                'input.form-control[placeholder*="날짜"]',
+                'input.form-control[placeholder*="일자"]',
+                # 한국어 텍스트가 포함된 요소들
+                '//input[@placeholder[contains(., "날짜")]]',
+                '//input[@placeholder[contains(., "일자")]]',
+                '//button[contains(text(), "날짜")]',
+                '//span[contains(text(), "날짜")]/../input',
+                # G라이더 특화 선택기 (추정)
+                '.search-date',
+                '#searchDate',
+                '[name="searchDate"]',
+                '.mission-date',
+                '#missionDate'
+            ]
+            
+            date_element = None
+            wait = WebDriverWait(driver, 10)
+            
+            # 날짜 선택기 찾기
+            for selector in date_selectors:
+                try:
+                    if selector.startswith('//'):  # XPath
+                        date_element = driver.find_element(By.XPATH, selector)
+                    else:  # CSS Selector
+                        date_element = driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    if date_element and date_element.is_displayed():
+                        logger.info(f"✅ 날짜 선택기 발견: {selector}")
+                        break
+                except:
+                    continue
+            
+            # 2. 날짜 선택기가 있으면 타겟 날짜로 설정
+            if date_element:
+                try:
+                    # 기존 값 클리어
+                    date_element.clear()
+                    time.sleep(0.5)
+                    
+                    # 타겟 날짜 입력 (다양한 포맷 시도)
+                    date_formats = [
+                        target_date,  # 2025-06-26
+                        target_date.replace('-', '.'),  # 2025.06.26
+                        target_date.replace('-', '/'),  # 2025/06/26
+                        target_date[2:].replace('-', '.'),  # 25.06.26
+                        target_date[2:].replace('-', '/'),  # 25/06/26
+                    ]
+                    
+                    for date_format in date_formats:
+                        try:
+                            date_element.clear()
+                            date_element.send_keys(date_format)
+                            time.sleep(1)
+                            
+                            # Enter 키 또는 검색 버튼 클릭
+                            try:
+                                from selenium.webdriver.common.keys import Keys
+                                date_element.send_keys(Keys.ENTER)
+                            except:
+                                # 검색 버튼 찾기
+                                search_buttons = [
+                                    'button[type="submit"]',
+                                    '.btn-search',
+                                    '#searchBtn',
+                                    'button:contains("검색")',
+                                    'button:contains("조회")',
+                                    'input[type="submit"]'
+                                ]
+                                
+                                for btn_selector in search_buttons:
+                                    try:
+                                        search_btn = driver.find_element(By.CSS_SELECTOR, btn_selector)
+                                        search_btn.click()
+                                        break
+                                    except:
+                                        continue
+                            
+                            # 페이지 로딩 대기
+                            time.sleep(3)
+                            
+                            # 날짜가 올바르게 설정되었는지 확인
+                            current_html = driver.page_source
+                            if self._verify_date_in_html(current_html, target_date):
+                                logger.info(f"✅ 날짜 설정 성공: {date_format}")
+                                return current_html
+                            
+                        except Exception as e:
+                            logger.warning(f"날짜 포맷 {date_format} 시도 실패: {e}")
+                            continue
+                    
+                    logger.warning("모든 날짜 포맷 시도 실패")
+                    
+                except Exception as e:
+                    logger.warning(f"날짜 선택기 조작 실패: {e}")
+            
+            # 3. 날짜 선택기가 없거나 실패한 경우 - URL 파라미터로 시도
+            logger.info("🔄 URL 파라미터 방식으로 날짜 조회 시도")
+            
+            current_url = driver.current_url
+            date_params = [
+                f"?date={target_date}",
+                f"?searchDate={target_date}",
+                f"?missionDate={target_date}",
+                f"&date={target_date}",
+                f"&searchDate={target_date}",
+                f"&missionDate={target_date}"
+            ]
+            
+            for param in date_params:
+                try:
+                    if '?' in current_url:
+                        new_url = current_url + param.replace('?', '&')
+                    else:
+                        new_url = current_url + param
+                    
+                    driver.get(new_url)
+                    time.sleep(3)
+                    
+                    html = driver.page_source
+                    if self._verify_date_in_html(html, target_date):
+                        logger.info(f"✅ URL 파라미터 방식 성공: {param}")
+                        return html
+                        
+                except Exception as e:
+                    logger.warning(f"URL 파라미터 {param} 시도 실패: {e}")
+                    continue
+            
+            # 4. 모든 방법 실패 - 현재 페이지 데이터 반환하되 경고 로그
+            logger.warning(f"⚠️ 날짜별 조회 실패 - 현재 페이지 데이터 사용 (날짜 불일치 가능성)")
+            html = driver.page_source
+            
+            # 현재 페이지의 날짜 검증
+            if self._verify_date_in_html(html, target_date):
+                logger.info("✅ 현재 페이지가 올바른 날짜 데이터입니다")
+            else:
+                logger.error(f"❌ 현재 페이지 데이터가 타겟 날짜({target_date})와 일치하지 않습니다")
+            
+            return html
+            
+        except Exception as e:
+            logger.error(f"❌ 날짜별 데이터 조회 중 오류: {e}")
+            # 실패시 현재 페이지 HTML 반환
+            return driver.page_source
+    
+    def _verify_date_in_html(self, html: str, target_date: str) -> bool:
+        """HTML에서 타겟 날짜가 포함되어 있는지 검증"""
+        try:
+            # 다양한 날짜 포맷으로 검증
+            date_variations = [
+                target_date,  # 2025-06-26
+                target_date.replace('-', '.'),  # 2025.06.26
+                target_date.replace('-', '/'),  # 2025/06/26
+                target_date.replace('-', ''),   # 20250626
+                target_date[2:].replace('-', '.'),  # 25.06.26
+                target_date[2:].replace('-', '/'),  # 25/06/26
+                target_date[5:].replace('-', '.'),  # 06.26
+                target_date[5:].replace('-', '/'),  # 06/26
+            ]
+            
+            found_dates = []
+            for date_format in date_variations:
+                if date_format in html:
+                    found_dates.append(date_format)
+            
+            if found_dates:
+                logger.info(f"✅ HTML에서 발견된 날짜 포맷: {found_dates}")
+                return True
+            else:
+                logger.warning(f"⚠️ HTML에서 타겟 날짜({target_date}) 관련 텍스트를 찾을 수 없습니다")
+                
+                # 디버깅: HTML에서 날짜 패턴 찾기
+                import re
+                date_patterns = re.findall(r'\d{4}[-./]\d{1,2}[-./]\d{1,2}', html)
+                if date_patterns:
+                    logger.info(f"🔍 HTML에서 발견된 날짜 패턴들: {set(date_patterns[:10])}")  # 중복 제거하고 최대 10개
+                
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ 날짜 검증 중 오류: {e}")
+            return False
+
+    def _get_korea_time(self):
+        """한국시간 기준 현재 시간 반환"""
+        try:
+            import pytz
+            korea_tz = pytz.timezone('Asia/Seoul')
+            return datetime.now(korea_tz)
+        except ImportError:
+            # pytz가 없으면 UTC+9로 계산
+            from datetime import datetime, timedelta
+            utc_now = datetime.utcnow()
+            return utc_now + timedelta(hours=9)
+
+    def _is_cache_valid_for_current_time(self):
+        """현재 시간 기준으로 캐시가 유효한지 확인"""
+        try:
+            if not os.path.exists(self.mission_data_cache_file):
+                return False
+            
+            with open(self.mission_data_cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            # 캐시 생성 시간 확인
+            cache_timestamp = cache_data.get('timestamp')
+            if not cache_timestamp:
+                return False
+            
+            from datetime import datetime, timedelta
+            cache_time = datetime.fromisoformat(cache_timestamp.replace('Z', '+00:00'))
+            current_time = self._get_korea_time()
+            
+            # 캐시가 1시간 이내에 생성되었는지 확인
+            time_diff = (current_time - cache_time.replace(tzinfo=current_time.tzinfo)).total_seconds()
+            
+            if time_diff < 3600:  # 1시간 = 3600초
+                logger.info(f"✅ 캐시 유효 (생성 {time_diff/60:.1f}분 전)")
+                return True
+            else:
+                logger.info(f"⏰ 캐시 만료 (생성 {time_diff/60:.1f}분 전)")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ 캐시 유효성 확인 실패: {e}")
+            return False
+
+    def _validate_peak_data_with_date(self, peak_data: dict, target_date: str, html: str) -> dict:
+        """파싱된 피크 데이터를 한국시간 기준으로 검증"""
+        try:
+            validation_result = {
+                'is_valid': True,
+                'reason': '',
+                'message': '',
+                'suggestion': ''
+            }
+            
+            # 1. 기본 데이터 구조 검증
+            required_peaks = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+            missing_peaks = [peak for peak in required_peaks if peak not in peak_data]
+            
+            if missing_peaks:
+                validation_result['is_valid'] = False
+                validation_result['reason'] = f"필수 피크 데이터 누락: {missing_peaks}"
+                validation_result['suggestion'] = "테이블 파싱 로직 확인 필요"
+                return validation_result
+            
+            # 2. 데이터 값 유효성 검증
+            total_current = sum(peak_data[peak].get('current', 0) for peak in required_peaks)
+            total_target = sum(peak_data[peak].get('target', 0) for peak in required_peaks)
+            
+            if total_current == 0 and total_target == 0:
+                validation_result['is_valid'] = False
+                validation_result['reason'] = "모든 피크 데이터가 0입니다"
+                validation_result['suggestion'] = "올바른 날짜 데이터가 파싱되었는지 확인 필요"
+                return validation_result
+            
+            # 3. 시간대별 데이터 합리성 검증
+            korea_time = self._get_korea_time()
+            current_hour = korea_time.hour
+            
+            # 현재 시간에 따른 예상 패턴 검증
+            expected_pattern = self._get_expected_data_pattern(current_hour)
+            
+            # 4. HTML에서 직접 날짜 재검증
+            html_date_valid = self._verify_date_in_html(html, target_date)
+            if not html_date_valid:
+                validation_result['is_valid'] = False
+                validation_result['reason'] = f"HTML에서 타겟 날짜({target_date}) 확인 실패"
+                validation_result['suggestion'] = "G라이더 웹사이트에서 올바른 날짜로 조회되었는지 확인"
+                return validation_result
+            
+            # 5. 어제 데이터 패턴 감지
+            from datetime import timedelta
+            yesterday = (korea_time - timedelta(days=1)).strftime('%Y-%m-%d')
+            if self._verify_date_in_html(html, yesterday):
+                validation_result['is_valid'] = False
+                validation_result['reason'] = f"어제 날짜({yesterday}) 데이터가 감지됨"
+                validation_result['suggestion'] = "G라이더 웹사이트에서 날짜 선택기를 통해 오늘 날짜로 변경 필요"
+                return validation_result
+            
+            # 모든 검증 통과
+            validation_result['message'] = f"타겟 날짜({target_date}) 데이터 검증 완료 (총 {total_current}/{total_target}건)"
+            return validation_result
+            
+        except Exception as e:
+            logger.error(f"❌ 데이터 검증 중 오류: {e}")
+            return {
+                'is_valid': False,
+                'reason': f"검증 중 오류 발생: {e}",
+                'message': '',
+                'suggestion': '검증 로직 확인 필요'
+            }
+
+    def _get_expected_data_pattern(self, current_hour: int) -> dict:
+        """현재 시간 기준 예상 데이터 패턴 반환"""
+        # G라이더 미션 시간대별 예상 패턴
+        patterns = {
+            # 아침(06-11): 아침점심피크 시작
+            'morning': {'아침점심피크': 'active', '오후논피크': 'inactive', '저녁피크': 'inactive', '심야논피크': 'completed'},
+            # 점심(12-14): 아침점심피크 마무리
+            'lunch': {'아침점심피크': 'completing', '오후논피크': 'starting', '저녁피크': 'inactive', '심야논피크': 'completed'},
+            # 오후(15-17): 오후논피크 진행
+            'afternoon': {'아침점심피크': 'completed', '오후논피크': 'active', '저녁피크': 'inactive', '심야논피크': 'completed'},
+            # 저녁(18-21): 저녁피크 진행  
+            'evening': {'아침점심피크': 'completed', '오후논피크': 'completed', '저녁피크': 'active', '심야논피크': 'completed'},
+            # 심야(22-05): 심야논피크 진행
+            'night': {'아침점심피크': 'completed', '오후논피크': 'completed', '저녁피크': 'completed', '심야논피크': 'active'}
+        }
+        
+        if 6 <= current_hour <= 11:
+            return patterns['morning']
+        elif 12 <= current_hour <= 14:
+            return patterns['lunch']
+        elif 15 <= current_hour <= 17:
+            return patterns['afternoon']
+        elif 18 <= current_hour <= 21:
+            return patterns['evening']
+        else:  # 22-05
+            return patterns['night']
+
     def _get_sample_data(self):
         """크롤링 실패 시 사용할 샘플 데이터"""
         return {
@@ -628,6 +972,28 @@ class GriderDataCollector:
         from bs4 import BeautifulSoup
         
         start_time = time.time()
+        
+        # 🎯 한국시간 기준 날짜 검증 로직 추가
+        target_date = self._get_mission_date()
+        logger.info(f"🎯 데이터 검증 시작: 타겟 미션 날짜 = {target_date}")
+        
+        # HTML에서 올바른 날짜 데이터인지 검증
+        is_correct_date = self._verify_date_in_html(html, target_date)
+        if not is_correct_date:
+            logger.error(f"❌ 크롤링된 데이터가 타겟 날짜({target_date})와 일치하지 않습니다!")
+            logger.error("🚨 어제 데이터 또는 잘못된 날짜 데이터가 크롤링되었을 가능성이 높습니다")
+            
+            # 추가 검증: 어제 날짜 체크
+            from datetime import datetime, timedelta
+            import pytz
+            
+            korea_tz = pytz.timezone('Asia/Seoul')
+            korea_now = datetime.now(korea_tz)
+            yesterday = (korea_now - timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            if self._verify_date_in_html(html, yesterday):
+                logger.error(f"🚨 크롤링된 데이터가 어제 날짜({yesterday})입니다!")
+                logger.error("💡 해결방법: G라이더 웹사이트에서 날짜 선택기를 통해 오늘 날짜로 변경 필요")
         
         # html.parser 파서 사용으로 속도 향상
         soup = BeautifulSoup(html, 'html.parser')
@@ -683,14 +1049,28 @@ class GriderDataCollector:
         # 물량 점수관리 테이블에서 피크별 데이터 파싱 (캐시 활용)
         logger.info("=== 미션 데이터 파싱 시작 ===")
         
+        # 🎯 데이터 검증 강화: 크롤링 시점의 한국시간 기준 검증
+        korea_time = self._get_korea_time()
+        logger.info(f"🕐 크롤링 시점 한국시간: {korea_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        
         # 1단계: 캐시된 데이터가 있고 최신인지 확인
         cached_peak_data = self._load_mission_data_cache()
-        if cached_peak_data:
+        if cached_peak_data and self._is_cache_valid_for_current_time():
             logger.info("✅ 캐시된 미션 데이터를 사용합니다.")
             peak_data = cached_peak_data
         else:
             logger.info("🔍 새로운 미션 데이터를 크롤링하여 파싱합니다.")
             peak_data = self._parse_mission_table_data(html)
+            
+            # 📊 파싱 결과 데이터 검증
+            if peak_data:
+                validation_result = self._validate_peak_data_with_date(peak_data, target_date, html)
+                if not validation_result['is_valid']:
+                    logger.error(f"❌ 파싱된 데이터 검증 실패: {validation_result['reason']}")
+                    logger.error("🚨 올바르지 않은 날짜의 데이터가 파싱되었을 가능성이 높습니다")
+                    logger.error(f"💡 권장사항: {validation_result['suggestion']}")
+                else:
+                    logger.info(f"✅ 파싱된 데이터 검증 성공: {validation_result['message']}")
             
             # 파싱 성공시 캐시에 저장
             if peak_data:

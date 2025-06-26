@@ -110,8 +110,9 @@ jobs:
         KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
         EOF
         
-        echo "🌟 차세대 G라이더 자동화 시스템 시작"
+        echo "🌟 차세대 G라이더 자동화 시스템 시작 (날짜별 데이터 검증 강화)"
         echo "📅 실행 시간: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+        echo "🇰🇷 한국시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S %Z')"
         echo "🎯 실행 모드: $MODE"
         echo "⚡ 우선순위: $PRIORITY"
         
@@ -119,6 +120,15 @@ jobs:
         echo "  • GRIDER_ID: ${GRIDER_ID:+설정됨} (길이: ${#GRIDER_ID})"
         echo "  • GRIDER_PASSWORD: ${GRIDER_PASSWORD:+설정됨} (길이: ${#GRIDER_PASSWORD})"
         echo "  • KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:+설정됨} (길이: ${#KAKAO_REST_API_KEY})"
+        
+        echo "🎯 G라이더 미션 시간 정책 확인:"
+        echo "  • 미션 시간: 06:00 ~ 익일 03:00"
+        KOREA_HOUR=$(TZ='Asia/Seoul' date '+%H')
+        if [ $KOREA_HOUR -lt 6 ]; then
+          echo "  • 현재 시간대: 00:00~05:59 → 전날 미션 데이터 조회"
+        else
+          echo "  • 현재 시간대: 06:00~23:59 → 당일 미션 데이터 조회"
+        fi
         
         case "$MODE" in
           "ultimate")
@@ -137,9 +147,13 @@ jobs:
             echo "📊 상태 체크 모드"
             python core/ultimate_grider_system.py --mode status
             ;;
+          "date_validation")
+            echo "🎯 날짜별 데이터 검증 강화 모드"
+            python core/final_solution.py
+            ;;
           *)
-            echo "🚀 기본 고도화 모드"
-            python core/enhanced_final_solution.py --mode single
+            echo "🚀 기본 고도화 모드 (날짜별 검증 강화)"
+            python core/final_solution.py
             ;;
         esac
 
