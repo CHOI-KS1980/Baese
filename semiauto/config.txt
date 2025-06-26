@@ -1,2 +1,21 @@
-REST_API_KEY=3f2716744254c8c199bd05c59b84142b
-REFRESH_TOKEN=FGGnyI7nqGYEw-2JuJ2xZqo3lHM5gyvQAAAAAgoNH9EAAAGXkRdu54h6dPOEuoNF
+# G라이더 자동화 시스템 설정 파일
+# 각 값을 실제 정보로 변경해주세요
+
+[GRIDER]
+username=test_user
+password=test_password
+
+[KAKAO]
+rest_api_key=3f2716744254c8c199bd05c59b84142b
+refresh_token=FGGnyI7nqGYEw-2JuJ2xZqo3lHM5gyvQAAAAAgoNH9EAAAGXkRdu54h6dPOEuoNF
+
+[SYSTEM]
+send_interval_minutes=15
+operating_hours_start=06:00
+operating_hours_end=03:00
+holiday_api_key=your_holiday_api_key_here
+
+[NOTIFICATION]
+enable_slack=false
+enable_discord=false
+enable_telegram=false

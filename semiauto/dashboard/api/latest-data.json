@@ -1,88 +1,178 @@
 {
-  "총점": 92,
-  "물량점수": 48,
-  "수락률점수": 44,
-  "총완료": 156,
-  "총거절": 12,
-  "수락률": 92.9,
+  "총점": 87,
+  "물량점수": 45,
+  "수락률점수": 42,
+  "총완료": 134,
+  "총거절": 9,
+  "수락률": 93.7,
   "아침점심피크": {
-    "current": 38,
-    "target": 35
-  },
-  "오후논피크": {
-    "current": 32,
+    "current": 35,
     "target": 30
   },
+  "오후논피크": {
+    "current": 27,
+    "target": 25
+  },
   "저녁피크": {
-    "current": 52,
-    "target": 50
+    "current": 48,
+    "target": 45
   },
   "심야논피크": {
-    "current": 34,
+    "current": 24,
+    "target": 20
+  },
+  "오전피크": {
+    "current": 35,
+    "target": 30
+  },
+  "오후피크": {
+    "current": 27,
     "target": 25
+  },
+  "심야피크": {
+    "current": 24,
+    "target": 20
   },
   "riders": [
     {
-      "name": "이재현",
-      "complete": 48,
-      "acceptance_rate": 97.9,
-      "contribution": 30.8,
+      "name": "김철수",
+      "complete": 42,
+      "acceptance_rate": 96.8,
+      "contribution": 31.3,
       "reject": 1,
       "cancel": 0,
-      "아침점심피크": 14,
-      "오후논피크": 10,
-      "저녁피크": 16,
-      "심야논피크": 8
-    },
-    {
-      "name": "김민수",
-      "complete": 41,
-      "acceptance_rate": 95.3,
-      "contribution": 26.3,
-      "reject": 2,
-      "cancel": 0,
       "아침점심피크": 12,
-      "오후논피크": 9,
-      "저녁피크": 14,
-      "심야논피크": 6
-    },
-    {
-      "name": "박서연",
-      "complete": 35,
-      "acceptance_rate": 91.7,
-      "contribution": 22.4,
-      "reject": 3,
-      "cancel": 1,
-      "아침점심피크": 8,
       "오후논피크": 8,
-      "저녁피크": 12,
+      "저녁피크": 15,
       "심야논피크": 7
     },
     {
-      "name": "정우진",
-      "complete": 32,
-      "acceptance_rate": 88.9,
-      "contribution": 20.5,
-      "reject": 4,
+      "name": "이영희",
+      "complete": 38,
+      "acceptance_rate": 94.2,
+      "contribution": 28.4,
+      "reject": 2,
+      "cancel": 1,
+      "아침점심피크": 10,
+      "오후논피크": 9,
+      "저녁피크": 13,
+      "심야논피크": 6
+    },
+    {
+      "name": "박민수",
+      "complete": 33,
+      "acceptance_rate": 91.7,
+      "contribution": 24.6,
+      "reject": 3,
       "cancel": 0,
-      "아침점심피크": 4,
-      "오후논피크": 5,
-      "저녁피크": 10,
-      "심야논피크": 13
+      "아침점심피크": 8,
+      "오후논피크": 7,
+      "저녁피크": 12,
+      "심야논피크": 6
+    },
+    {
+      "name": "정수진",
+      "complete": 21,
+      "acceptance_rate": 87.5,
+      "contribution": 15.7,
+      "reject": 3,
+      "cancel": 2,
+      "아침점심피크": 5,
+      "오후논피크": 3,
+      "저녁피크": 8,
+      "심야논피크": 5
     }
   ],
-  "total_mission_progress": 110.7,
-  "total_mission_current": 156,
-  "total_mission_target": 140,
+  "timestamp": "2025-06-26T12:41:50.539187+09:00",
+  "last_update": "2025-06-26 12:41:50",
+  "system_status": "operational",
+  "data_source": "real_grider_crawling",
+  "raw_data": {
+    "총점": 87,
+    "물량점수": 45,
+    "수락률점수": 42,
+    "총완료": 134,
+    "총거절": 9,
+    "수락률": 93.7,
+    "아침점심피크": {
+      "current": 35,
+      "target": 30
+    },
+    "오후논피크": {
+      "current": 27,
+      "target": 25
+    },
+    "저녁피크": {
+      "current": 48,
+      "target": 45
+    },
+    "심야논피크": {
+      "current": 24,
+      "target": 20
+    },
+    "riders": [
+      {
+        "name": "김철수",
+        "complete": 42,
+        "acceptance_rate": 96.8,
+        "contribution": 31.3,
+        "reject": 1,
+        "cancel": 0,
+        "아침점심피크": 12,
+        "오후논피크": 8,
+        "저녁피크": 15,
+        "심야논피크": 7
+      },
+      {
+        "name": "이영희",
+        "complete": 38,
+        "acceptance_rate": 94.2,
+        "contribution": 28.4,
+        "reject": 2,
+        "cancel": 1,
+        "아침점심피크": 10,
+        "오후논피크": 9,
+        "저녁피크": 13,
+        "심야논피크": 6
+      },
+      {
+        "name": "박민수",
+        "complete": 33,
+        "acceptance_rate": 91.7,
+        "contribution": 24.6,
+        "reject": 3,
+        "cancel": 0,
+        "아침점심피크": 8,
+        "오후논피크": 7,
+        "저녁피크": 12,
+        "심야논피크": 6
+      },
+      {
+        "name": "정수진",
+        "complete": 21,
+        "acceptance_rate": 87.5,
+        "contribution": 15.7,
+        "reject": 3,
+        "cancel": 2,
+        "아침점심피크": 5,
+        "오후논피크": 3,
+        "저녁피크": 8,
+        "심야논피크": 5
+      }
+    ],
+    "timestamp": "2025-06-26 12:41:50"
+  },
+  "total_mission_progress": 111.66666666666667,
+  "total_mission_current": 134,
+  "total_mission_target": 120,
   "active_rider_count": 4,
   "total_rider_count": 4,
+  "avg_completion": 33.5,
+  "avg_acceptance_rate": 92.5,
   "top_rider": {
-    "name": "이재현",
-    "complete": 48,
-    "acceptance_rate": 97.9
+    "name": "김철수",
+    "complete": 42,
+    "acceptance_rate": 96.8
   },
-  "timestamp": "2025-01-27T14:30:00+09:00",
-  "last_update": "2025-01-27 14:30:00",
-  "system_status": "operational",
-  "data_source": "real_grider_test"
+  "current_peak": "오후논피크"
 }
