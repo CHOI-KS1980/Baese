@@ -19,6 +19,11 @@ import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup  # BeautifulSoup import 추가
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 
+from semiauto.utils import holiday_checker
+from .data_collection import GriderDataCollector
+from .kakao_sender import KakaoSender
+from .token_manager import TokenManager
+
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
@@ -954,6 +959,7 @@ class GriderDataCollector:
                     })
             except Exception as e:
                 logger.warning(f"라이더 파싱 중 오류: {e}")
+                continue
         return riders
 
     def _save_mission_data_cache(self, mission_date, peak_data):
@@ -1281,9 +1287,17 @@ class GriderDataCollector:
             return None
 
 class GriderAutoSender:
-    """심플 배민 플러스 자동화 메인 클래스"""
-    
-    def __init__(self, rest_api_key, refresh_token):
+    """G-Rider 자동화 메인 클래스"""
+
+    def __init__(self, rest_api_key=None, refresh_token=None):
+        """초기화. API 키가 없으면 설정 파일에서 로드합니다."""
+        if not rest_api_key or not refresh_token:
+            key, token = load_config()
+            rest_api_key, refresh_token = key, token
+        
+        if not rest_api_key or not refresh_token:
+            raise ValueError("❌ 카카오 API 설정(REST_API_KEY, REFRESH_TOKEN)이 필요합니다.")
+
         self.token_manager = TokenManager(rest_api_key, refresh_token)
         self.data_collector = GriderDataCollector()
 
@@ -1296,13 +1310,57 @@ class GriderAutoSender:
         KakaoSender(access_token).send_text_message(message)
 
     def format_message(self, data: dict) -> str:
-        # 간단한 메시지 포맷팅 예시
-        msg = f"📊 G-Rider 리포트 ({data['mission_date']})\n"
-        msg += f"총점: {data['총점']}점 | 총완료: {data['총완료']}건\n"
-        for name, m in data.items():
-            if isinstance(m, dict) and 'current' in m:
-                msg += f"- {name}: {m['current']}/{m['target']}\n"
-        return msg
+        """수집된 데이터를 상세한 카카오톡 메시지 형식으로 변환합니다."""
+        try:
+            korea_time = self.data_collector._get_korea_time()
+            is_weekend_or_holiday = korea_time.weekday() >= 5 or holiday_checker.is_holiday_advanced(korea_time)[0]
+            day_type = "휴일" if is_weekend_or_holiday else "평일"
+
+            # 1. 헤더 (인사말, 날짜)
+            greeting = "📊 G-Rider 실시간 현황"
+            header = f"{greeting}\n📅 {korea_time.strftime('%Y-%m-%d %H:%M')} ({day_type})"
+
+            # 2. 미션 현황
+            mission_parts = ["\n🎯 금일 미션 현황"]
+            peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+            peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
+            
+            for key in peak_order:
+                mission = data.get(key, {})
+                current = mission.get('current', 0)
+                target = mission.get('target', 0)
+                if target > 0:
+                    status = '✅' if current >= target else f'⏳ {target - current}건'
+                    mission_parts.append(f"{peak_emojis.get(key, '')} {key}: {current}/{target} {status}")
+
+            # 3. 종합 점수 및 요약
+            summary_parts = [
+                "\n📊 종합 점수",
+                f"총점: {data.get('총점', 0)} (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})",
+                f"수락률: {data.get('수락률', 0.0):.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}"
+            ]
+
+            # 4. 라이더 순위 (핵심 복원)
+            riders = data.get('riders', [])
+            rider_parts = [f"\n🏆 라이더 순위 (운행: {len(riders)}명)"]
+            if riders:
+                sorted_riders = sorted(riders, key=lambda x: x.get('complete', 0), reverse=True)
+                medals = ['🥇', '🥈', '🥉']
+
+                for i, rider in enumerate(sorted_riders[:10]):  # 상위 10명까지 표시
+                    name = rider.get('name', 'N/A')
+                    complete = rider.get('complete', 0)
+                    acceptance = rider.get('acceptance_rate', 0.0)
+                    prefix = f"{medals[i]} " if i < 3 else f"{i+1}. "
+                    rider_parts.append(f"{prefix}{name}: {complete}건 (수락률: {acceptance:.1f}%)")
+
+            # 최종 조합
+            full_message = "\n".join([header] + mission_parts + summary_parts + rider_parts)
+            return full_message
+
+        except Exception as e:
+            logger.error(f"❌ 메시지 포맷팅 실패: {e}")
+            return "리포트 생성 중 오류가 발생했습니다."
 
 def load_config():
     """설정 파일 또는 환경변수에서 로드"""
@@ -1345,52 +1403,14 @@ def load_config():
         return None, None
 
 def main():
-    """메인 함수"""
-    import sys
-    
+    """메인 실행 함수"""
     try:
-        logger.info("🚀 G라이더 자동화 시스템 시작...")
-        
-        # 설정 로드
-        rest_api_key, refresh_token = load_config()
-        if not rest_api_key or not refresh_token:
-            logger.error("❌ 카카오 API 설정이 누락되었습니다")
-            return
-        
-        # 데이터 수집 테스트
-        data_collector = GriderDataCollector()
-        test_data = data_collector.get_grider_data()
-        
-        # 크롤링 실패 시 스케줄러 시작 중단
-        if test_data.get('error', False):
-            logger.error("❌ 크롤링 실패 - 스케줄러를 시작하지 않습니다")
-            logger.error("💡 해결 방법: config.txt에서 GRIDER_ID와 GRIDER_PASSWORD를 설정하세요")
-            return
-        
-        # 자동화 객체 생성
-        auto_sender = GriderAutoSender(rest_api_key, refresh_token)
-        
-        # 연결 테스트
-        if not auto_sender.test_connection():
-            logger.error("❌ 연결 테스트 실패. 설정을 확인해주세요.")
-            return
-        
-        if '--single-run' in sys.argv:
-            # GitHub Actions용 단일 실행
-            logger.info("🤖 GitHub Actions 단일 실행 모드")
-            success = auto_sender.send_report()
-            if success:
-                logger.info("✅ GitHub Actions 실행 완료")
-            else:
-                logger.error("❌ GitHub Actions 실행 실패")
-                sys.exit(1)
-        else:
-            # 로컬 스케줄러 모드
-            logger.info("🧪 연결 테스트 완료. 스케줄러에서 자동 시작됩니다.")
-            auto_sender.start_scheduler()
+        auto_sender = GriderAutoSender()
+        auto_sender.send_report()
+    except ValueError as e:
+        logger.error(e)
     except Exception as e:
-        logger.error(f"❌ 메인 함수 실행 중 오류: {e}")
-        sys.exit(1)
+        logger.error(f"❌ 예상치 못한 오류 발생: {e}")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 
