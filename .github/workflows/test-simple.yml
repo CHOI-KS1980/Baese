@@ -1,0 +1,21 @@
+name: 🧪 테스트 워크플로우
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🎯 테스트 실행
+      run: |
+        echo "✅ GitHub Actions 정상 작동 중"
+        echo "📅 실행 시간: $(date)"
+        echo "🔍 Secrets 확인:"
+        if [ -n "${{ secrets.GRIDER_ID }}" ]; then
+          echo "✅ GRIDER_ID 존재"
+        else
+          echo "❌ GRIDER_ID 없음"
+        fi 
