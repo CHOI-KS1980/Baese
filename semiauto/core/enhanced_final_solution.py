@@ -102,8 +102,9 @@ class EnhancedGriderAutoSender(GriderAutoSender):
         """단일 검증 전송 (GitHub Actions용)"""
         logger.info("🤖 GitHub Actions 검증 전송 모드")
         
-        # 누락된 메시지 복구 먼저 시도
-        recovered_count = self.scheduler.recover_missing_messages()
+        # 누락된 메시지 복구 일시적 비활성화 (datetime 오류 해결을 위해)
+        recovered_count = 0
+        logger.info("⚠️ 누락 메시지 복구 기능 일시적 비활성화")
         
         # 현재 시간 전송 시도
         should_send, reason = self.scheduler.should_send_now()

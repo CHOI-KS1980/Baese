@@ -348,7 +348,10 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
         try:
             # 1. 누락된 메시지 복구
             logger.info("🔄 누락 메시지 복구 중...")
-            recovered_count = self.scheduler.recover_missing_messages()
+            # 누락된 메시지 복구 일시적 비활성화 (datetime 오류 해결을 위해)
+            recovered_count = 0
+            logger.info("⚠️ 누락 메시지 복구 기능 일시적 비활성화")
+            
             if recovered_count and recovered_count > 0:
                 logger.info(f"✅ {recovered_count}개 메시지 복구 완료")
             
@@ -424,9 +427,9 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
                         # 전송 후 60초 대기 (중복 방지)
                         time.sleep(60)
                     
-                    # 10분마다 누락 메시지 체크
+                    # 10분마다 누락 메시지 체크 (일시적 비활성화)
                     elif now.minute % 10 == 0 and now.second < 30:
-                        self.scheduler.recover_missing_messages()
+                        logger.info("⚠️ 누락 메시지 체크 일시적 비활성화")
                         time.sleep(60)
                     
                     # 1시간마다 최적화 수행 (주석 처리)
