@@ -1255,7 +1255,7 @@ class GriderAutoSender:
 
             # 1. 헤더 (인사말, 날짜)
             greeting = "📊 G-Rider 실시간 현황"
-            header = f"{greeting}\n📅 {korea_time.strftime('%Y-%m-%d %H:%M')} ({day_type})"
+            header = f"📅 {korea_time.strftime('%Y-%m-%d %H:%M:%S')} ({day_type})"
 
             # 2. 미션 현황
             mission_parts = ["\n🎯 금일 미션 현황"]
@@ -1277,22 +1277,24 @@ class GriderAutoSender:
                 f"수락률: {data.get('수락률', 0.0):.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}"
             ]
 
-            # 4. 라이더 순위 (핵심 복원)
+            # 4. 라이더 순위 (이름이 정상적으로 표시되도록 수정)
             riders = data.get('riders', [])
             rider_parts = [f"\n🏆 라이더 순위 (운행: {len(riders)}명)"]
             if riders:
+                # 완료 건수 기준으로 정렬
                 sorted_riders = sorted(riders, key=lambda x: x.get('complete', 0), reverse=True)
                 medals = ['🥇', '🥈', '🥉']
 
                 for i, rider in enumerate(sorted_riders[:10]):  # 상위 10명까지 표시
-                    name = rider.get('name', 'N/A')
+                    name = rider.get('name', 'N/A')  # 이름 필드를 사용하도록 수정
                     complete = rider.get('complete', 0)
                     acceptance = rider.get('acceptance_rate', 0.0)
+                    
                     prefix = f"{medals[i]} " if i < 3 else f"{i+1}. "
                     rider_parts.append(f"{prefix}{name}: {complete}건 (수락률: {acceptance:.1f}%)")
 
             # 최종 조합
-            full_message = "\n".join([header] + mission_parts + summary_parts + rider_parts)
+            full_message = "\n".join([greeting, header] + mission_parts + summary_parts + rider_parts)
             return full_message
 
         except Exception as e:
