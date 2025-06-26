@@ -174,12 +174,12 @@ jobs:
         git add docs/
         git add grider_automation.log
         
-        # 4. 커밋 및 푸시 (rebase와 함께)
+        # 4. 커밋 및 푸시 (충돌 시 로컬 변경사항 우선)
         if ! git diff --staged --quiet; then
           git commit -m "📊 대시보드 실시간 데이터 업데이트 (${{ github.run_number }})"
           
-          # 푸시 전 pull --rebase 실행
-          git pull --rebase
+          # 푸시 전 pull 실행 (충돌 시 로컬 변경사항 우선)
+          git pull origin main -X ours
           git push
         else
           echo "✅ 변경된 데이터가 없어 커밋하지 않습니다."
