@@ -76,27 +76,21 @@ jobs:
           sudo apt-get install -y google-chrome-stable --quiet
         fi
         
-        # ChromeDriver 동적으로 다운로드
-        CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-        echo "🔍 Chrome 버전: $CHROME_VERSION"
+        # ChromeDriver 동적으로 다운로드 (안정성 강화 v2)
+        CHROME_BUILD_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        echo "🤔 Chrome 빌드 버전: $CHROME_BUILD_VERSION"
         
-        # 메이저 버전만 추출 (e.g., 125.0.6422.112 -> 125)
-        CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION" | cut -d. -f1)
-        echo "🤔 Chrome 메이저 버전: $CHROME_MAJOR_VERSION"
+        # 해당 빌드 버전에 맞는 최신 드라이버 버전 찾기
+        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_BUILD_VERSION}")
         
-        # 해당 메이저 버전에 맞는 최신 드라이버 버전 찾기
-        CHROMEDRIVER_URL_PREFIX="https://googlechromelabs.github.io/chrome-for-testing/latest-patch-versions-per-build.json"
-        CHROMEDRIVER_VERSION_FULL=$(curl -s $CHROMEDRIVER_URL_PREFIX | jq -r ".builds[\"${CHROME_MAJOR_VERSION}\"].version")
-        
-        if [ -z "$CHROMEDRIVER_VERSION_FULL" ]; then
-          echo "❌ ${CHROME_MAJOR_VERSION} 버전에 맞는 ChromeDriver를 찾을 수 없습니다. 알려진 최신 안정 버전으로 대체합니다."
-          # 알려진 안정적인 버전으로 대체
-          CHROMEDRIVER_VERSION_FULL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[0].url' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+        if [ -z "$CHROMEDRIVER_VERSION" ]; then
+          echo "❌ ${CHROME_BUILD_VERSION} 버전에 맞는 ChromeDriver를 찾을 수 없습니다. 알려진 최신 안정 버전으로 대체합니다."
+          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | jq -r '.channels.Stable.version')
         fi
         
-        echo "📥 ChromeDriver 버전: $CHROMEDRIVER_VERSION_FULL"
+        echo "📥 ChromeDriver 버전: $CHROMEDRIVER_VERSION"
         
-        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION_FULL}/linux64/chromedriver-linux64.zip"
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
         unzip -q chromedriver-linux64.zip
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
