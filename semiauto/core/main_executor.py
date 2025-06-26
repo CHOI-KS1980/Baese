@@ -349,6 +349,11 @@ class GriderDataCollector:
                     raise Exception("HTML 길이가 너무 짧아 로딩 실패로 간주")
                 
                 logger.info(" 크롤링 성공")
+
+                # 성공 시 디버깅을 위해 HTML 파일 저장
+                with open('debug_grider_page.html', 'w', encoding='utf-8') as f:
+                    f.write(html)
+                
                 return html
                 
             except Exception as e:
