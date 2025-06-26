@@ -32,6 +32,10 @@ on:
           - high
           - emergency
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '18'
@@ -123,62 +127,19 @@ jobs:
 
     - name: 대시보드 데이터 업데이트 및 배포
       if: success()
-      env:
-        GRIDER_ID: ${{ secrets.GRIDER_ID }}
-        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
-        KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-        KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-        KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
       run: |
-        # 0. 필수 디렉토리 생성
-        mkdir -p docs/api
-
-        # 1. 파이썬을 사용하여 grider_results.json을 latest-data.json으로 변환 및 이동
-        python -c "
-        import json
-        import os
-        from datetime import datetime
-        import pytz
-
-        source_file = 'grider_results.json'
-        dest_file = 'docs/api/latest-data.json'
-        
-        # 한국 시간대 설정
-        KST = pytz.timezone('Asia/Seoul')
-
-        if not os.path.exists(source_file):
-            print(f'❌ 원본 데이터 파일({source_file})이 없습니다. 작업을 중단합니다.')
-            # 샘플 데이터라도 생성해서 대시보드가 깨지는 것을 방지
-            sample_data = {'error': 'Source file not found', 'timestamp': datetime.now(KST).isoformat()}
-            with open(dest_file, 'w', encoding='utf-8') as f:
-                json.dump(sample_data, f, ensure_ascii=False, indent=2)
-            exit(0) # 정상 종료로 처리
-
-        with open(source_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        # 타임스탬프 추가
-        data['timestamp'] = datetime.now(KST).isoformat()
-
-        with open(dest_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-        print(f'✅ {source_file} -> {dest_file} 변환 및 저장 완료')
-        "
-        
-        # 2. Git 설정 및 변경사항 추가
+        # Git 설정
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        # 3. 변경사항 스테이징 (docs 폴더 전체)
+        # 변경사항 스테이징 (docs 폴더만)
         git add docs/
-        git add grider_automation.log
         
-        # 4. 커밋 및 푸시 (충돌 시 로컬 변경사항 우선)
-        if ! git diff --staged --quiet; then
+        # 커밋 및 푸시
+        if ! git diff --staded --quiet; then
           git commit -m "📊 대시보드 실시간 데이터 업데이트 (${{ github.run_number }})"
           
-          # 푸시 전 pull 실행 (rebase 전략 사용)
+          # 푸시 전 pull 실행 (충돌 시 원격 변경사항을 덮어쓰는 rebase 전략)
           git pull --rebase origin main
           git push
         else

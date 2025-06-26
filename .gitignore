@@ -1,6 +1,5 @@
 # 로그 파일들
 *.log
-!grider_automation.log
 logs/
 semiauto/grider_automation.log
 kakao_automation.log
