@@ -314,16 +314,20 @@ class GriderDataCollector:
             if html and len(html) > 1000:  # 최소 HTML 길이 확인
                 logger.info("✅ 크롤링 성공, 데이터 파싱 시작")
                 
-                # 데이터 파싱
-                data = self._parse_data(html)
-                
-                if data and self._validate_data(data):
-                    logger.info(f"📊 수집된 데이터: 총점={data.get('총점', 0)}, 완료={data.get('총완료', 0)}")
-                    return data
-                else:
-                    logger.error("❌ 파싱된 데이터가 유효하지 않음")
-                    logger.error("🚨 실제 데이터 수집 실패 - 크롤링 로직 점검 필요")
-                    # 에러 메시지 전송 대신 None 반환
+                # 데이터 파싱 - 예외 처리 강화
+                try:
+                    data = self._parse_data(html)
+                    
+                    if data and self._validate_data(data):
+                        logger.info(f"📊 수집된 데이터: 총점={data.get('총점', 0)}, 완료={data.get('총완료', 0)}")
+                        return data
+                    else:
+                        logger.error("❌ 파싱된 데이터가 유효하지 않음")
+                        logger.error("🚨 실제 데이터 수집 실패 - 크롤링 로직 점검 필요")
+                        return None
+                except Exception as parse_error:
+                    logger.error(f"❌ 데이터 파싱 중 예외 발생: {parse_error}")
+                    logger.error("🚨 파싱 오류 - datetime 변수 스코프 또는 기타 오류")
                     return None
             else:
                 logger.error("❌ 크롤링 실패 - HTML을 가져올 수 없음")
@@ -1427,8 +1431,8 @@ class GriderDataCollector:
         물량 점수관리 테이블에서 미션 데이터를 파싱합니다. (main_(2).py와 동일)
         """
         from bs4 import BeautifulSoup
-        from datetime import datetime, timedelta
         import pytz
+        import re
         
         # html.parser 파서 사용으로 속도 향상
         soup = BeautifulSoup(html, 'html.parser')
@@ -1518,6 +1522,7 @@ class GriderDataCollector:
         target_row = None
         
         # 날짜 매칭 최적화 (정규표현식 미리 컴파일)
+        import re
         date_pattern = re.compile(target_date)
         for row in rows:
             # 첫 번째 또는 두 번째 셀에서 날짜 찾기
