@@ -312,11 +312,9 @@ class GriderDataCollector:
             mission_date = self._get_mission_date()
             cached_data = self._load_mission_data_cache()
             
-            # 현재 시간이 메시지 전송 시간인지 확인
-            if not self._is_message_time():
-                logger.info("⏸️ 현재 시간은 메시지 전송 시간이 아닙니다.")
-                # 메시지 전송 시간이 아닐 때는 None 반환 (에러 메시지 전송 방지)
-                return None
+            # GitHub Actions 또는 상위 스케줄러에서 이미 시간 검증을 했으므로
+            # 여기서는 추가 시간 체크를 하지 않고 바로 크롤링 진행
+            logger.info("🚀 스케줄러에서 검증된 실행 - 크롤링 진행")
             
             logger.info("🚀 G라이더 실제 데이터 수집 시작...")
             
