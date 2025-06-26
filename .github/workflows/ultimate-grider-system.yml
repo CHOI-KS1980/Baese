@@ -147,15 +147,18 @@ jobs:
         # Git 설정
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+
+        # Git 인덱스에서 로그 파일을 강제로 제거 (추적 중지) - 충돌의 근본 원인 해결
+        git rm -f --cached grider_automation.log || true
         
         # 변경사항 스테이징 (docs 폴더만)
         git add docs/
         
         # 커밋 및 푸시
-        if ! git diff --staded --quiet; then
+        if ! git diff --staged --quiet; then
           git commit -m "📊 대시보드 실시간 데이터 업데이트 (${{ github.run_number }})"
           
-          # 푸시 전 pull 실행 (충돌 시 원격 변경사항을 덮어쓰는 rebase 전략)
+          # 푸시 전 pull 실행 (rebase 전략 사용)
           git pull --rebase origin main
           git push
         else
