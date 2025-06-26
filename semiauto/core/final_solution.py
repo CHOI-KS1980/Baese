@@ -1285,20 +1285,23 @@ class GriderAutoSender:
         KakaoSender(access_token).send_text_message(message)
 
     def format_message(self, data: dict) -> str:
-        """수집된 데이터를 상세한 카카오톡 메시지 형식으로 변환합니다."""
+        """사용자 정의 규칙에 따라 상세한 카카오톡 메시지를 생성합니다."""
         try:
             korea_time = self.data_collector._get_korea_time()
             is_weekend_or_holiday = korea_time.weekday() >= 5 or holiday_checker.is_holiday_advanced(korea_time)[0]
             day_type = "휴일" if is_weekend_or_holiday else "평일"
 
-            # 날씨 정보 가져오기
+            # 1. 날씨 정보 가져오기
             weather_info = self.data_collector._get_weather_info()
 
-            # 1. 헤더 (인사말, 날짜, 날씨)
-            greeting = "📊 G-Rider 실시간 현황"
-            header = f"📅 {korea_time.strftime('%Y-%m-%d %H:%M:%S')} ({day_type})\n{weather_info}"
+            # 2. 헤더 구성
+            header_parts = [
+                "📊 G-Rider 실시간 현황",
+                f"📅 {korea_time.strftime('%Y-%m-%d %H:%M')} ({day_type})",
+                f"{weather_info}"
+            ]
 
-            # 2. 미션 현황
+            # 3. 미션 현황 상세 구성
             mission_parts = ["\n🎯 금일 미션 현황"]
             peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
@@ -1308,39 +1311,44 @@ class GriderAutoSender:
                 current = mission.get('current', 0)
                 target = mission.get('target', 0)
                 if target > 0:
-                    status = '✅' if current >= target else f'⏳ {target - current}건'
-                    mission_parts.append(f"{peak_emojis.get(key, '')} {key}: {current}/{target} {status}")
+                    remaining = target - current
+                    status = '✅' if remaining <= 0 else f'⏳ {remaining}건'
+                    mission_parts.append(f"{peak_emojis.get(key, '🎯')} {key}: {current}/{target} {status}")
 
-            # 3. 종합 점수 및 요약
+            # 4. 종합 점수 및 요약 구성
             summary_parts = [
                 "\n📊 종합 점수",
                 f"총점: {data.get('총점', 0)} (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})",
                 f"수락률: {data.get('수락률', 0.0):.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}"
             ]
 
-            # 4. 라이더 순위 (이름이 정상적으로 표시되도록 수정)
+            # 5. 라이더 순위 상세 구성 (사용자 정의 규칙 완벽 복원)
             riders = data.get('riders', [])
             rider_parts = [f"\n🏆 라이더 순위 (운행: {len(riders)}명)"]
             if riders:
-                # 완료 건수 기준으로 정렬
                 sorted_riders = sorted(riders, key=lambda x: x.get('complete', 0), reverse=True)
                 medals = ['🥇', '🥈', '🥉']
 
-                for i, rider in enumerate(sorted_riders[:10]):  # 상위 10명까지 표시
-                    name = rider.get('name', 'N/A')  # 이름 필드를 사용하도록 수정
+                for i, rider in enumerate(sorted_riders[:10]):  # 상위 10명
+                    name = rider.get('name', 'N/A')
                     complete = rider.get('complete', 0)
+                    reject = rider.get('reject', 0)
+                    cancel = rider.get('cancel', 0)
                     acceptance = rider.get('acceptance_rate', 0.0)
                     
                     prefix = f"{medals[i]} " if i < 3 else f"{i+1}."
-                    rider_parts.append(f"{prefix} {name}: {complete}건 (수락률: {acceptance:.1f}%)")
-
-            # 최종 조합
-            full_message = "\n".join([greeting, header] + mission_parts + summary_parts + rider_parts)
+                    
+                    # (완료/거절/배취) 형태의 상세 정보 추가
+                    details = f"({complete}/{reject}/{cancel})"
+                    rider_parts.append(f"{prefix} {name}: {acceptance:.1f}% {details}")
+            
+            # 6. 메시지 최종 조합
+            full_message = "\n".join(header_parts + mission_parts + summary_parts + rider_parts)
             return full_message
 
         except Exception as e:
-            logger.error(f"❌ 메시지 포맷팅 실패: {e}")
-            return "리포트 생성 중 오류가 발생했습니다."
+            logger.error(f"❌ 메시지 포맷팅 실패: {e}", exc_info=True)
+            return "리포트 생성 중 오류가 발생했습니다. 로그를 확인해주세요."
 
 def load_config():
     """설정 파일 또는 환경변수에서 로드"""
