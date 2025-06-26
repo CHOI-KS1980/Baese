@@ -585,7 +585,6 @@ class GriderAutoSender:
     def format_message(self, data: dict) -> str:
         """사용자 정의 규칙에 따라 상세한 카카오톡 메시지를 생성합니다."""
         try:
-            # Helper for progress bar
             def get_progress_bar(contribution: float) -> str:
                 if not isinstance(contribution, (int, float)) or contribution < 0: return ""
                 filled_count = round(contribution / 100 * 5)
@@ -595,7 +594,6 @@ class GriderAutoSender:
             header = "📊 심플 배민 플러스 미션 알리미"
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
             
-            # 1. Missions
             mission_parts = [""]
             missions_behind_summary = []
             for key, emoji in peak_emojis.items():
@@ -607,13 +605,11 @@ class GriderAutoSender:
                     if remaining > 0: missions_behind_summary.append(f"{key.replace('피크','')} {remaining}건")
                     mission_parts.append(f"{emoji} {key}: {current}/{target} {status}")
 
-            # 2. Daily Performance (Recalculated)
             all_riders = data.get('riders', [])
             total_completed = sum(r.get('완료', 0) for r in all_riders)
             total_rejected = sum(r.get('거절', 0) for r in all_riders)
             total_cancelled = sum(r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
             total_fail = total_rejected + total_cancelled
-            
             overall_acceptance_rate = (total_completed / (total_completed + total_fail) * 100) if (total_completed + total_fail) > 0 else 100.0
 
             daily_perf_parts = [
@@ -622,41 +618,41 @@ class GriderAutoSender:
                 f"수락률: {overall_acceptance_rate:.1f}%"
             ]
 
-            # 3. Weather
             weather_info = self.data_collector._get_weather_info_detailed().replace("C", "°C")
             weather_parts = [f"\n{weather_info.replace('오늘의 날씨', '🌍 오늘의 날씨').replace('오전:', '🌅 오전:').replace('오후:', '🌇 오후:')}"]
             
-            # 4. Weekly Score (Using new calculated values)
+            # Weekly data from the source
+            weekly_completed = data.get('주간완료', 0)
+            weekly_rejected = data.get('주간거절', 0)
+            weekly_acceptance_rate = (weekly_completed / (weekly_completed + weekly_rejected) * 100) if (weekly_completed + weekly_rejected) > 0 else 100.0
+
             weekly_score_parts = [
-                f"\n📊 총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})",
-                f"수락률: {overall_acceptance_rate:.1f}% | 완료: {total_completed} | 거절: {total_fail}"
+                "\n📊 이번주 미션 수행 예상점수",
+                f"총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})",
+                f"수락률: {weekly_acceptance_rate:.1f}% | 완료: {weekly_completed} | 거절: {weekly_rejected}"
             ]
 
-            # 5. Rider Rankings
             active_riders = [r for r in all_riders if r.get('완료', 0) > 0]
             rider_parts = [f"\n🏆 라이더 순위 (운행: {len(active_riders)}명)"]
             if active_riders:
                 sorted_riders = sorted(active_riders, key=lambda x: x.get('완료', 0), reverse=True)
                 medals = ['🥇', '🥈', '🥉']
-                for i, r in enumerate(sorted_riders[:3]): # Top 3
-                    # Calculate individual contribution
+                for i, r in enumerate(sorted_riders[:3]):
                     contributions = []
                     for peak_key in peak_emojis.keys():
                         mission_target = data.get(peak_key, {}).get('target', 0)
-                        rider_completed = r.get(peak_key, 0)
+                        rider_completed_peak = r.get(peak_key, 0)
                         if mission_target > 0:
-                            contributions.append((rider_completed / mission_target) * 100)
+                            contributions.append((rider_completed_peak / mission_target) * 100)
                     
                     avg_contribution = sum(contributions) / len(contributions) if contributions else 0.0
                     
-                    # Calculate individual acceptance rate
                     rider_completed = r.get('완료', 0)
                     rider_rejected = r.get('거절', 0)
                     rider_cancelled = r.get('배차취소', 0) + r.get('배달취소', 0)
                     rider_fail = rider_rejected + rider_cancelled
                     rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100.0
 
-                    # Format rider info
                     name = r.get('name', '이름없음')
                     progress_bar = get_progress_bar(avg_contribution)
                     peak_counts = f"({peak_emojis['아침점심피크']}{r.get('아침점심피크', 0)} {peak_emojis['오후논피크']}{r.get('오후논피크', 0)} {peak_emojis['저녁피크']}{r.get('저녁피크', 0)} {peak_emojis['심야논피크']}{r.get('심야논피크', 0)})"
@@ -665,7 +661,6 @@ class GriderAutoSender:
                     rider_parts.append(f"    총 {rider_completed}건 {peak_counts}")
                     rider_parts.append(f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider_rejected}, 취소:{rider_cancelled})")
 
-            # 6. Warning
             warning_part = [f"\n⚠️ 미션 부족: {', '.join(missions_behind_summary)}"] if missions_behind_summary else []
             
             message_parts = [header] + mission_parts + daily_perf_parts + weather_parts + weekly_score_parts + rider_parts + warning_part
