@@ -83,12 +83,12 @@ jobs:
         CHROME_VERSION=$(google-chrome --version | cut -f 3 -d ' ' | cut -d '.' -f 1-3)
         echo "Chrome version: $CHROME_VERSION"
         
-        # Chrome 버전에 맞는 최신 ChromeDriver 버전 확인
-        DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" | jq -r ".versions[] | select(.version | startswith(\\"$CHROME_VERSION\\")) | .downloads.chromedriver[0].url" | head -n 1)
-        echo "ChromeDriver download URL: $DRIVER_VERSION"
+        # Chrome 버전에 맞는 최신 ChromeDriver 버전 확인 (jq --arg 사용으로 안정성 확보)
+        DRIVER_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" | jq -r --arg ver "$CHROME_VERSION" '.versions[] | select(.version | startswith($ver)) | .downloads.chromedriver[] | select(.platform=="linux-x64") | .url' | head -n 1)
+        echo "ChromeDriver download URL: $DRIVER_URL"
         
         # ChromeDriver 다운로드 및 압축 해제
-        curl -s -L "$DRIVER_VERSION" -o chromedriver.zip
+        curl -s -L "$DRIVER_URL" -o chromedriver.zip
         unzip -q chromedriver.zip
         
         # 실행 경로에 추가
