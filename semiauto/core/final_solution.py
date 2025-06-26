@@ -1001,8 +1001,8 @@ class GriderDataCollector:
     def _get_mission_date(self):
         """
         미션 기준 날짜를 계산합니다.
-        03:00~다음날 02:59를 하나의 미션 날짜로 간주합니다.
-        예: 2025-06-15 03:00 ~ 2025-06-16 02:59 = 2025-06-15 미션
+        06:00~익일 03:00를 하나의 미션 날짜로 간주합니다.
+        예: 2025-06-25 06:00 ~ 2025-06-26 03:00 = 2025-06-25 미션
         """
         # 한국시간 기준으로 계산
         try:
@@ -1013,10 +1013,16 @@ class GriderDataCollector:
             # pytz가 없으면 UTC+9로 계산
             utc_now = dt.datetime.utcnow()
             now = utc_now + dt.timedelta(hours=9)
-        if now.time() < dt.time(3, 0):
+        
+        # G라이더 미션 시간: 06:00 ~ 익일 03:00
+        # 03:00~05:59 -> 전날 미션 
+        # 06:00~23:59 -> 당일 미션
+        # 00:00~02:59 -> 전날 미션
+        if now.time() < dt.time(6, 0):  # 00:00~05:59
             mission_date = now.date() - dt.timedelta(days=1)
-        else:
+        else:  # 06:00~23:59
             mission_date = now.date()
+            
         logger.info(f"🎯 미션 날짜 계산: 현재시간 {now.strftime('%Y-%m-%d %H:%M')} → 미션날짜 {mission_date}")
         return mission_date.strftime('%Y-%m-%d')
 
