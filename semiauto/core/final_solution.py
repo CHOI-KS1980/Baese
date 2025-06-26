@@ -11,12 +11,11 @@ import requests
 import json
 import schedule
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dt_time
 # pyperclip은 조건부 import (GitHub Actions 환경에서는 사용 불가)
 import logging
 import os
 import re
-import datetime as dt
 import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup  # BeautifulSoup import 추가
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
@@ -1462,7 +1461,7 @@ class GriderDataCollector:
         try:
             cache_data = {
                 'date': mission_date,
-                'timestamp': dt.datetime.now().isoformat(),
+                'timestamp': datetime.now().isoformat(),
                 'peak_data': peak_data
             }
             
@@ -1510,18 +1509,18 @@ class GriderDataCollector:
         try:
             import pytz
             kst = pytz.timezone('Asia/Seoul')
-            now = dt.datetime.now(kst)
+            now = datetime.now(kst)
         except ImportError:
             # pytz가 없으면 UTC+9로 계산
-            utc_now = dt.datetime.utcnow()
-            now = utc_now + dt.timedelta(hours=9)
+            utc_now = datetime.utcnow()
+            now = utc_now + timedelta(hours=9)
         
         # G라이더 미션 시간: 06:00 ~ 익일 03:00
         # 03:00~05:59 -> 전날 미션 
         # 06:00~23:59 -> 당일 미션
         # 00:00~02:59 -> 전날 미션
-        if now.time() < dt.time(6, 0):  # 00:00~05:59
-            mission_date = now.date() - dt.timedelta(days=1)
+        if now.time() < dt_time(6, 0):  # 00:00~05:59
+            mission_date = now.date() - timedelta(days=1)
         else:  # 06:00~23:59
             mission_date = now.date()
             
@@ -1556,6 +1555,7 @@ class GriderDataCollector:
         """
         from bs4 import BeautifulSoup
         import re
+        from datetime import datetime, timedelta
         
         # BeautifulSoup으로 HTML 파싱
         soup = BeautifulSoup(html, 'html.parser')
