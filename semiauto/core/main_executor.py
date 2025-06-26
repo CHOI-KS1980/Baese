@@ -590,9 +590,10 @@ class GriderAutoSender:
         try:
             def get_progress_bar(contribution: float) -> str:
                 if not isinstance(contribution, (int, float)) or contribution < 0: return ""
+                # 5칸으로 길이를 줄여 간결하게 표시
                 filled_count = round(contribution / 100 * 5)
-                bar = '■' * filled_count + '─' * (5 - filled_count)
-                return f"[{bar}{contribution:.1f}%]"
+                bar = '🟩' * filled_count + '⬜' * (5 - filled_count)
+                return f"{bar} {contribution:.1f}%"
 
             header = "📊 심플 배민 플러스 미션 알리미"
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
