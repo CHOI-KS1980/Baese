@@ -451,69 +451,25 @@ class GriderDataCollector:
                 driver.set_page_load_timeout(60)  # 타임아웃 더 늘림
                 driver.implicitly_wait(15)  # 암시적 대기 늘림
                 
-                # 로그인 페이지 로드 (재시도 로직)
-                LOGIN_URL = 'https://jangboo.grider.ai/'
-                logger.info(f"로그인 페이지 접속: {LOGIN_URL}")
+                # 로그인 페이지 로드 (안정적인 단일 URL로 직접 접근)
+                LOGIN_URL = 'https://jangboo.grider.ai/login'
+                logger.info(f"로그인 페이지 직접 접속 시도: {LOGIN_URL}")
                 
-                # CloudFlare 우회를 위한 점진적 접근
                 try:
-                    # 1단계: 메인 도메인 먼저 접근
-                    driver.get('https://grider.ai/')
-                    time.sleep(3)
-                    logger.info("✅ 메인 도메인 접근 성공")
-                    
-                    # 2단계: 서브도메인 접근
                     driver.get(LOGIN_URL)
-                    time.sleep(5)  # CloudFlare 검증 대기
-                    logger.info("✅ 로그인 페이지 접근 시도")
+                    # CloudFlare 또는 페이지 로딩 대기
+                    time.sleep(5)
+
+                    # 만약의 경우를 대비한 현재 URL 확인
+                    if "grider" not in driver.current_url.lower():
+                        raise Exception(f"예상과 다른 페이지로 이동됨: {driver.current_url}")
                     
-                    # 3단계: CloudFlare 체크 대기
-                    max_wait = 30
-                    wait_count = 0
-                    while wait_count < max_wait:
-                        page_title = driver.title.lower()
-                        current_url = driver.current_url.lower()
-                        
-                        # CloudFlare 체크 화면인지 확인
-                        if any(keyword in page_title for keyword in ['checking', 'security', 'cloudflare', 'please wait']):
-                            logger.info(f"🔄 CloudFlare 보안 검증 중... ({wait_count + 1}초)")
-                            time.sleep(1)
-                            wait_count += 1
-                            continue
-                        
-                        # 정상 페이지 로드 확인
-                        if "jangboo" in current_url and "grider" in current_url:
-                            logger.info("✅ 정상 페이지 로드 완료")
-                            break
-                        
-                        time.sleep(1)
-                        wait_count += 1
-                    
-                    if wait_count >= max_wait:
-                        raise Exception("CloudFlare 보안 검증 시간 초과")
-                        
+                    logger.info(f"✅ 로그인 페이지 접속 성공: {driver.current_url}")
+
                 except Exception as access_error:
-                    logger.warning(f"⚠️ 직접 접근 실패, 우회 방법 시도: {access_error}")
-                    
-                    # 대안 URL들 시도
-                    alternative_urls = [
-                        'https://jangboo.grider.ai/login',
-                        'https://jangboo.grider.ai/dashboard'
-                    ]
-                    
-                    for alt_url in alternative_urls:
-                        try:
-                            logger.info(f"🔄 대안 URL 시도: {alt_url}")
-                            driver.get(alt_url)
-                            time.sleep(3)
-                            
-                            if "grider" in driver.current_url.lower():
-                                logger.info(f"✅ 대안 URL 접근 성공: {alt_url}")
-                                break
-                        except:
-                            continue
-                    else:
-                        raise Exception("모든 접근 방법 실패")
+                    logger.error(f"❌ 로그인 페이지 접속 실패: {access_error}")
+                    # 실패 시 재시도 로직으로 넘어감
+                    raise access_error
 
                 # 페이지 로드 완료 확인
                 current_url = driver.current_url.lower()
