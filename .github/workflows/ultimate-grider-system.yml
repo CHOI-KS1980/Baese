@@ -124,39 +124,9 @@ jobs:
         
         echo "🌟 차세대 G라이더 자동화 시스템 시작..."
         
-        # 루트 디렉터리에서 파이썬 모듈 실행
-        cd ..
-
-        case "$MODE" in
-          "ultimate")
-            echo "🚀 최고급 통합 모드 실행"
-            python -m semiauto.core.ultimate_grider_system --mode single
-            ;;
-          "ai_only")
-            echo "🤖 AI 분석 전용 모드"
-            python -m semiauto.core.enhanced_final_solution --mode single --ai-only
-            ;;
-          "optimization")
-            echo "🔧 최적화 엔진 전용 모드"
-            python -m semiauto.core.optimization_engine --analyze
-            ;;
-          "status_check")
-            echo "📊 상태 체크 모드"
-            python -m semiauto.core.ultimate_grider_system --mode status
-            ;;
-          "date_validation")
-            echo "🎯 날짜별 데이터 검증 강화 모드"
-            python -m semiauto.core.final_solution
-            ;;
-          "debug_mode")
-            echo "🔍 전체 시스템 디버그 모드"
-            python -m semiauto.core.final_solution
-            ;;
-          *)
-            echo "🚀 기본 통합 모드 실행"
-            python -m semiauto.core.ultimate_grider_system --mode normal
-            ;;
-        esac
+        # 3. 루트에서 파이썬 모듈 실행
+        echo "🚀 G-Rider 자동화 시스템 실행"
+        python -m semiauto.core.final_solution
 
     - name: 🔍 결과 분석
       if: always()
