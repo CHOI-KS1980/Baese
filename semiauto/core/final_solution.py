@@ -1028,98 +1028,57 @@ class GriderDataCollector:
         total_reject = results['total_reject']
         acceptance_rate_total = results['acceptance_rate_total']
 
-        # 물량 점수관리 테이블에서 피크별 데이터 파싱 (캐시 활용)
+        # 물량 점수관리 테이블 파싱 로직을 직접 실행 방식으로 변경
         logger.info("=== 미션 데이터 파싱 시작 ===")
-        
-        # 🎯 데이터 검증 강화: 크롤링 시점의 한국시간 기준 검증
         korea_time = self._get_korea_time()
         logger.info(f"🕐 크롤링 시점 한국시간: {korea_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-        
-        # 1단계: 캐시된 데이터가 있고 최신인지 확인
-        cached_peak_data = self._load_mission_data_cache()
-        if cached_peak_data and self._is_cache_valid_for_current_time():
-            logger.info("✅ 캐시된 미션 데이터를 사용합니다.")
-            peak_data = cached_peak_data
-        else:
-            logger.info("🔍 새로운 미션 데이터를 크롤링하여 파싱합니다.")
-            peak_data = self._parse_mission_table_data(html)
-            
-            # 📊 파싱 결과 데이터 검증
-            if peak_data:
-                validation_result = self._validate_peak_data_with_date(peak_data, target_date, html)
-                if not validation_result['is_valid']:
-                    logger.error(f"❌ 파싱된 데이터 검증 실패: {validation_result['reason']}")
-                    logger.error("🚨 올바르지 않은 날짜의 데이터가 파싱되었을 가능성이 높습니다")
-                    logger.error(f"💡 권장사항: {validation_result['suggestion']}")
-                else:
-                    logger.info(f"✅ 파싱된 데이터 검증 성공: {validation_result['message']}")
-            
-            # 파싱 성공시 캐시에 저장
-            if peak_data:
-                mission_date = self._get_mission_date()
-                self._save_mission_data_cache(mission_date, peak_data)
-                logger.info("💾 새로운 미션 데이터를 캐시에 저장했습니다.")
-        
-        # 3단계 Fallback 시스템 (최적화)
-        if not peak_data:
-            logger.warning("⚠️ 1단계 파싱 실패! 2단계 fallback 시도")
-            
-            # 2단계: 기존 방식으로 데이터 파싱
-            peak_data = {}
-            quantity_items = soup.select('.quantity_item')
-            logger.info(f"2단계: quantity_item 요소 {len(quantity_items)}개 발견")
-            
-            if quantity_items:
-                # 통일된 용어 사용
-                web_peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-                legacy_peak_names = ['오전피크', '오후피크', '저녁피크', '심야피크']
-                
-                for idx, item in enumerate(quantity_items):
-                    try:
-                        name_node = item.select_one('.quantity_title')
-                        current_node = item.select_one('.performance_value')
-                        target_node = item.select_one('.number_value span:not(.performance_value)')
 
-                        # 통일된 용어 사용
-                        name = web_peak_names[idx] if idx < len(web_peak_names) else f'피크{idx+1}'
-                        if name_node:
-                            parsed_name = name_node.get_text(strip=True)
-                            # 웹사이트에서 가져온 이름을 통일된 용어로 매핑
-                            name_mapping = {
-                                '오전피크': '아침점심피크',
-                                '오후피크': '오후논피크', 
-                                '저녁피크': '저녁피크',
-                                '심야피크': '심야논피크'
-                            }
-                            name = name_mapping.get(parsed_name, name)
+        # 웹 페이지의 '.quantity_item' 요소에서 직접 데이터 파싱 (기존 fallback 로직)
+        peak_data = {}
+        quantity_items = soup.select('.quantity_item')
+        logger.info(f"파싱 방식: '.quantity_item' 요소에서 직접 파싱 ({len(quantity_items)}개 발견)")
+
+        if quantity_items:
+            web_peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+            
+            for idx, item in enumerate(quantity_items):
+                try:
+                    name_node = item.select_one('.quantity_title')
+                    current_node = item.select_one('.performance_value')
+                    target_node = item.select_one('.number_value span:not(.performance_value)')
+
+                    name = web_peak_names[idx] if idx < len(web_peak_names) else f'피크{idx+1}'
+                    if name_node:
+                        parsed_name = name_node.get_text(strip=True)
+                        name_mapping = {
+                            '오전피크': '아침점심피크', '오후피크': '오후논피크', 
+                            '저녁피크': '저녁피크', '심야피크': '심야논피크'
+                        }
+                        name = name_mapping.get(parsed_name, name)
+                    
+                    current = 0
+                    if current_node:
+                        current_match = int_pattern.search(current_node.get_text(strip=True))
+                        current = int(current_match.group()) if current_match else 0
+                    
+                    target = 0
+                    if target_node:
+                        target_match = int_pattern.search(target_node.get_text(strip=True))
+                        target = int(target_match.group()) if target_match else 0
+                    
+                    if name:
+                        peak_data[name] = {
+                            'current': current, 'target': target,
+                            'progress': (current / target * 100) if target > 0 else 0
+                        }
+                        logger.info(f"미션 파싱: {name} = {current}/{target}건")
                         
-                        # 최적화된 숫자 파싱
-                        current = 0
-                        if current_node:
-                            current_match = int_pattern.search(current_node.get_text(strip=True))
-                            current = int(current_match.group()) if current_match else 0
-                        
-                        target = 0
-                        if target_node:
-                            target_match = int_pattern.search(target_node.get_text(strip=True))
-                            target = int(target_match.group()) if target_match else 0
-                        
-                        if name:
-                            peak_data[name] = {
-                                'current': current,
-                                'target': target,
-                                'progress': (current / target * 100) if target > 0 else 0
-                            }
-                            logger.info(f"2단계 미션 파싱: {name} = {current}/{target}건")
-                            
-                        # 기존 코드 호환성을 위해 레거시 이름으로도 저장
-                        if idx < len(legacy_peak_names):
-                            legacy_name = legacy_peak_names[idx]
-                            peak_data[legacy_name] = peak_data[name]
-                            
-                    except Exception as e:
-                        logger.warning(f"미션 아이템 {idx} 파싱 실패: {e}")
-                        continue
+                except Exception as e:
+                    logger.warning(f"미션 아이템 {idx} 파싱 실패: {e}")
+                    continue
+        else:
+            logger.warning("⚠️ '.quantity_item' 요소를 찾지 못해 미션 데이터를 파싱할 수 없습니다.")
+
 
         logger.info(f"파싱 완료 (소요시간: {time.time() - start_time:.2f}초)")
 
