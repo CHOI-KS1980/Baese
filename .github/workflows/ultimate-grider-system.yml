@@ -62,10 +62,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip --quiet
         pip install --prefer-binary -r requirements.txt --quiet
-        pip install psutil --quiet
 
     - name: 🚀 Chrome 및 ChromeDriver 설정 최적화
       id: setup-chrome
+      uses: nanasess/setup-chrome@v2
+
+    - name: 🌐 크롬 및 웹드라이버 캐싱/설정
       run: |
         # Chrome이 이미 설치되어 있는지 확인
         if ! command -v google-chrome >/dev/null 2>&1; then
@@ -154,40 +156,79 @@ jobs:
         KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
       run: |
-        # Git 변경사항 강제 초기화 및 동기화 (임시파일 정리 후 pull)
-        git reset --hard HEAD
-        git pull --rebase
+        # 0. 필수 디렉토리 생성
+        mkdir -p docs/api
 
-        # ✨ 최종 정리: 아래의 불필요한 스크립트 실행 및 파일 복사 로직을 삭제합니다.
+        # 1. 파이썬을 사용하여 grider_results.json을 latest-data.json으로 변환 및 이동
+        python -c "
+        import json
+        import os
+        from datetime import datetime
+        import pytz
+
+        source_file = 'grider_results.json'
+        dest_file = 'docs/api/latest-data.json'
         
-        # Git 설정
+        # 한국 시간대 설정
+        KST = pytz.timezone('Asia/Seoul')
+
+        if not os.path.exists(source_file):
+            print(f'❌ 원본 데이터 파일({source_file})이 없습니다. 작업을 중단합니다.')
+            # 샘플 데이터라도 생성해서 대시보드가 깨지는 것을 방지
+            sample_data = {'error': 'Source file not found', 'timestamp': datetime.now(KST).isoformat()}
+            with open(dest_file, 'w', encoding='utf-8') as f:
+                json.dump(sample_data, f, ensure_ascii=False, indent=2)
+            exit(0) # 정상 종료로 처리
+
+        with open(source_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # 타임스탬프 추가
+        data['timestamp'] = datetime.now(KST).isoformat()
+
+        with open(dest_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f'✅ {source_file} -> {dest_file} 변환 및 저장 완료')
+        "
+        
+        # 2. Git 설정 및 변경사항 추가
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        
+        # 3. 변경사항 스테이징 (docs 폴더 전체)
+        git add docs/
+        git add grider_automation.log
+        
+        # 4. 커밋 및 푸시 (rebase와 함께)
+        if ! git diff --staged --quiet; then
+          git commit -m "📊 대시보드 실시간 데이터 업데이트 (${{ github.run_number }})"
+          
+          # 푸시 전 pull --rebase 실행
+          git pull --rebase
+          git push
+        else
+          echo "✅ 변경된 데이터가 없어 커밋하지 않습니다."
+        fi
 
     - name: 📊 실행 결과 분석
       if: always()
       run: |
-        cd semiauto
         echo "📊 실행 결과 분석"
         
-        # 로그 파일 확인
+        # 로그 파일 확인 (경로 수정)
         if [ -f "grider_automation.log" ]; then
           echo "📄 실행 로그 마지막 10줄:"
           tail -n 10 grider_automation.log
         fi
         
-        if [ -f "ultimate_grider.log" ]; then
-          echo "🌟 차세대 시스템 로그 마지막 10줄:"
-          tail -n 10 ultimate_grider.log
-        fi
-        
-        # 메시지 히스토리 확인 (경로 수정)
-        if [ -f "../message_history.json" ]; then
+        # 메시지 히스토리 확인
+        if [ -f "message_history.json" ]; then
           echo "📨 메시지 히스토리 상태:"
           python -c "
         import json
         try:
-            with open('../message_history.json', 'r') as f:
+            with open('message_history.json', 'r') as f:
                 data = json.load(f)
                 total_sent = len(data.get('sent_messages', {}))
                 total_failed = len(data.get('failed_messages', {}))
@@ -198,37 +239,17 @@ jobs:
         "
         fi
         
-        # AI 분석 데이터 확인
-        if [ -f "ai_analytics_data.json" ]; then
-          echo "🤖 AI 분석 데이터 상태:"
-          python -c "
-        import json
-        try:
-            with open('ai_analytics_data.json', 'r') as f:
-                data = json.load(f)
-                history_count = len(data.get('performance_history', []))
-                print(f'📊 성과 히스토리: {history_count}개 데이터')
-                if history_count > 0:
-                    latest = data['performance_history'][-1]
-                    print(f'📈 최근 완료율: {latest.get(\"mission_completion_rate\", 0):.1f}%')
-                    print(f'🎯 이상 점수: {latest.get(\"anomaly_score\", 0):.2f}')
-        except Exception as e:
-            print(f'❌ AI 데이터 분석 실패: {e}')
-        "
-        fi
-        
-        # 대시보드 데이터 상태 확인
-        if [ -f "dashboard/api/latest-data.json" ]; then
+        # 대시보드 데이터 상태 확인 (경로 수정)
+        if [ -f "docs/api/latest-data.json" ]; then
           echo "🌐 대시보드 데이터 상태:"
           python -c "
         import json
         try:
-            with open('dashboard/api/latest-data.json', 'r') as f:
+            with open('docs/api/latest-data.json', 'r') as f:
                 data = json.load(f)
-                print(f'📊 현재 점수: {data.get(\"current_score\", 0)}점')
-                print(f'✅ 완료 미션: {data.get(\"completed_missions\", 0)}개')
-                print(f'🏍️ 활성 라이더: {data.get(\"active_riders\", 0)}명')
-                print(f'💰 예상 수익: {data.get(\"estimated_income\", 0):,}원')
+                print(f'📊 총점: {data.get(\"총점\", 0)}점')
+                print(f'✅ 총완료: {data.get(\"총완료\", 0)}개')
+                print(f'🏍️ 활성 라이더: {len(data.get(\"riders\", []))}명')
                 print(f'📅 업데이트: {data.get(\"timestamp\", \"알 수 없음\")}')
         except Exception as e:
             print(f'❌ 대시보드 데이터 분석 실패: {e}')
