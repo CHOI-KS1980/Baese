@@ -1,0 +1,1 @@
+# This file makes 'semiauto' a Python package. 

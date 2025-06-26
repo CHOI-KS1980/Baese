@@ -98,33 +98,20 @@ jobs:
         GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
         KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
         KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-        REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-        REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
-        MODE: ${{ github.event.inputs.mode || 'ultimate' }}
-        PRIORITY: ${{ github.event.inputs.priority || 'normal' }}
       run: |
-        cd semiauto
-        
-        # 환경변수 검증 및 config.txt 생성 (기존 로직 유지)
-        echo "🔍 필수 환경변수 검증 중..."
-        if [ -z "$GRIDER_ID" ] || [ -z "$GRIDER_PASSWORD" ] || [ -z "$KAKAO_REST_API_KEY" ] || [ -z "$KAKAO_REFRESH_TOKEN" ]; then
-          echo "❌ 하나 이상의 필수 환경변수가 설정되지 않았습니다."
-          exit 1
-        fi
-        echo "✅ 모든 필수 환경변수가 설정되었습니다!"
-        
-        cat > config.txt << EOF
+        # 1. config.txt를 semiauto 폴더 안에 직접 생성 (cd 사용 안함)
+        echo "✅ 필수 환경변수 확인 완료"
+        cat > semiauto/config.txt << EOF
         REST_API_KEY=${KAKAO_REST_API_KEY}
         REFRESH_TOKEN=${KAKAO_REFRESH_TOKEN}
         GRIDER_ID=${GRIDER_ID}
         GRIDER_PASSWORD=${GRIDER_PASSWORD}
         KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
         EOF
-        
-        echo "🌟 차세대 G라이더 자동화 시스템 시작..."
-        
-        # 3. 루트에서 파이썬 모듈 실행
+        echo "✅ 설정 파일 생성 완료: semiauto/config.txt"
+
+        # 2. 프로젝트 루트에서 final_solution.py를 모듈로 실행
         echo "🚀 G-Rider 자동화 시스템 실행"
         python -m semiauto.core.final_solution
 
