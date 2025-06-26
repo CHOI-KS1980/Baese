@@ -215,6 +215,7 @@ jobs:
         # /docs 폴더의 모든 변경사항 추가
         git add docs/
         
+        # 변경사항이 있을 경우에만 커밋 및 푸시
         if ! git diff --staged --quiet; then
           git commit -m "🚀 대시보드 배포: $(date '+%Y-%m-%d %H:%M:%S')"
           
@@ -222,7 +223,9 @@ jobs:
           echo "🔄 푸시 시도..."
           for i in 1 2 3
           do
-            git pull --rebase && git push && break
+            # ✨수정✨: 충돌 발생 시, 우리(로컬)의 변경사항을 버리고 서버의 버전으로 강제 업데이트
+            git reset --hard HEAD
+            git pull --rebase -X theirs && git push && break
             echo "❗️ 푸시 실패, 5초 후 재시도... ($i/3)"
             sleep 5
           done
