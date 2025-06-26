@@ -76,7 +76,7 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
         for capability in capabilities:
             logger.info(f"   {capability}")
     
-    def execute_intelligent_automation(self) -> Dict:
+    def execute_intelligent_automation(self, force_run=False) -> Dict:
         """지능형 자동화 실행"""
         start_time = time.time()
         execution_result = {
@@ -97,15 +97,16 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
             system_resources = self._check_system_resources()
             logger.info(f"💻 시스템 리소스: CPU {system_resources['cpu']}%, 메모리 {system_resources['memory']}%")
             
-            # 2. 스케줄 검증 및 데이터 수집
-            should_send, reason = self.scheduler.should_send_now()
-            if not should_send:
-                logger.info(f"⏸️ 전송 스킵: {reason}")
-                # 모든 정상적인 스킵 상황을 성공으로 처리
-                if any(keyword in reason for keyword in ["운영시간 외", "전송 시간 아님", "스킵"]):
-                    execution_result["success"] = True
-                    execution_result["reason"] = reason
-                return execution_result
+            # 2. 스케줄 검증 및 데이터 수집 (강제 실행 옵션 추가)
+            if not force_run:
+                should_send, reason = self.scheduler.should_send_now()
+                if not should_send:
+                    logger.info(f"⏸️ 전송 스킵: {reason}")
+                    # 모든 정상적인 스킵 상황을 성공으로 처리
+                    if any(keyword in reason for keyword in ["운영시간 외", "전송 시간 아님", "스킵"]):
+                        execution_result["success"] = True
+                        execution_result["reason"] = reason
+                    return execution_result
             
             # 3. 데이터 수집 및 검증
             logger.info("📊 데이터 수집 시작...")
@@ -357,7 +358,7 @@ class UltimateGriderSystem(EnhancedGriderAutoSender):
                 logger.info(f"✅ {recovered_count}개 메시지 복구 완료")
             
             # 2. 지능형 자동화 실행
-            execution_result = self.execute_intelligent_automation()
+            execution_result = self.execute_intelligent_automation(force_run=True)
             
             # 3. 최적화 사이클 (주기적으로)
             # if self.total_executions % 10 == 0:  # 10번 실행마다
