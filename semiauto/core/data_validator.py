@@ -227,39 +227,51 @@ class DataCrossValidator:
     """교차 검증 시스템"""
     
     def __init__(self):
-        self.comparison_tolerance = 0.1  # 10% 허용 오차
+        self.comparison_tolerance = 5  # 오차 허용 범위 (건수)
     
-    def compare_mission_totals(self, data: Dict) -> Tuple[bool, List[str]]:
-        """미션 총합과 개별 미션 합계 비교"""
+    def compare_daily_totals(self, data: Dict) -> Tuple[bool, List[str]]:
+        """일일 데이터 교차 검증: 미션 합계 vs 라이더 합계"""
         errors = []
         
-        # 개별 미션 완료 건수 합계 계산
+        # 1. 개별 미션의 'current' 합계 계산
         mission_types = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-        total_current = 0
-        total_target = 0
-        
+        mission_total_current = 0
         for mission_type in mission_types:
-            if mission_type in data:
-                mission_data = data[mission_type]
-                total_current += mission_data.get('current', 0)
-                total_target += mission_data.get('target', 0)
+            if mission_type in data and isinstance(data[mission_type], dict):
+                mission_total_current += data[mission_type].get('current', 0)
         
-        # 전체 완료 건수와 비교
-        if '총완료' in data:
-            reported_total = data['총완료']
+        # 2. 개별 라이더의 'complete' 합계 계산
+        rider_total_complete = 0
+        if 'riders' in data and isinstance(data['riders'], list):
+            for rider in data['riders']:
+                if isinstance(rider, dict):
+                    rider_total_complete += rider.get('complete', 0)
+
+        # 3. 두 합계 비교
+        if mission_total_current != rider_total_complete:
+            # 허용 오차 범위 내에 있는지 확인
+            if abs(mission_total_current - rider_total_complete) > self.comparison_tolerance:
+                error_msg = f"미션 합계와 라이더 합계 불일치: 미션({mission_total_current}) vs 라이더({rider_total_complete})"
+                errors.append(error_msg)
+            else:
+                logger.info(f"🤔 미션-라이더 합계에 약간의 차이가 있지만 허용 범위 내입니다: 미션({mission_total_current}) vs 라이더({rider_total_complete})")
+
+        # '총완료' 필드는 주간 누적 데이터이므로 일일 검증에서 제외합니다.
+        # 대신, 이 값이 비정상적으로 0인 경우만 경고합니다.
+        if '총완료' in data and data['총완료'] == 0 and rider_total_complete > 0:
+            warn_msg = f"주간 총완료가 0이지만, 라이더 일일 완료는 {rider_total_complete}건입니다."
+            # 이것은 에러가 아닌 경고이므로 errors 리스트에는 추가하지 않습니다.
+            logger.warning(f"⚠️ 교차검증 경고: {warn_msg}")
             
-            # 허용 오차 내인지 확인
-            tolerance = max(1, reported_total * self.comparison_tolerance)
-            
-            if abs(total_current - reported_total) > tolerance:
-                errors.append(
-                    f"미션 합계 불일치: 개별합({total_current}) vs 보고됨({reported_total})"
-                )
-        
         return len(errors) == 0, errors
-    
+
+    def compare_mission_totals(self, data: Dict) -> Tuple[bool, List[str]]:
+        """[사용되지 않음] 미션 총합과 개별 미션 합계 비교"""
+        # 이 함수는 더 이상 사용되지 않으며, compare_daily_totals로 대체되었습니다.
+        return True, []
+
     def compare_rider_contributions(self, data: Dict) -> Tuple[bool, List[str]]:
-        """라이더 기여도 합계 검증"""
+        """라이더 기여도와 완료 건수 비교"""
         errors = []
         
         if 'riders' not in data:
@@ -281,7 +293,7 @@ class DataCrossValidator:
         return len(errors) == 0, errors
 
 class EnhancedDataValidator:
-    """통합 데이터 검증 시스템"""
+    """향상된 데이터 검증기 (상태 저장 및 자동 수정)"""
     
     def __init__(self):
         self.freshness_checker = DataFreshnessChecker()
@@ -290,70 +302,54 @@ class EnhancedDataValidator:
         self.validation_history = []
     
     def validate_data(self, data: Dict, source: str = "unknown") -> Tuple[bool, Dict]:
-        """종합 데이터 검증"""
-        validation_result = {
-            'valid': True,
-            'errors': [],
-            'warnings': [],
-            'source': source,
-            'validated_at': datetime.now(KST).isoformat(),
-            'data_hash': self.freshness_checker.get_data_hash(data)
-        }
+        """데이터 유효성 검사 (신선도, 일관성, 교차검증)"""
+        
+        errors = []
+        warnings = []
         
         # 1. 데이터 신선도 검증
-        is_fresh, fresh_msg = self.freshness_checker.is_data_fresh(data)
+        is_fresh, reason = self.freshness_checker.is_data_fresh(data)
         if not is_fresh:
-            validation_result['errors'].append(f"신선도: {fresh_msg}")
-            validation_result['valid'] = False
+            errors.append(f"신선도: {reason}")
+            
+        # 2. 데이터 일관성 검증
+        is_consistent, score_errors = self.consistency_checker.validate_score_data(data)
+        if not is_consistent: errors.extend(score_errors)
         
-        # 2. 점수 데이터 검증
-        score_valid, score_errors = self.consistency_checker.validate_score_data(data)
-        if not score_valid:
-            validation_result['errors'].extend([f"점수: {err}" for err in score_errors])
-            validation_result['valid'] = False
+        is_consistent, mission_errors = self.consistency_checker.validate_mission_data(data)
+        if not is_consistent: errors.extend(mission_errors)
         
-        # 3. 미션 데이터 검증
-        mission_valid, mission_errors = self.consistency_checker.validate_mission_data(data)
-        if not mission_valid:
-            validation_result['errors'].extend([f"미션: {err}" for err in mission_errors])
-            validation_result['valid'] = False
+        is_consistent, rider_errors = self.consistency_checker.validate_rider_data(data)
+        if not is_consistent: errors.extend(rider_errors)
         
-        # 4. 라이더 데이터 검증
-        rider_valid, rider_errors = self.consistency_checker.validate_rider_data(data)
-        if not rider_valid:
-            validation_result['errors'].extend([f"라이더: {err}" for err in rider_errors])
-            validation_result['valid'] = False
+        # 3. 교차 검증
+        # is_valid, cross_errors = self.cross_validator.compare_mission_totals(data)
+        # if not is_valid: warnings.extend(cross_errors) # 교차검증은 경고로 처리
         
-        # 5. 교차 검증
-        mission_total_valid, mission_total_errors = self.cross_validator.compare_mission_totals(data)
-        if not mission_total_valid:
-            validation_result['warnings'].extend([f"교차검증: {err}" for err in mission_total_errors])
+        # 새로운 교차 검증 로직 사용
+        is_valid, daily_total_errors = self.cross_validator.compare_daily_totals(data)
+        if not is_valid:
+            warnings.extend(daily_total_errors) # 교차검증은 경고로 처리
+
+        is_valid, contribution_errors = self.cross_validator.compare_rider_contributions(data)
+        if not is_valid:
+            warnings.extend(contribution_errors)
+
+        validation_result = {
+            'source': source,
+            'validated_at': datetime.now(KST).isoformat(),
+            'is_valid': len(errors) == 0,
+            'errors': errors,
+            'warnings': warnings
+        }
         
-        rider_contrib_valid, rider_contrib_errors = self.cross_validator.compare_rider_contributions(data)
-        if not rider_contrib_valid:
-            validation_result['warnings'].extend([f"교차검증: {err}" for err in rider_contrib_errors])
-        
-        # 검증 결과 저장
         self.validation_history.append(validation_result)
         self._cleanup_validation_history()
         
-        # 로그 출력
-        if validation_result['valid']:
-            logger.info(f"✅ 데이터 검증 통과: {source} ({validation_result['data_hash'][:8]})")
-        else:
-            logger.error(f"❌ 데이터 검증 실패: {source}")
-            for error in validation_result['errors']:
-                logger.error(f"   - {error}")
-        
-        if validation_result['warnings']:
-            logger.warning(f"⚠️ 데이터 검증 경고: {len(validation_result['warnings'])}개")
-            for warning in validation_result['warnings']:
-                logger.warning(f"   - {warning}")
-        
-        return validation_result['valid'], validation_result
+        return len(errors) == 0, validation_result
     
     def fix_data_issues(self, data: Dict, validation_result: Dict) -> Dict:
-        """데이터 문제 자동 수정"""
+        """데이터 자동 수정 시도"""
         fixed_data = data.copy()
         
         for error in validation_result['errors']:
@@ -400,7 +396,7 @@ class EnhancedDataValidator:
             return {'total': 0, 'valid': 0, 'invalid': 0, 'success_rate': 0.0}
         
         total = len(self.validation_history)
-        valid = sum(1 for result in self.validation_history if result['valid'])
+        valid = sum(1 for result in self.validation_history if result['is_valid'])
         invalid = total - valid
         success_rate = (valid / total) * 100
         
