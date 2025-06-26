@@ -484,18 +484,15 @@ class GriderDataCollector:
                 
                 # 환경변수 또는 config.txt에서 로그인 정보 가져오기
                 import os
-                USER_ID = None # os.getenv('GRIDER_ID')
-                USER_PW = None # os.getenv('GRIDER_PASSWORD')
+                USER_ID = os.getenv('GRIDER_ID')
+                USER_PW = os.getenv('GRIDER_PASSWORD')
                 
-                logger.info(f"🔍 config.txt 우선 읽기 모드로 변경됨.")
-                # logger.info(f"   • GRIDER_ID 존재: {'있음' if USER_ID else '없음'}")
-                # logger.info(f"   • GRIDER_PASSWORD 존재: {'있음' if USER_PW else '없음'}")
-                # if USER_ID:
-                #     logger.info(f"   • GRIDER_ID 값: {USER_ID[:3]}***")
+                logger.info("🛰️ 로그인 정보 로드 시도...")
                 
                 # 환경변수가 없으면 config.txt에서 읽기
                 if not USER_ID or not USER_PW:
-                    config_file = 'config.txt'
+                    logger.info("ℹ️ 환경변수에 G라이더 정보가 없어 config.txt에서 읽기를 시도합니다.")
+                    config_file = 'semiauto/config.txt'
                     if os.path.exists(config_file):
                         try:
                             # UTF-8 인코딩으로 파일 읽기
@@ -1331,7 +1328,8 @@ def load_config():
         logger.info(f"   • REFRESH_TOKEN: {refresh_token[:10]}...")
         return rest_api_key, refresh_token
     
-    config_file = 'config.txt'
+    logger.info("⚠️ 환경변수에 카카오 정보가 없어 config.txt에서 읽기를 시도합니다.")
+    config_file = 'semiauto/config.txt'
     if not os.path.exists(config_file):
         logger.error(f"❌ 설정 파일이 없습니다: {config_file}")
         logger.info("📝 config.txt 파일을 생성하고 다음 내용을 입력하세요:")
