@@ -724,171 +724,39 @@ class GriderDataCollector:
         return None
 
     def _navigate_to_date_data(self, driver, target_date: str) -> str:
-        """특정 날짜의 데이터로 이동하여 HTML 추출"""
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.common.exceptions import TimeoutException, NoSuchElementException
+        """URL 파라미터 방식으로 날짜별 데이터 조회"""
+        
+        logger.info(f"🔍 날짜별 데이터 조회 시작: {target_date}")
         
         try:
-            logger.info(f"🔍 날짜별 데이터 조회 시작: {target_date}")
-            
-            # 1. 현재 페이지에서 날짜 선택기 찾기
-            date_selectors = [
-                # 일반적인 날짜 선택기 패턴들
-                'input[type="date"]',
-                '.date-picker',
-                '#date-picker',
-                '[name*="date"]',
-                '[id*="date"]',
-                '.datepicker',
-                '#datepicker',
-                'input.form-control[placeholder*="날짜"]',
-                'input.form-control[placeholder*="일자"]',
-                # 한국어 텍스트가 포함된 요소들
-                '//input[@placeholder[contains(., "날짜")]]',
-                '//input[@placeholder[contains(., "일자")]]',
-                '//button[contains(text(), "날짜")]',
-                '//span[contains(text(), "날짜")]/../input',
-                # G라이더 특화 선택기 (추정)
-                '.search-date',
-                '#searchDate',
-                '[name="searchDate"]',
-                '.mission-date',
-                '#missionDate'
-            ]
-            
-            date_element = None
-            wait = WebDriverWait(driver, 10)
-            
-            # 날짜 선택기 찾기
-            for selector in date_selectors:
-                try:
-                    if selector.startswith('//'):  # XPath
-                        date_element = driver.find_element(By.XPATH, selector)
-                    else:  # CSS Selector
-                        date_element = driver.find_element(By.CSS_SELECTOR, selector)
-                    
-                    if date_element and date_element.is_displayed():
-                        logger.info(f"✅ 날짜 선택기 발견: {selector}")
-                        break
-                except:
-                    continue
-            
-            # 2. 날짜 선택기가 있으면 타겟 날짜로 설정
-            if date_element:
-                try:
-                    # 기존 값 클리어
-                    date_element.clear()
-                    time.sleep(0.5)
-                    
-                    # 타겟 날짜 입력 (다양한 포맷 시도)
-                    date_formats = [
-                        target_date,  # 2025-06-26
-                        target_date.replace('-', '.'),  # 2025.06.26
-                        target_date.replace('-', '/'),  # 2025/06/26
-                        target_date[2:].replace('-', '.'),  # 25.06.26
-                        target_date[2:].replace('-', '/'),  # 25/06/26
-                    ]
-                    
-                    for date_format in date_formats:
-                        try:
-                            date_element.clear()
-                            date_element.send_keys(date_format)
-                            time.sleep(1)
-                            
-                            # Enter 키 또는 검색 버튼 클릭
-                            try:
-                                from selenium.webdriver.common.keys import Keys
-                                date_element.send_keys(Keys.ENTER)
-                            except:
-                                # 검색 버튼 찾기
-                                search_buttons = [
-                                    'button[type="submit"]',
-                                    '.btn-search',
-                                    '#searchBtn',
-                                    'button:contains("검색")',
-                                    'button:contains("조회")',
-                                    'input[type="submit"]'
-                                ]
-                                
-                                for btn_selector in search_buttons:
-                                    try:
-                                        search_btn = driver.find_element(By.CSS_SELECTOR, btn_selector)
-                                        search_btn.click()
-                                        break
-                                    except:
-                                        continue
-                            
-                            # 페이지 로딩 대기
-                            time.sleep(3)
-                            
-                            # 날짜가 올바르게 설정되었는지 확인
-                            current_html = driver.page_source
-                            if self._verify_date_in_html(current_html, target_date):
-                                logger.info(f"✅ 날짜 설정 성공: {date_format}")
-                                return current_html
-                            
-                        except Exception as e:
-                            logger.warning(f"날짜 포맷 {date_format} 시도 실패: {e}")
-                            continue
-                    
-                    logger.warning("모든 날짜 포맷 시도 실패")
-                    
-                except Exception as e:
-                    logger.warning(f"날짜 선택기 조작 실패: {e}")
-            
-            # 3. 날짜 선택기가 없거나 실패한 경우 - URL 파라미터로 시도
+            # URL 파라미터 방식으로 날짜 조회 시도 (가장 안정적)
             logger.info("🔄 URL 파라미터 방식으로 날짜 조회 시도")
             
-            current_url = driver.current_url
-            date_params = [
-                f"?date={target_date}",
-                f"?searchDate={target_date}",
-                f"?missionDate={target_date}",
-                f"&date={target_date}",
-                f"&searchDate={target_date}",
-                f"&missionDate={target_date}"
-            ]
+            base_url = "https://jangboo.grider.ai/dashboard"
+            url_with_date = f"{base_url}?date={target_date}"
             
-            for param in date_params:
-                try:
-                    if '?' in current_url:
-                        new_url = current_url + param.replace('?', '&')
-                    else:
-                        new_url = current_url + param
-                    
-                    driver.get(new_url)
-                    time.sleep(3)
-                    
-                    html = driver.page_source
-                    if self._verify_date_in_html(html, target_date):
-                        logger.info(f"✅ URL 파라미터 방식 성공: {param}")
-                        return html
-                        
-                except Exception as e:
-                    logger.warning(f"URL 파라미터 {param} 시도 실패: {e}")
-                    continue
-            
-            # 4. 모든 방법 실패 - 현재 페이지 데이터 반환하되 경고 로그
-            logger.warning(f"⚠️ 날짜별 조회 실패 - 현재 페이지 데이터 사용 (날짜 불일치 가능성)")
-            html = driver.page_source
-            
-            # 현재 페이지의 날짜 검증
-            if self._verify_date_in_html(html, target_date):
-                logger.info("✅ 현재 페이지가 올바른 날짜 데이터입니다")
+            logger.info(f"Navigating to: {url_with_date}")
+            driver.get(url_with_date)
+            time.sleep(5) # 데이터 로딩 대기
+
+            if self._verify_date_in_html(driver.page_source, target_date):
+                logger.info(f"✅ URL 파라미터 방식 성공: ?date={target_date}")
+                return driver.page_source
             else:
-                logger.error(f"❌ 현재 페이지 데이터가 타겟 날짜({target_date})와 일치하지 않습니다")
-            
-            return html
-            
+                raise Exception("URL 파라미터 방식 후 날짜 검증 실패")
+
         except Exception as e:
-            logger.error(f"❌ 날짜별 데이터 조회 중 오류: {e}")
-            # 실패시 현재 페이지 HTML 반환
-            return driver.page_source
-    
+            logger.error(f"❌ 날짜별 데이터 조회 중 심각한 오류 발생: {e}")
+            
+            # 실패 시 디버깅 정보 저장
+            error_html = driver.page_source
+            with open(f'debug_date_nav_failed.html', 'w', encoding='utf-8') as f:
+                f.write(error_html)
+            
+            return ""
+
     def _verify_date_in_html(self, html: str, target_date: str) -> bool:
-        """HTML에서 타겟 날짜가 포함되어 있는지 검증"""
+        """HTML 내용에서 날짜를 확인하여 정확한 페이지인지 검증"""
         try:
             # 다양한 날짜 포맷으로 검증
             date_variations = [
