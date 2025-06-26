@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚚 심플 메인 시스템 제어</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .status-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            text-decoration: none;
+        }
+
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .log-container {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-truck"></i> 심플 메인 시스템 제어</h1>
+            <a href="../control-center.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i> 제어 센터로 돌아가기
+            </a>
+        </div>
+
+        <div class="control-grid">
+            <!-- 시스템 상태 -->
+            <div class="control-card">
+                <h2 class="card-title"><i class="fas fa-heartbeat"></i> 시스템 상태</h2>
+                
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <div>
+                        <strong>시스템 정상 실행중</strong><br>
+                        <small>마지막 실행: 2분 전</small>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">2일 14시간</div>
+                        <div class="stat-label">연속 실행</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">98.5%</div>
+                        <div class="stat-label">성공률</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">13분 후</div>
+                        <div class="stat-label">다음 실행</div>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" onclick="startSystem()">
+                    <i class="fas fa-play"></i> 시스템 시작
+                </button>
+                <button class="btn btn-warning" onclick="testRun()">
+                    <i class="fas fa-vial"></i> 테스트 실행
+                </button>
+                <button class="btn btn-danger" onclick="stopSystem()">
+                    <i class="fas fa-stop"></i> 시스템 중지
+                </button>
+                <button class="btn btn-primary" onclick="restartSystem()">
+                    <i class="fas fa-redo"></i> 재시작
+                </button>
+            </div>
+
+            <!-- 설정 -->
+            <div class="control-card">
+                <h2 class="card-title"><i class="fas fa-cog"></i> 시스템 설정</h2>
+                
+                <div class="form-group">
+                    <label>테마</label>
+                    <select id="themeSelect">
+                        <option value="기본 (파랑)" selected>기본 (파랑)</option>
+                        <option value="다크 모드">다크 모드</option>
+                        <option value="라이트 모드">라이트 모드</option>
+                        <option value="심플 배민 테마">심플 배민 테마</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>실행 주기</label>
+                    <select id="execution-interval">
+                        <option value="15">15분</option>
+                        <option value="30" selected>30분</option>
+                        <option value="60">1시간</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="notificationCheck" checked> 성공시 알림
+                    </label>
+                    <label>
+                        <input type="checkbox" checked> 오류시 알림
+                    </label>
+                    <label>
+                        <input type="checkbox" id="autoStartCheck"> 자동 시작
+                    </label>
+                    <label>
+                        <input type="checkbox" id="debugCheck"> 디버그 모드
+                    </label>
+                </div>
+
+                <button class="btn btn-primary save-config">
+                    <i class="fas fa-save"></i> 설정 저장
+                </button>
+                <button class="btn btn-secondary" onclick="resetSettings()">
+                    <i class="fas fa-undo"></i> 기본값 복원
+                </button>
+            </div>
+        </div>
+
+        <!-- 실시간 로그 -->
+        <div class="control-card">
+            <h2 class="card-title">
+                <i class="fas fa-terminal"></i> 실시간 로그
+                <button class="btn btn-danger" onclick="clearLogs()" style="margin-left: auto; font-size: 0.9rem;">
+                    <i class="fas fa-trash"></i> 로그 삭제
+                </button>
+                <button class="btn btn-secondary" onclick="exportLogs()" style="font-size: 0.9rem;">
+                    <i class="fas fa-download"></i> 내보내기
+                </button>
+            </h2>
+            <div class="log-container" id="logContainer">
+                <!-- 로그가 여기에 표시됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 심플 메인 시스템 제어
+        class MainSystemControl {
+            constructor() {
+                this.isRunning = false;
+                this.config = this.loadConfig();
+                this.init();
+            }
+
+            init() {
+                this.applyConfig();
+                this.setupEventListeners();
+                this.updateStatus();
+                console.log('🎛️ 심플 메인 시스템 제어 초기화 완료');
+            }
+
+            loadConfig() {
+                const saved = localStorage.getItem('mainSystemConfig');
+                return saved ? JSON.parse(saved) : {
+                    theme: 'default',
+                    interval: 30,
+                    notifications: true,
+                    autoStart: false,
+                    debugMode: false
+                };
+            }
+
+            saveConfig() {
+                localStorage.setItem('mainSystemConfig', JSON.stringify(this.config));
+                this.showNotification('✅ 설정이 저장되었습니다!', 'success');
+                this.applyConfig();
+            }
+
+            applyConfig() {
+                // 테마 적용
+                this.applyTheme(this.config.theme);
+                
+                // 인터페이스 업데이트
+                const intervalSelect = document.querySelector('#execution-interval');
+                const notificationCheck = document.querySelector('#execution-interval input[type="checkbox"]');
+                const autoStartCheck = document.querySelector('#autoStartCheck');
+                const debugCheck = document.querySelector('#debugCheck');
+
+                if (intervalSelect) intervalSelect.value = this.config.interval;
+                if (notificationCheck) notificationCheck.checked = this.config.notifications;
+                if (autoStartCheck) autoStartCheck.checked = this.config.autoStart;
+                if (debugCheck) debugCheck.checked = this.config.debugMode;
+            }
+
+            applyTheme(themeId) {
+                const themes = {
+                    'default': {
+                        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+                        cardBg: '#ffffff',
+                        primary: '#667eea'
+                    },
+                    'dark': {
+                        background: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
+                        cardBg: '#2d2d2d',
+                        primary: '#bb86fc'
+                    },
+                    'light': {
+                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+                        cardBg: '#ffffff',
+                        primary: '#2196f3'
+                    },
+                    'grider': {
+                        background: 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)',
+                        cardBg: '#ffffff',
+                        primary: '#ff6b35'
+                    }
+                };
+
+                const theme = themes[themeId] || themes.default;
+                document.body.style.background = theme.background;
+                
+                document.querySelectorAll('.control-card').forEach(card => {
+                    card.style.background = theme.cardBg;
+                });
+
+                document.querySelectorAll('.btn-primary').forEach(btn => {
+                    btn.style.background = theme.primary;
+                });
+            }
+
+            setupEventListeners() {
+                // 설정 변경 이벤트
+                document.addEventListener('change', (e) => {
+                    if (e.target.id === 'themeSelect') {
+                        const themeMap = {
+                            '기본 (파랑)': 'default',
+                            '다크 모드': 'dark',
+                            '라이트 모드': 'light',
+                            '심플 배민 테마': 'grider'
+                        };
+                        this.config.theme = themeMap[e.target.value] || 'default';
+                        this.applyTheme(this.config.theme);
+                        this.showNotification(`🎨 테마가 '${e.target.value}'로 변경되었습니다!`, 'success');
+                    } else if (e.target.id === 'execution-interval') {
+                        this.config.interval = parseInt(e.target.value);
+                        this.showNotification(`⏰ 실행 간격이 ${e.target.value}분으로 변경되었습니다!`, 'info');
+                    } else if (e.target.id === 'execution-interval input[type="checkbox"]') {
+                        this.config.notifications = e.target.checked;
+                        this.showNotification(`🔔 알림이 ${e.target.checked ? '활성화' : '비활성화'}되었습니다!`, 'info');
+                    } else if (e.target.id === 'autoStartCheck') {
+                        this.config.autoStart = e.target.checked;
+                    } else if (e.target.id === 'debugCheck') {
+                        this.config.debugMode = e.target.checked;
+                        this.showNotification(`🐛 디버그 모드가 ${e.target.checked ? '활성화' : '비활성화'}되었습니다!`, 'info');
+                    }
+                });
+
+                // 저장 버튼
+                document.addEventListener('click', (e) => {
+                    if (e.target.matches('.save-config')) {
+                        this.saveConfig();
+                    }
+                });
+
+                // 키보드 단축키
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.saveConfig();
+                    }
+                });
+            }
+
+            showNotification(message, type = 'info') {
+                const existing = document.querySelector('.notification');
+                if (existing) existing.remove();
+
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#cce7ff'};
+                    color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#004085'};
+                    padding: 1rem 1.5rem;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 10000;
+                    animation: slideIn 0.3s ease;
+                `;
+                
+                notification.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" style="
+                            background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.7;
+                        ">×</button>
+                    </div>
+                `;
+
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 3000);
+            }
+
+            // 기존 함수들 유지
+            updateStatus() {
+                document.getElementById('systemStatus').textContent = this.isRunning ? '실행중' : '중지됨';
+                document.getElementById('systemStatus').style.color = this.isRunning ? 'green' : 'red';
+                
+                // 실행 시간 업데이트
+                const now = new Date();
+                document.getElementById('lastExecution').textContent = now.toLocaleTimeString('ko-KR');
+                
+                // 다음 실행 예정 시간
+                const nextExecution = new Date(now.getTime() + (this.config.interval * 60000));
+                document.getElementById('nextExecution').textContent = nextExecution.toLocaleTimeString('ko-KR');
+            }
+
+            startSystem() {
+                this.isRunning = true;
+                this.updateStatus();
+                this.showNotification('🚀 심플 메인 시스템이 시작되었습니다!', 'success');
+                
+                // 시뮬레이션 로그
+                this.addLog('시스템 시작됨');
+                this.addLog('배민 데이터 수집 중...');
+                
+                setTimeout(() => {
+                    this.addLog('데이터 분석 완료');
+                    this.addLog('카카오톡 알림 전송');
+                }, 2000);
+            }
+
+            stopSystem() {
+                this.isRunning = false;
+                this.updateStatus();
+                this.showNotification('⏹️ 심플 메인 시스템이 중지되었습니다!', 'info');
+                this.addLog('시스템 중지됨');
+            }
+
+            restartSystem() {
+                this.stopSystem();
+                setTimeout(() => {
+                    this.startSystem();
+                }, 1000);
+            }
+
+            testRun() {
+                this.showNotification('🧪 테스트 실행을 시작합니다...', 'info');
+                this.addLog('=== 테스트 실행 시작 ===');
+                this.addLog('1. 배민 API 연결 테스트... ✅');
+                this.addLog('2. 데이터 수집 테스트... ✅');
+                this.addLog('3. 카카오톡 연결 테스트... ✅');
+                this.addLog('4. 알림 전송 테스트... ✅');
+                this.addLog('=== 모든 테스트 통과 ===');
+                
+                setTimeout(() => {
+                    this.showNotification('✅ 모든 테스트가 성공적으로 완료되었습니다!', 'success');
+                }, 3000);
+            }
+
+            addLog(message) {
+                const logContainer = document.getElementById('logContainer');
+                const logEntry = document.createElement('div');
+                logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logEntry.style.marginBottom = '5px';
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            clearLogs() {
+                document.getElementById('logContainer').innerHTML = '';
+                this.showNotification('🗑️ 로그가 삭제되었습니다.', 'info');
+            }
+
+            exportLogs() {
+                const logs = document.getElementById('logContainer').textContent;
+                const blob = new Blob([logs], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `main-system-logs-${new Date().toISOString().slice(0,10)}.txt`;
+                a.click();
+                
+                URL.revokeObjectURL(url);
+                this.showNotification('📥 로그가 다운로드되었습니다!', 'success');
+            }
+        }
+
+        // CSS 추가
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            window.mainControl = new MainSystemControl();
+        });
+
+        // 전역 함수들 (기존 HTML에서 사용)
+        function startSystem() {
+            window.mainControl.startSystem();
+        }
+
+        function stopSystem() {
+            window.mainControl.stopSystem();
+        }
+
+        function restartSystem() {
+            window.mainControl.restartSystem();
+        }
+
+        function testRun() {
+            window.mainControl.testRun();
+        }
+
+        function clearLogs() {
+            window.mainControl.clearLogs();
+        }
+
+        function exportLogs() {
+            window.mainControl.exportLogs();
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💬 카카오톡 알림 제어</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .token-status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .token-valid {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .token-invalid {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            text-decoration: none;
+        }
+
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .form-group select,
+        .form-group textarea,
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .template-preview {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .message-history {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .message-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .message-content {
+            margin-top: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-comment"></i> 카카오톡 알림 제어</h1>
+            <a href="../control-center.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i> 제어 센터로 돌아가기
+            </a>
+        </div>
+
+        <div class="control-grid">
+            <!-- 토큰 상태 -->
+            <div class="control-card">
+                <h2 class="card-title"><i class="fas fa-key"></i> 토큰 상태</h2>
+                
+                <div class="token-status token-valid" id="tokenStatus">
+                    <strong>✅ Access Token: 유효함</strong><br>
+                    <small>만료일: 2025-02-26 14:30:00</small>
+                </div>
+
+                <div class="token-status token-valid">
+                    <strong>✅ Refresh Token: 유효함</strong><br>
+                    <small>자동 갱신 활성화됨</small>
+                </div>
+
+                <button class="btn btn-warning" onclick="refreshToken()">
+                    <i class="fas fa-sync"></i> 토큰 갱신
+                </button>
+                <button class="btn btn-secondary" onclick="checkTokenStatus()">
+                    <i class="fas fa-info-circle"></i> 상태 확인
+                </button>
+            </div>
+
+            <!-- 메시지 템플릿 -->
+            <div class="control-card">
+                <h2 class="card-title"><i class="fas fa-file-text"></i> 메시지 템플릿</h2>
+                
+                <div class="form-group">
+                    <label>템플릿 선택</label>
+                    <select id="templateSelect" onchange="updatePreview()">
+                        <option value="standard">표준 형식</option>
+                        <option value="detailed" selected>상세 형식</option>
+                        <option value="simple">간단 형식</option>
+                        <option value="emoji">이모지 풍부</option>
+                        <option value="business">비즈니스 형식</option>
+                    </select>
+                </div>
+
+                <div class="template-preview" id="templatePreview">
+                    <!-- 템플릿 미리보기가 여기에 표시됩니다 -->
+                </div>
+
+                <button class="btn btn-primary" onclick="editTemplate()">
+                    <i class="fas fa-edit"></i> 템플릿 편집
+                </button>
+                <button class="btn btn-success" onclick="testTemplate()">
+                    <i class="fas fa-paper-plane"></i> 테스트 전송
+                </button>
+            </div>
+
+            <!-- 시스템 설정 -->
+            <div class="control-card">
+                <h2 class="card-title"><i class="fas fa-cog"></i> 시스템 설정</h2>
+                
+                <div class="form-group">
+                    <label>테마</label>
+                    <select id="themeSelect">
+                        <option value="기본 (파랑)" selected>기본 (파랑)</option>
+                        <option value="다크 모드">다크 모드</option>
+                        <option value="라이트 모드">라이트 모드</option>
+                        <option value="심플 배민 테마">심플 배민 테마</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="autoRefreshCheck" checked> 자동 새로고침
+                    </label>
+                    <label>
+                        <input type="checkbox" id="notificationCheck" checked> 알림 활성화
+                    </label>
+                    <label>
+                        <input type="checkbox" id="testModeCheck"> 테스트 모드
+                    </label>
+                </div>
+
+                <button class="btn btn-primary save-config">
+                    <i class="fas fa-save"></i> 설정 저장
+                </button>
+                <button class="btn btn-secondary" onclick="exportLogs()">
+                    <i class="fas fa-download"></i> 로그 내보내기
+                </button>
+            </div>
+        </div>
+
+        <!-- 테스트 메시지 -->
+        <div class="control-card">
+            <h2 class="card-title"><i class="fas fa-paper-plane"></i> 테스트 메시지</h2>
+            
+            <div class="form-group">
+                <label>메시지 내용</label>
+                <textarea id="testMessage" rows="6" placeholder="테스트 메시지를 입력하세요...">🍕 심플 배민 테스트 메시지
+
+📊 현재 상태
+• 총점: 92점
+• 완료: 156건
+• 수락률: 92.9%
+
+🎯 시간: 2025-01-27 14:30</textarea>
+            </div>
+
+            <button class="btn btn-success" onclick="sendTestMessage()">
+                <i class="fas fa-paper-plane"></i> 즉시 전송
+            </button>
+            <button class="btn btn-secondary" onclick="previewMessage()">
+                <i class="fas fa-eye"></i> 미리보기
+            </button>
+            <button class="btn btn-warning" onclick="clearMessage()">
+                <i class="fas fa-trash"></i> 내용 지우기
+            </button>
+        </div>
+
+        <!-- 메시지 히스토리 -->
+        <div class="control-card">
+            <h2 class="card-title">
+                <i class="fas fa-history"></i> 메시지 히스토리
+                <button class="btn btn-danger" onclick="clearLogs()" style="margin-left: auto; font-size: 0.9rem;">
+                    <i class="fas fa-trash"></i> 로그 삭제
+                </button>
+                <button class="btn btn-primary" onclick="refreshHistory()" style="font-size: 0.9rem;">
+                    <i class="fas fa-sync"></i> 새로고침
+                </button>
+            </h2>
+            
+            <div class="message-history" id="messageHistory">
+                <!-- 메시지 히스토리가 여기에 표시됩니다 -->
+            </div>
+            
+            <div id="logContainer" style="background: #1a1a1a; color: #00ff00; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.9rem; height: 200px; overflow-y: auto; margin-top: 1rem;">
+                [14:30:25] ✅ 카카오톡 시스템 초기화 완료<br>
+                [14:30:26] 📱 토큰 상태 확인 완료<br>
+                [14:30:27] 🔄 자동 새로고침 활성화<br>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification-container">
+        <!-- 알림 메시지가 여기에 표시됩니다 -->
+    </div>
+
+    <script>
+        // 카카오톡 알림 제어 시스템
+        class KakaoControlSystem {
+            constructor() {
+                this.config = this.loadConfig();
+                this.init();
+            }
+
+            init() {
+                this.applyConfig();
+                this.setupEventListeners();
+                this.updateTokenStatus();
+                console.log('💬 카카오톡 제어 시스템 초기화 완료');
+            }
+
+            loadConfig() {
+                const saved = localStorage.getItem('kakaoControlConfig');
+                return saved ? JSON.parse(saved) : {
+                    theme: 'default',
+                    template: '상세 형식',
+                    autoRefresh: true,
+                    notifications: true,
+                    testMode: false
+                };
+            }
+
+            saveConfig() {
+                localStorage.setItem('kakaoControlConfig', JSON.stringify(this.config));
+                this.showNotification('✅ 카카오톡 설정이 저장되었습니다!', 'success');
+                this.applyConfig();
+            }
+
+            applyConfig() {
+                this.applyTheme(this.config.theme);
+                
+                // 인터페이스 업데이트
+                const themeSelect = document.querySelector('#themeSelect');
+                const templateSelect = document.querySelector('#templateSelect');
+                const autoRefreshCheck = document.querySelector('#autoRefreshCheck');
+                const notificationCheck = document.querySelector('#notificationCheck');
+                const testModeCheck = document.querySelector('#testModeCheck');
+
+                if (themeSelect) themeSelect.value = this.getThemeDisplayName(this.config.theme);
+                if (templateSelect) templateSelect.value = this.config.template;
+                if (autoRefreshCheck) autoRefreshCheck.checked = this.config.autoRefresh;
+                if (notificationCheck) notificationCheck.checked = this.config.notifications;
+                if (testModeCheck) testModeCheck.checked = this.config.testMode;
+            }
+
+            getThemeDisplayName(themeId) {
+                const map = {
+                    'default': '기본 (파랑)',
+                    'dark': '다크 모드',
+                    'light': '라이트 모드',
+                    'grider': '심플 배민 테마'
+                };
+                return map[themeId] || '기본 (파랑)';
+            }
+
+            applyTheme(themeId) {
+                const themes = {
+                    'default': {
+                        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+                        cardBg: '#ffffff',
+                        primary: '#667eea'
+                    },
+                    'dark': {
+                        background: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
+                        cardBg: '#2d2d2d',
+                        primary: '#bb86fc'
+                    },
+                    'light': {
+                        background: 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+                        cardBg: '#ffffff',
+                        primary: '#2196f3'
+                    },
+                    'grider': {
+                        background: 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)',
+                        cardBg: '#ffffff',
+                        primary: '#ff6b35'
+                    }
+                };
+
+                const theme = themes[themeId] || themes.default;
+                document.body.style.background = theme.background;
+                
+                document.querySelectorAll('.control-card').forEach(card => {
+                    card.style.background = theme.cardBg;
+                });
+
+                document.querySelectorAll('.btn-primary').forEach(btn => {
+                    btn.style.background = theme.primary;
+                });
+            }
+
+            setupEventListeners() {
+                // 설정 변경 이벤트
+                document.addEventListener('change', (e) => {
+                    if (e.target.id === 'themeSelect') {
+                        const themeMap = {
+                            '기본 (파랑)': 'default',
+                            '다크 모드': 'dark',
+                            '라이트 모드': 'light',
+                            '심플 배민 테마': 'grider'
+                        };
+                        this.config.theme = themeMap[e.target.value] || 'default';
+                        this.applyTheme(this.config.theme);
+                        this.showNotification(`🎨 테마가 '${e.target.value}'로 변경되었습니다!`, 'success');
+                    } else if (e.target.id === 'templateSelect') {
+                        this.config.template = e.target.value;
+                        this.showNotification(`📝 메시지 템플릿이 '${e.target.value}'로 변경되었습니다!`, 'info');
+                    } else if (e.target.id === 'autoRefreshCheck') {
+                        this.config.autoRefresh = e.target.checked;
+                        this.showNotification(`🔄 자동 새로고침이 ${e.target.checked ? '활성화' : '비활성화'}되었습니다!`, 'info');
+                    } else if (e.target.id === 'notificationCheck') {
+                        this.config.notifications = e.target.checked;
+                        this.showNotification(`🔔 알림이 ${e.target.checked ? '활성화' : '비활성화'}되었습니다!`, 'info');
+                    } else if (e.target.id === 'testModeCheck') {
+                        this.config.testMode = e.target.checked;
+                        this.showNotification(`🧪 테스트 모드가 ${e.target.checked ? '활성화' : '비활성화'}되었습니다!`, 'info');
+                    }
+                });
+
+                // 저장 버튼
+                document.addEventListener('click', (e) => {
+                    if (e.target.matches('.save-config')) {
+                        this.saveConfig();
+                    }
+                });
+
+                // 키보드 단축키
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.saveConfig();
+                    }
+                });
+            }
+
+            updateTokenStatus() {
+                // 토큰 상태 시뮬레이션
+                const tokenStatus = document.getElementById('tokenStatus');
+                const expireDate = document.getElementById('expireDate');
+                
+                if (tokenStatus) {
+                    tokenStatus.innerHTML = '<span style="color: green;">✅ 유효함</span>';
+                }
+                
+                if (expireDate) {
+                    const expiry = new Date();
+                    expiry.setDate(expiry.getDate() + 30);
+                    expireDate.textContent = expiry.toLocaleDateString('ko-KR');
+                }
+            }
+
+            sendTestMessage() {
+                this.showNotification('📱 테스트 메시지 전송 중...', 'info');
+                
+                const messageText = document.getElementById('testMessage').value;
+                
+                // 시뮬레이션
+                setTimeout(() => {
+                    this.showNotification('✅ 테스트 메시지가 성공적으로 전송되었습니다!', 'success');
+                    this.addLog(`테스트 메시지 전송: "${messageText.substring(0, 30)}..."`);
+                }, 2000);
+            }
+
+            refreshToken() {
+                this.showNotification('🔄 토큰 갱신 중...', 'info');
+                
+                setTimeout(() => {
+                    this.showNotification('✅ 토큰이 성공적으로 갱신되었습니다!', 'success');
+                    this.updateTokenStatus();
+                    this.addLog('토큰 갱신 완료');
+                }, 3000);
+            }
+
+            addLog(message) {
+                const logContainer = document.getElementById('logContainer');
+                if (logContainer) {
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                    logEntry.style.marginBottom = '5px';
+                    logContainer.appendChild(logEntry);
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            }
+
+            clearLogs() {
+                const logContainer = document.getElementById('logContainer');
+                if (logContainer) {
+                    logContainer.innerHTML = '';
+                    this.showNotification('🗑️ 로그가 삭제되었습니다.', 'info');
+                }
+            }
+
+            exportLogs() {
+                const logContainer = document.getElementById('logContainer');
+                if (logContainer) {
+                    const logs = logContainer.textContent;
+                    const blob = new Blob([logs], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `kakao-logs-${new Date().toISOString().slice(0,10)}.txt`;
+                    a.click();
+                    
+                    URL.revokeObjectURL(url);
+                    this.showNotification('📥 로그가 다운로드되었습니다!', 'success');
+                }
+            }
+
+            showNotification(message, type = 'info') {
+                const existing = document.querySelector('.notification');
+                if (existing) existing.remove();
+
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#cce7ff'};
+                    color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#004085'};
+                    padding: 1rem 1.5rem;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 10000;
+                    animation: slideIn 0.3s ease;
+                `;
+                
+                notification.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" style="
+                            background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.7;
+                        ">×</button>
+                    </div>
+                `;
+
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 3000);
+            }
+        }
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            window.kakaoControl = new KakaoControlSystem();
+        });
+
+        // 전역 함수들
+        function sendTestMessage() {
+            window.kakaoControl.sendTestMessage();
+        }
+
+        function refreshToken() {
+            window.kakaoControl.refreshToken();
+        }
+
+        function clearLogs() {
+            window.kakaoControl.clearLogs();
+        }
+
+        function exportLogs() {
+            window.kakaoControl.exportLogs();
+        }
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePreview();
+            loadMessageHistory();
+        });
+
+        // 템플릿 미리보기 업데이트
+        function updatePreview() {
+            const templateSelect = document.getElementById('templateSelect');
+            const preview = document.getElementById('templatePreview');
+            
+            const templates = {
+                standard: `🍕 심플 배민 알림
+
+📊 현재 현황
+• 총점: {총점}점
+• 완료: {총완료}건  
+• 수락률: {수락률}%
+
+⏰ {현재시간}`,
+                detailed: `🚚 심플 배민 상세 리포트
+
+📈 성과 현황
+• 총점: {총점}점 (물량: {물량점수} + 수락률: {수락률점수})
+• 완료 미션: {총완료}건
+• 거절 미션: {총거절}건
+• 수락률: {수락률}%
+
+🎯 피크별 현황
+• 아침점심피크: {아침점심피크}
+• 오후논피크: {오후논피크}  
+• 저녁피크: {저녁피크}
+• 심야논피크: {심야논피크}
+
+⏰ 업데이트: {현재시간}`,
+                simple: `🍕 배민 현황: 총점 {총점}점, 완료 {총완료}건, 수락률 {수락률}%`,
+                emoji: `🎉 심플 배민 대시보드 업데이트! 🎉
+
+🌟 총점: {총점}점 ✨
+🎯 완료: {총완료}건 🚀  
+💯 수락률: {수락률}% 🔥
+
+⏰ {현재시간} 📅`,
+                business: `[심플 배민 시스템 리포트]
+
+총점: {총점}점
+완료 건수: {총완료}건
+수락률: {수락률}%
+업데이트 시간: {현재시간}
+
+자세한 내용은 대시보드를 확인하세요.`
+            };
+            
+            preview.textContent = templates[templateSelect.value] || templates.standard;
+        }
+
+        // 템플릿 편집
+        function editTemplate() {
+            const template = document.getElementById('templateSelect').value;
+            alert(`📝 ${template} 템플릿 편집 모드\n\n새 창에서 템플릿 편집기가 열립니다.`);
+            console.log('템플릿 편집:', template);
+        }
+
+        // 템플릿 테스트
+        function testTemplate() {
+            const template = document.getElementById('templateSelect').value;
+            if (confirm(`선택된 템플릿(${template})을 테스트 전송하시겠습니까?`)) {
+                alert('📱 템플릿 테스트 메시지 전송됨!\n\n카카오톡을 확인해주세요.');
+                addMessageToHistory('템플릿 테스트', `${template} 템플릿 테스트 메시지`);
+            }
+        }
+
+        // 메시지 미리보기
+        function previewMessage() {
+            const message = document.getElementById('testMessage').value;
+            alert(`📱 메시지 미리보기:\n\n${message || '(내용 없음)'}`);
+        }
+
+        // 메시지 내용 지우기
+        function clearMessage() {
+            if (confirm('메시지 내용을 모두 지우시겠습니까?')) {
+                document.getElementById('testMessage').value = '';
+                alert('🗑️ 메시지 내용이 지워졌습니다.');
+            }
+        }
+
+        // 메시지 히스토리 로드
+        function loadMessageHistory() {
+            const history = [
+                { time: '14:30:25', type: '자동 전송', content: '심플 배민 정기 리포트' },
+                { time: '14:25:10', type: '테스트', content: '템플릿 테스트 메시지' },
+                { time: '14:00:00', type: '자동 전송', content: '시간별 현황 업데이트' },
+                { time: '13:30:15', type: '수동 전송', content: '긴급 알림 테스트' },
+                { time: '13:00:00', type: '자동 전송', content: '정기 현황 리포트' }
+            ];
+            
+            const historyContainer = document.getElementById('messageHistory');
+            historyContainer.innerHTML = '';
+            
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'message-item';
+                div.innerHTML = `
+                    <div class="message-time">[${item.time}] ${item.type}</div>
+                    <div class="message-content">${item.content}</div>
+                `;
+                historyContainer.appendChild(div);
+            });
+        }
+
+        // 히스토리에 메시지 추가
+        function addMessageToHistory(type, content) {
+            const now = new Date();
+            const time = now.toLocaleTimeString('ko-KR');
+            
+            const historyContainer = document.getElementById('messageHistory');
+            const div = document.createElement('div');
+            div.className = 'message-item';
+            div.innerHTML = `
+                <div class="message-time">[${time}] ${type}</div>
+                <div class="message-content">${content}</div>
+            `;
+            historyContainer.insertBefore(div, historyContainer.firstChild);
+        }
+
+        // 히스토리 새로고침
+        function refreshHistory() {
+            loadMessageHistory();
+            alert('🔄 메시지 히스토리가 새로고침되었습니다!');
+        }
+
+        console.log('💬 카카오톡 알림 제어 페이지 초기화 완료');
+    </script>
+</body>
+</html> 

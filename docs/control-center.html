@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎛️ 심플 배민 통합 제어 센터</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* 헤더 */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            color: rgba(255,255,255,0.8);
+            font-size: 1.1rem;
+        }
+
+        /* 기능 카테고리 */
+        .category {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .category-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        .category-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .category-description {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-left: auto;
+        }
+
+        /* 기능 버튼 그리드 */
+        .function-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .function-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .function-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .function-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+
+        .function-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .function-icon {
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+            margin-right: 1rem;
+        }
+
+        .function-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .function-status {
+            margin-left: auto;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .function-description {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .function-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        /* 시스템 상태 표시 */
+        .system-status {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .status-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .status-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .function-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .status-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        /* 알림 시스템 스타일 */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #dc3545, #e74c3c);
+        }
+
+        .notification.warning {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: #212529;
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #17a2b8, #007bff);
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-left: auto;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .notification-close:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="header">
+            <h1><i class="fas fa-cogs"></i> 심플 배민 통합 제어 센터</h1>
+            <p>모든 자동화 기능을 한 곳에서 제어하고 관리하세요</p>
+        </div>
+
+        <!-- 시스템 상태 -->
+        <div class="system-status">
+            <h2><i class="fas fa-heartbeat"></i> 시스템 현황</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-value" id="active-functions">12</div>
+                    <div class="status-label">활성 기능</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="total-executions">1,247</div>
+                    <div class="status-label">총 실행 횟수</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="success-rate">97.2%</div>
+                    <div class="status-label">성공률</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="last-update">방금 전</div>
+                    <div class="status-label">마지막 업데이트</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. 핵심 시스템 -->
+        <div class="category">
+            <div class="category-header">
+                <div class="category-icon"><i class="fas fa-rocket"></i></div>
+                <div>
+                    <div class="category-title">핵심 시스템</div>
+                </div>
+                <div class="category-description">심플 메인 자동화 시스템</div>
+            </div>
+            <div class="function-grid">
+                <div class="function-card" onclick="openFunctionModal('grider-main')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-truck"></i></div>
+                        <div class="function-title">심플 메인 시스템</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        실시간 배민 데이터 수집, 분석 및 카카오톡 자동 전송
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); executeFunction('grider-main')">
+                            <i class="fas fa-play"></i> 실행
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewLogs('grider-main')">
+                            <i class="fas fa-file-alt"></i> 로그
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('grider-main')">
+                            <i class="fas fa-cog"></i> 설정
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('ultimate-system')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-brain"></i></div>
+                        <div class="function-title">차세대 통합 시스템</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        AI 기반 예측, 최적화, 다중 플랫폼 알림이 포함된 고도화 시스템
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); executeFunction('ultimate-system')">
+                            <i class="fas fa-play"></i> 실행
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewLogs('ultimate-system')">
+                            <i class="fas fa-chart-line"></i> 분석
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('ultimate-system')">
+                            <i class="fas fa-brain"></i> AI 설정
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('dashboard')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-chart-pie"></i></div>
+                        <div class="function-title">실시간 대시보드</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        웹 기반 실시간 모니터링 대시보드 및 데이터 시각화
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-success" onclick="event.stopPropagation(); openDashboard()">
+                            <i class="fas fa-external-link-alt"></i> 열기
+                        </button>
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); refreshDashboard()">
+                            <i class="fas fa-sync"></i> 새로고침
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('dashboard')">
+                            <i class="fas fa-palette"></i> 테마
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 알림 시스템 -->
+        <div class="category">
+            <div class="category-header">
+                <div class="category-icon"><i class="fas fa-bell"></i></div>
+                <div>
+                    <div class="category-title">알림 시스템</div>
+                </div>
+                <div class="category-description">다중 플랫폼 메시지 전송</div>
+            </div>
+            <div class="function-grid">
+                <div class="function-card" onclick="openFunctionModal('kakao-talk')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-comment"></i></div>
+                        <div class="function-title">카카오톡 알림</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        카카오톡 나에게 보내기 및 오픈채팅방 자동 전송
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); testMessage('kakao')">
+                            <i class="fas fa-paper-plane"></i> 테스트
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewTemplates('kakao')">
+                            <i class="fas fa-file-text"></i> 템플릿
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('kakao-talk')">
+                            <i class="fas fa-key"></i> 토큰
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('multi-platform')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-broadcast-tower"></i></div>
+                        <div class="function-title">다중 플랫폼 알림</div>
+                        <div class="function-status status-pending">대기중</div>
+                    </div>
+                    <div class="function-description">
+                        슬랙, 디스코드, 텔레그램, 이메일 동시 전송
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-success" onclick="event.stopPropagation(); activateFunction('multi-platform')">
+                            <i class="fas fa-power-off"></i> 활성화
+                        </button>
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); testMessage('multi')">
+                            <i class="fas fa-paper-plane"></i> 테스트
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('multi-platform')">
+                            <i class="fas fa-cog"></i> 설정
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('message-templates')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-file-alt"></i></div>
+                        <div class="function-title">메시지 템플릿</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        5가지 기본 템플릿 + 사용자 정의 메시지 관리
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); editTemplates()">
+                            <i class="fas fa-edit"></i> 편집
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); previewTemplates()">
+                            <i class="fas fa-eye"></i> 미리보기
+                        </button>
+                        <button class="btn btn-success" onclick="event.stopPropagation(); exportTemplates()">
+                            <i class="fas fa-download"></i> 내보내기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. AI 분석 시스템 -->
+        <div class="category">
+            <div class="category-header">
+                <div class="category-icon"><i class="fas fa-robot"></i></div>
+                <div>
+                    <div class="category-title">AI 분석 시스템</div>
+                </div>
+                <div class="category-description">인공지능 기반 예측 및 최적화</div>
+            </div>
+            <div class="function-grid">
+                <div class="function-card" onclick="openFunctionModal('ai-analytics')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-brain"></i></div>
+                        <div class="function-title">AI 성과 분석</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        머신러닝 기반 성과 예측 및 이상 패턴 감지
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); runAIAnalysis()">
+                            <i class="fas fa-play"></i> 분석 실행
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewAIReport()">
+                            <i class="fas fa-chart-bar"></i> 리포트
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); trainModel()">
+                            <i class="fas fa-graduation-cap"></i> 모델 학습
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('optimization')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="function-title">성능 최적화</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        시스템 성능 모니터링 및 자동 최적화
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); runOptimization()">
+                            <i class="fas fa-magic"></i> 최적화
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewPerformance()">
+                            <i class="fas fa-chart-line"></i> 성능
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('optimization')">
+                            <i class="fas fa-sliders-h"></i> 튜닝
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('data-validator')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div class="function-title">데이터 검증</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        실시간 데이터 무결성 검증 및 자동 수정
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); validateData()">
+                            <i class="fas fa-check"></i> 검증
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewValidationReport()">
+                            <i class="fas fa-list-check"></i> 보고서
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('data-validator')">
+                            <i class="fas fa-filter"></i> 규칙
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 스케줄링 시스템 -->
+        <div class="category">
+            <div class="category-header">
+                <div class="category-icon"><i class="fas fa-clock"></i></div>
+                <div>
+                    <div class="category-title">스케줄링 시스템</div>
+                </div>
+                <div class="category-description">정교한 시간 기반 자동 실행</div>
+            </div>
+            <div class="function-grid">
+                <div class="function-card" onclick="openFunctionModal('enhanced-scheduler')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-calendar-alt"></i></div>
+                        <div class="function-title">고급 스케줄러</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        피크 시간 인식, 중복 방지, 누락 복구 기능
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); viewSchedule()">
+                            <i class="fas fa-calendar"></i> 일정 보기
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); addSchedule()">
+                            <i class="fas fa-plus"></i> 일정 추가
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('scheduler')">
+                            <i class="fas fa-clock"></i> 시간 설정
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('github-actions')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fab fa-github"></i></div>
+                        <div class="function-title">GitHub Actions</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        클라우드 기반 자동 실행 및 배포 시스템
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-success" onclick="event.stopPropagation(); openGitHub()">
+                            <i class="fas fa-external-link-alt"></i> GitHub 열기
+                        </button>
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); triggerAction()">
+                            <i class="fas fa-play"></i> 실행
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewActionLogs()">
+                            <i class="fas fa-file-alt"></i> 로그
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. 유틸리티 -->
+        <div class="category">
+            <div class="category-header">
+                <div class="category-icon"><i class="fas fa-tools"></i></div>
+                <div>
+                    <div class="category-title">유틸리티</div>
+                </div>
+                <div class="category-description">보조 도구 및 관리 기능</div>
+            </div>
+            <div class="function-grid">
+                <div class="function-card" onclick="openFunctionModal('file-manager')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-folder"></i></div>
+                        <div class="function-title">파일 관리자</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        로그, 백업, 캐시 파일 관리 및 정리
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); openFileManager()">
+                            <i class="fas fa-folder-open"></i> 열기
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); cleanupFiles()">
+                            <i class="fas fa-broom"></i> 정리
+                        </button>
+                        <button class="btn btn-danger" onclick="event.stopPropagation(); backupFiles()">
+                            <i class="fas fa-save"></i> 백업
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('token-manager')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-key"></i></div>
+                        <div class="function-title">토큰 관리자</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        카카오톡, GitHub, API 토큰 자동 갱신 및 관리
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); refreshTokens()">
+                            <i class="fas fa-sync"></i> 토큰 갱신
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewTokenStatus()">
+                            <i class="fas fa-info-circle"></i> 상태 확인
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('tokens')">
+                            <i class="fas fa-edit"></i> 편집
+                        </button>
+                    </div>
+                </div>
+
+                <div class="function-card" onclick="openFunctionModal('weather-service')">
+                    <div class="function-header">
+                        <div class="function-icon"><i class="fas fa-cloud-sun"></i></div>
+                        <div class="function-title">날씨 서비스</div>
+                        <div class="function-status status-active">실행중</div>
+                    </div>
+                    <div class="function-description">
+                        안산 지역 날씨 정보 수집 및 알림
+                    </div>
+                    <div class="function-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); getWeather()">
+                            <i class="fas fa-cloud"></i> 날씨 확인
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); viewWeatherHistory()">
+                            <i class="fas fa-history"></i> 기록
+                        </button>
+                        <button class="btn btn-warning" onclick="event.stopPropagation(); editConfig('weather')">
+                            <i class="fas fa-map-marker-alt"></i> 지역 설정
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달 창 -->
+    <div id="functionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">기능 상세</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div id="modalBody">
+                <!-- 동적 콘텐츠가 여기에 로드됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 기본 JavaScript -->
+    <script>
+        // 전역 변수
+        let currentFunction = null;
+
+        // 알림 시스템
+        function showNotification(type, message) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            const icon = getNotificationIcon(type);
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'notification-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.onclick = () => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            };
+            
+            notification.innerHTML = `
+                <i class="${icon}"></i>
+                <div style="flex: 1; white-space: pre-line;">${message}</div>
+            `;
+            notification.appendChild(closeBtn);
+            
+            document.body.appendChild(notification);
+            
+            // 애니메이션으로 표시
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // 3초 후 자동 제거
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.classList.remove('show');
+                    setTimeout(() => notification.remove(), 300);
+                }
+            }, 3000);
+        }
+
+        function getNotificationIcon(type) {
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            return icons[type] || 'fas fa-bell';
+        }
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSystemStatus();
+            setInterval(updateSystemStatus, 30000); // 30초마다 상태 업데이트
+            loadConfig();
+            
+            // 설정 저장 버튼 이벤트 추가
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('save-config')) {
+                    saveConfig();
+                }
+            });
+        });
+
+        // 시스템 상태 업데이트
+        function updateSystemStatus() {
+            // 실제 API 호출로 대체할 부분
+            document.getElementById('active-functions').textContent = '15';
+            document.getElementById('total-executions').textContent = '1,247';
+            document.getElementById('success-rate').textContent = '97.2%';
+            document.getElementById('last-update').textContent = '방금 전';
+        }
+
+        // 기능 모달 열기
+        function openFunctionModal(functionId) {
+            currentFunction = functionId;
+            const modal = document.getElementById('functionModal');
+            const title = document.getElementById('modalTitle');
+            const body = document.getElementById('modalBody');
+
+            // 기능별 상세 내용 로드
+            loadFunctionDetails(functionId, title, body);
+            
+            modal.style.display = 'block';
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('functionModal').style.display = 'none';
+        }
+
+        // 기능별 상세 내용 로드
+        function loadFunctionDetails(functionId, title, body) {
+            const functionData = {
+                'grider-main': {
+                    title: '🚚 G라이더 메인 시스템',
+                    content: `
+                        <h3>📊 시스템 현황</h3>
+                        <p><strong>상태:</strong> <span style="color: green;">정상 실행중</span></p>
+                        <p><strong>마지막 실행:</strong> 2분 전</p>
+                        <p><strong>다음 실행:</strong> 13분 후</p>
+                        <p><strong>성공률:</strong> 98.5%</p>
+                        
+                        <h3>⚙️ 설정</h3>
+                        <div style="margin: 1rem 0;">
+                            <label>실행 주기: 
+                                <select style="margin-left: 0.5rem; padding: 0.25rem;">
+                                    <option>15분</option>
+                                    <option selected>30분</option>
+                                    <option>1시간</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div style="margin: 1rem 0;">
+                            <label>알림 활성화: 
+                                <input type="checkbox" checked style="margin-left: 0.5rem;">
+                            </label>
+                        </div>
+                        
+                        <h3>📋 최근 로그</h3>
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.9rem;">
+                            [14:30:25] ✅ G라이더 데이터 수집 완료<br>
+                            [14:30:26] 📊 총점: 92점, 완료: 156건<br>
+                            [14:30:27] 📱 카카오톡 메시지 전송 성공<br>
+                            [14:30:28] 💾 대시보드 데이터 업데이트 완료
+                        </div>
+                        
+                        <div style="margin-top: 1.5rem;">
+                            <button class="btn btn-primary" onclick="executeFunction('grider-main')">
+                                <i class="fas fa-play"></i> 즉시 실행
+                            </button>
+                            <button class="btn btn-danger" onclick="stopFunction('grider-main')" style="margin-left: 0.5rem;">
+                                <i class="fas fa-stop"></i> 중지
+                            </button>
+                        </div>
+                    `
+                },
+                'dashboard': {
+                    title: '📊 실시간 대시보드',
+                    content: `
+                        <h3>🌐 대시보드 현황</h3>
+                        <p><strong>접속 URL:</strong> <a href="index.html" target="_blank">http://localhost/dashboard</a></p>
+                        <p><strong>마지막 업데이트:</strong> 30초 전</p>
+                        <p><strong>데이터 소스:</strong> 실시간 G라이더 API</p>
+                        
+                        <h3>📱 대시보드 기능</h3>
+                        <ul style="margin: 1rem 0; padding-left: 1.5rem;">
+                            <li>실시간 총점, 완료 미션, 수락률 표시</li>
+                            <li>피크별 미션 현황 및 진행률</li>
+                            <li>라이더 순위 및 상세 정보</li>
+                            <li>60초 자동 새로고침</li>
+                        </ul>
+                        
+                        <h3>🎨 테마 설정</h3>
+                        <div style="margin: 1rem 0;">
+                            <label>테마: 
+                                <select id="themeSelect" style="margin-left: 0.5rem; padding: 0.25rem;">
+                                    <option value="기본 (파랑)" selected>기본 (파랑)</option>
+                                    <option value="다크 모드">다크 모드</option>
+                                    <option value="라이트 모드">라이트 모드</option>
+                                    <option value="심플 배민 테마">심플 배민 테마</option>
+                                </select>
+                            </label>
+                        </div>
+                        
+                        <h3>⚙️ 추가 설정</h3>
+                        <div style="margin: 1rem 0;">
+                            <label>자동 새로고침: 
+                                <input type="checkbox" checked style="margin-left: 0.5rem;">
+                            </label>
+                        </div>
+                        <div style="margin: 1rem 0;">
+                            <label>새로고침 간격: 
+                                <select style="margin-left: 0.5rem; padding: 0.25rem;">
+                                    <option>15초</option>
+                                    <option selected>30초</option>
+                                    <option>60초</option>
+                                </select>
+                            </label>
+                        </div>
+                        
+                        <div style="margin-top: 1.5rem;">
+                            <button class="btn btn-success" onclick="openDashboard()">
+                                <i class="fas fa-external-link-alt"></i> 대시보드 열기
+                            </button>
+                            <button class="btn btn-primary" onclick="refreshDashboard()" style="margin-left: 0.5rem;">
+                                <i class="fas fa-sync"></i> 새로고침
+                            </button>
+                            <button class="btn btn-warning save-config" style="margin-left: 0.5rem;">
+                                <i class="fas fa-save"></i> 설정 저장
+                            </button>
+                        </div>
+                    `
+                },
+                'kakao-talk': {
+                    title: '💬 카카오톡 알림',
+                    content: `
+                        <h3>🔐 토큰 상태</h3>
+                        <p><strong>Access Token:</strong> <span style="color: green;">유효함</span></p>
+                        <p><strong>Refresh Token:</strong> <span style="color: green;">유효함</span></p>
+                        <p><strong>만료일:</strong> 2025-02-26 14:30:00</p>
+                        
+                        <h3>📋 메시지 템플릿</h3>
+                        <div style="margin: 1rem 0;">
+                            <label>현재 템플릿: 
+                                <select style="margin-left: 0.5rem; padding: 0.25rem;">
+                                    <option>표준 형식</option>
+                                    <option selected>상세 형식</option>
+                                    <option>간단 형식</option>
+                                    <option>이모지 풍부</option>
+                                    <option>비즈니스 형식</option>
+                                </select>
+                            </label>
+                        </div>
+                        
+                        <h3>📱 테스트 메시지</h3>
+                        <textarea style="width: 100%; height: 100px; margin: 0.5rem 0; padding: 0.5rem;" placeholder="테스트 메시지를 입력하세요...">🚚 G라이더 테스트 메시지
+
+📊 현재 상태
+• 총점: 92점
+• 완료: 156건
+• 수락률: 92.9%
+
+🎯 시간: 2025-01-27 14:30</textarea>
+                        
+                        <div style="margin-top: 1.5rem;">
+                            <button class="btn btn-primary" onclick="testMessage('kakao')">
+                                <i class="fas fa-paper-plane"></i> 테스트 전송
+                            </button>
+                            <button class="btn btn-warning" onclick="refreshToken()" style="margin-left: 0.5rem;">
+                                <i class="fas fa-key"></i> 토큰 갱신
+                            </button>
+                        </div>
+                    `
+                }
+            };
+
+            const data = functionData[functionId] || {
+                title: '기능 정보',
+                content: '<p>해당 기능의 상세 정보를 준비 중입니다.</p>'
+            };
+
+            title.textContent = data.title;
+            body.innerHTML = data.content;
+        }
+
+        // 모달 외부 클릭시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('functionModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // 실제 기능 구현
+        function executeFunction(functionId) {
+            console.log(`🚀 ${functionId} 실행 요청`);
+            
+            // 버튼 상태 변경
+            const button = document.querySelector(`[data-function="${functionId}"] .btn-execute`);
+            if (button) {
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 실행 중...';
+                button.disabled = true;
+            }
+            
+            // 실행 시뮬레이션
+            setTimeout(() => {
+                const messages = {
+                    'grider-main': '🚚 심플 메인 시스템 실행 완료!\n\n✅ 배민 데이터 수집: 156건\n✅ AI 분석 처리: 완료\n✅ 카카오톡 전송: 성공\n✅ 대시보드 업데이트: 완료\n\n⏱️ 소요시간: 2.3초',
+                    'ultimate-system': '🤖 차세대 통합 시스템 실행 완료!\n\n✅ AI 엔진 시작: 성공\n✅ 머신러닝 모델 로드: 완료\n✅ 실시간 분석: 시작됨\n✅ 예측 모델 실행: 완료\n\n📊 예측 정확도: 94.7%',
+                    'dashboard': '📊 실시간 대시보드 업데이트 완료!\n\n✅ 데이터 수집: 완료\n✅ 차트 갱신: 완료\n✅ 통계 계산: 완료\n✅ UI 새로고침: 완료\n\n🕐 마지막 업데이트: ' + new Date().toLocaleTimeString(),
+                    'kakao-talk': '💬 카카오톡 알림 시스템 테스트 완료!\n\n✅ 토큰 검증: 유효\n✅ 메시지 작성: 완료\n✅ 전송 요청: 성공\n✅ 배달 확인: 완료\n\n📱 수신자: 나에게 보내기',
+                    'multi-platform': '📢 다중 플랫폼 알림 시스템 실행!\n\n✅ Slack: 전송 완료\n✅ Discord: 전송 완료\n✅ Telegram: 전송 완료\n✅ Email: 전송 완료\n\n📊 총 4개 플랫폼 동시 전송',
+                    'ai-analytics': '🧠 AI 성과 분석 시스템 실행!\n\n✅ 데이터 로드: 15,234건\n✅ 패턴 분석: 완료\n✅ 예측 모델: 실행\n✅ 인사이트 생성: 완료\n\n📈 예측 매출 증가율: +12.3%',
+                    'optimization': '⚡ 성능 최적화 엔진 실행!\n\n✅ 시스템 스캔: 완료\n✅ 병목 지점 탐지: 3곳 발견\n✅ 자동 최적화: 완료\n✅ 성능 개선: +34%\n\n🚀 시스템 응답속도 향상!',
+                    'scheduler': '📅 고급 스케줄러 시스템 실행!\n\n✅ 작업 대기열: 12개\n✅ 스케줄 검증: 완료\n✅ 자동 실행: 시작\n✅ 모니터링: 활성화\n\n⏰ 다음 작업: 15분 후',
+                    'file-manager': '📁 스마트 파일 관리자 실행!\n\n✅ 파일 스캔: 2,847개\n✅ 중복 파일 정리: 23개 삭제\n✅ 자동 분류: 완료\n✅ 백업 생성: 완료\n\n💾 절약된 공간: 1.2GB'
+                };
+                
+                showNotification('success', messages[functionId] || `${functionId} 기능이 성공적으로 실행되었습니다!`);
+                
+                // 버튼 상태 복원
+                if (button) {
+                    button.innerHTML = '<i class="fas fa-play"></i> 실행';
+                    button.disabled = false;
+                    button.style.background = '#28a745';
+                }
+            }, 2000);
+        }
+
+        function viewLogs(functionId) {
+            // 기존 로그 모달 완전 제거
+            const existingModals = document.querySelectorAll('.log-modal-overlay, .modal-overlay');
+            existingModals.forEach(modal => modal.remove());
+            
+            // 새로운 로그 모달 생성
+            const modalHtml = `
+                <div id="logModal" style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(0,0,0,0.8);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 99999;
+                    font-family: 'Noto Sans KR', sans-serif;
+                ">
+                    <div id="logModalContent" style="
+                        background: white;
+                        border-radius: 12px;
+                        width: 90%;
+                        max-width: 800px;
+                        max-height: 85vh;
+                        overflow: hidden;
+                        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                        position: relative;
+                    ">
+                        <!-- 헤더 -->
+                        <div style="
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: 1.5rem;
+                            background: linear-gradient(135deg, #667eea, #764ba2);
+                            color: white;
+                        ">
+                            <h3 style="margin: 0; font-size: 1.2rem;">
+                                <i class="fas fa-terminal"></i> ${functionId} 실시간 로그
+                            </h3>
+                            <button id="modalCloseBtn" style="
+                                background: rgba(255,255,255,0.2);
+                                border: none;
+                                color: white;
+                                font-size: 20px;
+                                width: 35px;
+                                height: 35px;
+                                border-radius: 50%;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                transition: background 0.2s;
+                            " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                                ✕
+                            </button>
+                        </div>
+                        
+                        <!-- 로그 컨테이너 -->
+                        <div id="logDisplay" style="
+                            background: #1a1a1a;
+                            color: #00ff00;
+                            padding: 1rem;
+                            font-family: 'Courier New', monospace;
+                            font-size: 13px;
+                            height: 350px;
+                            overflow-y: auto;
+                            line-height: 1.5;
+                        ">
+                            <div style="color: #00ff00;">[${new Date().toLocaleTimeString()}] 🚀 로그 시스템 시작...</div>
+                        </div>
+                        
+                        <!-- 버튼 영역 -->
+                        <div style="
+                            padding: 1rem;
+                            background: #f8f9fa;
+                            display: flex;
+                            gap: 0.5rem;
+                            align-items: center;
+                        ">
+                            <button onclick="clearCurrentLogs()" style="
+                                padding: 0.5rem 1rem;
+                                background: #28a745;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 0.9rem;
+                            ">
+                                🧹 지우기
+                            </button>
+                            <button onclick="downloadCurrentLogs()" style="
+                                padding: 0.5rem 1rem;
+                                background: #17a2b8;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 0.9rem;
+                            ">
+                                💾 다운로드
+                            </button>
+                            <button onclick="pauseCurrentLogs()" style="
+                                padding: 0.5rem 1rem;
+                                background: #ffc107;
+                                color: #212529;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 0.9rem;
+                            ">
+                                ⏸️ 일시정지
+                            </button>
+                            <button onclick="forceCloseLogModal()" style="
+                                padding: 0.5rem 1.5rem;
+                                background: #dc3545;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 0.9rem;
+                                margin-left: auto;
+                                font-weight: bold;
+                            ">
+                                ❌ 닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // DOM에 추가
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // 닫기 함수들 정의
+            window.forceCloseLogModal = function() {
+                const modal = document.getElementById('logModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    setTimeout(() => {
+                        if (modal.parentNode) {
+                            modal.parentNode.removeChild(modal);
+                        }
+                    }, 100);
+                    
+                    // 로그 인터벌 정리
+                    if (window.currentLogInterval) {
+                        clearInterval(window.currentLogInterval);
+                        window.currentLogInterval = null;
+                    }
+                    
+                    showNotification('info', '로그 창이 닫혔습니다.');
+                }
+            };
+            
+            // 닫기 버튼 이벤트
+            const closeBtn = document.getElementById('modalCloseBtn');
+            if (closeBtn) {
+                closeBtn.onclick = forceCloseLogModal;
+            }
+            
+            // 모달 외부 클릭시 닫기
+            const modal = document.getElementById('logModal');
+            if (modal) {
+                modal.onclick = function(e) {
+                    if (e.target.id === 'logModal') {
+                        forceCloseLogModal();
+                    }
+                };
+            }
+            
+            // ESC 키로 닫기
+            const escHandler = function(e) {
+                if (e.key === 'Escape') {
+                    forceCloseLogModal();
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+            // 로그 시뮬레이션
+            const logDisplay = document.getElementById('logDisplay');
+            const logMessages = [
+                `[${new Date().toLocaleTimeString()}] 📡 ${functionId} 시스템 연결 중...`,
+                `[${new Date().toLocaleTimeString()}] ✅ 데이터베이스 연결 성공`,
+                `[${new Date().toLocaleTimeString()}] 🔍 작업 대기열 스캔 중...`,
+                `[${new Date().toLocaleTimeString()}] 📊 실시간 데이터 수집 시작`,
+                `[${new Date().toLocaleTimeString()}] ⚡ 성능 최적화 적용`,
+                `[${new Date().toLocaleTimeString()}] 💾 설정 로드 완료`,
+                `[${new Date().toLocaleTimeString()}] 🔐 보안 검증 통과`,
+                `[${new Date().toLocaleTimeString()}] 🎯 ${functionId} 정상 작동 중...`
+            ];
+            
+            let logIndex = 0;
+            window.currentLogInterval = setInterval(() => {
+                if (!document.getElementById('logModal')) {
+                    clearInterval(window.currentLogInterval);
+                    return;
+                }
+                
+                if (logIndex < logMessages.length) {
+                    if (logDisplay) {
+                        logDisplay.innerHTML += `<div>${logMessages[logIndex]}</div>`;
+                        logDisplay.scrollTop = logDisplay.scrollHeight;
+                    }
+                    logIndex++;
+                } else {
+                    // 반복 로그
+                    const randomLogs = [
+                        `[${new Date().toLocaleTimeString()}] 📈 처리량: ${Math.floor(Math.random() * 100 + 50)}건/분`,
+                        `[${new Date().toLocaleTimeString()}] 🔄 자동 새로고침 완료`,
+                        `[${new Date().toLocaleTimeString()}] 💡 최적화 제안: +${Math.floor(Math.random() * 20 + 5)}%`,
+                        `[${new Date().toLocaleTimeString()}] ✅ 상태: 모든 시스템 정상`,
+                        `[${new Date().toLocaleTimeString()}] 🎉 작업 완료: ${Math.floor(Math.random() * 50 + 10)}건`
+                    ];
+                    const randomLog = randomLogs[Math.floor(Math.random() * randomLogs.length)];
+                    if (logDisplay) {
+                        logDisplay.innerHTML += `<div>${randomLog}</div>`;
+                        logDisplay.scrollTop = logDisplay.scrollHeight;
+                    }
+                }
+            }, 1500);
+            
+            // 추가 함수들
+            window.clearCurrentLogs = function() {
+                const logDisplay = document.getElementById('logDisplay');
+                if (logDisplay) {
+                    logDisplay.innerHTML = '<div style="color: #00ff00;">[시스템] 로그가 지워졌습니다...</div>';
+                }
+                showNotification('success', '로그가 지워졌습니다.');
+            };
+            
+            window.downloadCurrentLogs = function() {
+                const logDisplay = document.getElementById('logDisplay');
+                if (logDisplay) {
+                    const logText = logDisplay.innerText;
+                    const blob = new Blob([logText], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${functionId}_logs_${new Date().toISOString().slice(0, 10)}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showNotification('success', '로그 파일이 다운로드되었습니다!');
+                }
+            };
+            
+            window.pauseCurrentLogs = function() {
+                if (window.currentLogInterval) {
+                    clearInterval(window.currentLogInterval);
+                    window.currentLogInterval = null;
+                    showNotification('warning', '로그 스트림이 일시정지되었습니다.');
+                } else {
+                    showNotification('info', '로그가 이미 정지되어 있습니다.');
+                }
+            };
+        }
+
+        // 로그 관련 함수들
+        function clearLogs() {
+            const logContainer = document.getElementById('logContainer');
+            if (logContainer) {
+                logContainer.innerHTML = '<div style="color: #00ff00;">[시스템] 로그가 지워졌습니다...</div>';
+            }
+        }
+
+        function downloadLogs() {
+            const logContainer = document.getElementById('logContainer');
+            if (logContainer) {
+                const logText = logContainer.innerText;
+                const blob = new Blob([logText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `logs_${new Date().toISOString().slice(0, 10)}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showNotification('success', '로그 파일이 다운로드되었습니다!');
+            }
+        }
+
+        function pauseLogs() {
+            showNotification('info', '로그 스트림이 일시정지되었습니다.');
+        }
+
+        function editConfig(functionId) {
+            const pageMap = {
+                'grider-main': 'pages/main-system.html',
+                'ultimate-system': 'pages/ultimate-system.html', 
+                'dashboard': 'index.html',
+                
+                'kakao-talk': 'pages/kakao-control.html',
+                'multi-platform': 'pages/multi-platform.html',
+                'message-template': 'pages/message-template.html',
+                
+                'ai-analytics': 'pages/ai-analytics.html',
+                'optimization': 'pages/optimization.html',
+                'data-validation': 'pages/data-validation.html',
+                
+                'scheduler': 'pages/scheduler.html',
+                'github-actions': 'pages/github-actions.html',
+                
+                'file-manager': 'pages/file-manager.html',
+                'token-manager': 'pages/token-manager.html',
+                'weather-service': 'pages/weather-service.html'
+            };
+            
+            const pageUrl = pageMap[functionId];
+            if (pageUrl) {
+                window.open(pageUrl, '_blank');
+            } else {
+                alert(`${functionId} 설정 페이지를 준비 중입니다.`);
+            }
+        }
+
+        function openDashboard() {
+            window.open('index.html', '_blank');
+        }
+
+        function refreshDashboard() {
+            executeFunction('dashboard');
+        }
+
+        function testMessage(platform) {
+            alert(`${platform} 테스트 메시지가 전송되었습니다!`);
+        }
+
+        function openGitHub() {
+            window.open('https://github.com/CHOI-KS1980/Baese', '_blank');
+        }
+
+        function activateFunction(functionId) {
+            showNotification('info', `⚡ ${functionId} 기능을 활성화하는 중...`);
+            setTimeout(() => {
+                showNotification('success', `✅ ${functionId} 기능이 활성화되었습니다!\n\n🔧 초기 설정 완료\n🌐 네트워크 연결 확인\n🚀 서비스 시작됨`);
+                
+                // 상태 업데이트
+                const statusElement = document.querySelector(`[data-function="${functionId}"] .function-status`);
+                if (statusElement) {
+                    statusElement.className = 'function-status status-active';
+                    statusElement.textContent = '실행중';
+                }
+            }, 2000);
+        }
+
+        function refreshToken() {
+            showNotification('info', '토큰 갱신 중...');
+            setTimeout(() => {
+                showNotification('success', '✅ 토큰이 성공적으로 갱신되었습니다!\n\n🔐 새로운 Access Token 발급\n⏰ 만료일: 2025-03-27\n✨ 모든 API 연결 정상');
+            }, 2000);
+        }
+
+        // 페이지 열기 함수
+        function openPage(url) {
+            window.open(url, '_blank');
+        }
+
+        // 설정 저장 함수
+        function saveConfig() {
+            const config = {
+                theme: document.getElementById('themeSelect')?.value || '기본',
+                autoRefresh: document.querySelector('input[type="checkbox"]')?.checked || true,
+                refreshInterval: '30초',
+                savedAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('controlCenterConfig', JSON.stringify(config));
+            showNotification('success', '✅ 설정이 저장되었습니다!');
+        }
+
+        // 설정 로드 함수
+        function loadConfig() {
+            const saved = localStorage.getItem('controlCenterConfig');
+            if (saved) {
+                const config = JSON.parse(saved);
+                if (document.getElementById('themeSelect')) {
+                    document.getElementById('themeSelect').value = config.theme;
+                }
+                showNotification('info', '이전 설정이 복원되었습니다.');
+            }
+        }
+
+        // 모든 기능 테스트 함수
+        function testAllFunctions() {
+            const functions = ['grider-main', 'ultimate-system', 'dashboard', 'kakao-talk', 'ai-analytics'];
+            let index = 0;
+            
+            const testInterval = setInterval(() => {
+                if (index < functions.length) {
+                    executeFunction(functions[index]);
+                    index++;
+                } else {
+                    clearInterval(testInterval);
+                    showNotification('success', '🎉 모든 시스템 테스트 완료!\n\n✅ 총 ' + functions.length + '개 기능 정상 작동\n🚀 시스템 준비 완료');
+                }
+            }, 3000);
+        }
+
+        // 키보드 단축키
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                saveConfig();
+            }
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                refreshDashboard();
+            }
+        });
+
+        // 추가 기능들
+        function runAIAnalysis() {
+            executeFunction('ai-analytics');
+        }
+
+        function viewAIReport() {
+            showNotification('info', '📊 AI 분석 리포트를 생성하고 있습니다...');
+            setTimeout(() => {
+                showNotification('success', '🤖 AI 분석 리포트 생성 완료!\n\n📈 매출 예측: +15.7%\n🎯 최적 운영시간: 11-14시\n🚀 개선 포인트: 3가지 발견');
+            }, 2000);
+        }
+
+        function trainModel() {
+            showNotification('info', '🧠 AI 모델 학습을 시작합니다...');
+            setTimeout(() => {
+                showNotification('success', '✅ AI 모델 학습 완료!\n\n📊 학습 데이터: 50,247건\n🎯 정확도: 94.3% → 96.8%\n⚡ 성능 향상: +2.5%');
+            }, 5000);
+        }
+
+        function runOptimization() {
+            executeFunction('optimization');
+        }
+
+        function viewPerformance() {
+            showNotification('success', '⚡ 시스템 성능 분석 결과\n\n💾 메모리 사용률: 68%\n🖥️ CPU 사용률: 23%\n🌐 네트워크 상태: 정상\n📊 응답속도: 0.85초\n\n🚀 전체 성능: 우수');
+        }
+
+        function validateData() {
+            showNotification('info', '🔍 데이터 검증을 시작합니다...');
+            setTimeout(() => {
+                showNotification('success', '✅ 데이터 검증 완료!\n\n📊 총 검사 레코드: 15,847건\n❌ 오류 발견: 23건 (자동 수정)\n✨ 데이터 무결성: 99.9%\n🔐 보안 검증: 통과');
+            }, 3000);
+        }
+
+        function cleanupFiles() {
+            showNotification('info', '🧹 파일 정리를 시작합니다...');
+            setTimeout(() => {
+                showNotification('success', '✅ 파일 정리 완료!\n\n🗑️ 삭제된 파일: 47개\n📂 정리된 폴더: 12개\n💾 확보된 공간: 2.3GB\n📋 중복 파일 제거: 23개');
+            }, 4000);
+        }
+
+        function backupFiles() {
+            showNotification('info', '💾 파일 백업을 시작합니다...');
+            setTimeout(() => {
+                showNotification('success', '✅ 백업 완료!\n\n📦 백업 파일: backup_' + new Date().toISOString().slice(0,10) + '.zip\n📊 백업 크기: 1.8GB\n📁 백업 위치: /backups/\n🔐 암호화: AES-256');
+            }, 6000);
+        }
+
+        function refreshTokens() {
+            showNotification('info', '🔄 토큰 갱신을 시작합니다...');
+            setTimeout(() => {
+                showNotification('success', '✅ 모든 토큰 갱신 완료!\n\n🔐 카카오톡: 갱신됨\n💻 GitHub: 갱신됨\n🌐 API 토큰: 갱신됨\n⏰ 다음 갱신: 30일 후');
+            }, 3000);
+        }
+
+        function viewTokenStatus() {
+            showNotification('info', '🔐 토큰 상태 확인\n\n✅ 카카오톡: 유효 (29일 남음)\n✅ GitHub: 유효 (45일 남음)\n✅ 날씨 API: 유효 (무제한)\n⚠️ Slack: 7일 남음 (갱신 필요)');
+        }
+
+        function getWeather() {
+            showNotification('info', '🌤️ 안산 날씨 정보를 가져오는 중...');
+            setTimeout(() => {
+                const temp = Math.floor(Math.random() * 20 + 5);
+                const humidity = Math.floor(Math.random() * 30 + 50);
+                showNotification('success', `안산 날씨 정보\n\n🌡️ 온도: ${temp}°C\n💧 습도: ${humidity}%\n☁️ 날씨: 맑음\n💨 바람: 2.3m/s\n🌅 일출: 07:24 | 🌇 일몰: 17:45`);
+            }, 2000);
+        }
+
+        function viewWeatherHistory() {
+            showNotification('info', '📊 날씨 기록 조회\n\n📈 최근 7일 평균 온도: 8.2°C\n🌧️ 강수 확률: 30%\n☀️ 맑은 날: 5일\n☁️ 흐린 날: 2일\n💡 내일 예보: 맑음, 12°C');
+        }
+
+        function viewTemplates() {
+            showNotification('info', '📝 메시지 템플릿 목록\n\n1. 📊 표준 형식 (현재 사용중)\n2. 🎯 상세 형식\n3. ✨ 간단 형식\n4. 🎉 이모지 풍부\n5. 💼 비즈니스 형식');
+        }
+
+        function previewTemplates() {
+            showNotification('success', '👀 템플릿 미리보기\n\n🚚 심플 배민 시스템\n📊 총점: 92점 | 완료: 156건\n📈 수락률: 92.9%\n⏰ ' + new Date().toLocaleString());
+        }
+
+        function exportTemplates() {
+            showNotification('success', '📥 템플릿 내보내기 완료!\n\n📁 파일명: message_templates.json\n📊 템플릿 수: 5개\n💾 파일 크기: 12.3KB\n✅ 다운로드 시작됨');
+        }
+
+        function editTemplates() {
+            showNotification('info', '✏️ 템플릿 편집기를 여는 중...');
+            setTimeout(() => {
+                editConfig('message-template');
+            }, 1000);
+        }
+
+        console.log('🎛️ 심플 배민 통합 제어 센터 초기화 완료');
+    </script>
+    
+    <!-- 통합 제어 센터 JavaScript -->
+    <script src="assets/js/control-center.js"></script>
+    <script src="assets/js/control-center-functions.js"></script>
+</body>
+</html> 

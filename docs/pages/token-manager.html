@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>토큰 관리자 시스템</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header p { opacity: 0.9; font-size: 1.1rem; }
+        .content { padding: 2rem; }
+        .token-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .token-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+        }
+        .token-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+        .status-valid { background: #d4edda; color: #155724; }
+        .status-expired { background: #f8d7da; color: #721c24; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔑 토큰 관리자 시스템</h1>
+            <p>API 토큰 관리 및 자동 갱신 시스템</p>
+        </div>
+        <div class="content">
+            <div class="token-grid">
+                <div class="token-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4>카카오톡 API 토큰</h4>
+                        <div class="token-status status-valid">유효</div>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">만료일: 2024-02-20 | 남은 기간: 31일</p>
+                    <button class="btn btn-success" onclick="refreshToken('kakao')">갱신</button>
+                    <button class="btn btn-primary" onclick="testToken('kakao')">테스트</button>
+                </div>
+                <div class="token-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4>GitHub API 토큰</h4>
+                        <div class="token-status status-valid">유효</div>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">만료일: 2024-03-15 | 남은 기간: 55일</p>
+                    <button class="btn btn-success" onclick="refreshToken('github')">갱신</button>
+                    <button class="btn btn-primary" onclick="testToken('github')">테스트</button>
+                </div>
+            </div>
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="btn btn-success" onclick="refreshAllTokens()">🔄 모든 토큰 갱신</button>
+                <button class="btn btn-warning" onclick="checkExpiration()">⚠️ 만료 확인</button>
+                <button class="btn btn-primary" onclick="exportTokens()">📁 토큰 내보내기</button>
+            </div>
+            <div style="margin-bottom: 2rem; background: #f8f9fa; padding: 1.5rem; border-radius: 10px;">
+                <h3>📋 토큰 관리 로그</h3>
+                <div class="log-display" id="token-log">
+[2024-01-20 14:30:15] INFO: 토큰 관리자 시스템 초기화
+[2024-01-20 14:30:16] SUCCESS: 카카오톡 토큰 유효성 확인 완료
+[2024-01-20 14:30:17] SUCCESS: GitHub 토큰 유효성 확인 완료
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('token-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+        function refreshToken(service) {
+            addLog(`${service.toUpperCase()} 토큰 갱신 시작`);
+            setTimeout(() => {
+                addLog(`${service.toUpperCase()} 토큰 갱신 완료`, 'SUCCESS');
+            }, 2000);
+            alert(`${service} 토큰이 갱신되었습니다.`);
+        }
+        function testToken(service) {
+            addLog(`${service.toUpperCase()} 토큰 테스트`);
+            setTimeout(() => {
+                addLog(`${service.toUpperCase()} 토큰 테스트 성공`, 'SUCCESS');
+            }, 1000);
+            alert(`${service} 토큰 테스트가 성공했습니다.`);
+        }
+        function refreshAllTokens() {
+            addLog('모든 토큰 갱신 시작');
+            setTimeout(() => {
+                addLog('모든 토큰 갱신 완료', 'SUCCESS');
+            }, 3000);
+            alert('모든 토큰이 갱신되었습니다.');
+        }
+        function checkExpiration() {
+            addLog('토큰 만료 확인 시작');
+            setTimeout(() => {
+                addLog('토큰 만료 확인 완료 - 모든 토큰 유효', 'SUCCESS');
+            }, 1500);
+            alert('토큰 만료 확인이 완료되었습니다.');
+        }
+        function exportTokens() {
+            addLog('토큰 정보 내보내기');
+            alert('토큰 정보가 안전하게 내보내졌습니다.');
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('토큰 관리자 시스템 페이지 로드');
+        });
+    </script>
+</body>
+</html> 

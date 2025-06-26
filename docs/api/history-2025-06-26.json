@@ -1,0 +1,30 @@
+[
+  {
+    "timestamp": "2025-06-26T04:54:45.415249+09:00",
+    "score": 0,
+    "missions": 0,
+    "riders": 0,
+    "income": 0
+  },
+  {
+    "timestamp": "2025-06-26T04:55:16.205673+09:00",
+    "score": 0,
+    "missions": 0,
+    "riders": 0,
+    "income": 0
+  },
+  {
+    "timestamp": "2025-06-26T04:55:21.758242+09:00",
+    "score": 0,
+    "missions": 0,
+    "riders": 0,
+    "income": 0
+  },
+  {
+    "timestamp": "2025-06-26T04:55:42.470489+09:00",
+    "score": 85000,
+    "missions": 42,
+    "riders": 128,
+    "income": 10200000
+  }
+]

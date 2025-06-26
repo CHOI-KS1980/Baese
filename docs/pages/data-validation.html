@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터 검증 시스템</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header p { opacity: 0.9; font-size: 1.1rem; }
+        .content { padding: 2rem; }
+        .validation-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: #333; margin-bottom: 0.5rem; }
+        .stat-label { color: #666; font-size: 0.9rem; }
+        .validation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .validation-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+        }
+        .validation-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+        .status-pass { background: #d4edda; color: #155724; }
+        .status-fail { background: #f8d7da; color: #721c24; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ 데이터 검증 시스템</h1>
+            <p>데이터 무결성 및 품질 검증</p>
+        </div>
+        <div class="content">
+            <div class="validation-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-records">1,247</div>
+                    <div class="stat-label">총 레코드</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="valid-records">1,201</div>
+                    <div class="stat-label">유효 레코드</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="invalid-records">46</div>
+                    <div class="stat-label">오류 레코드</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="validation-rate">96.3%</div>
+                    <div class="stat-label">검증 성공률</div>
+                </div>
+            </div>
+            
+            <div class="validation-grid">
+                <div class="validation-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4>📊 데이터 형식 검증</h4>
+                        <div class="validation-status status-pass">통과</div>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">검증 항목: 필드 타입, 길이, 형식 | 마지막 검증: 10분 전</p>
+                    <button class="btn btn-primary" onclick="runValidation('format')">검증 실행</button>
+                    <button class="btn btn-success" onclick="viewResults('format')">결과 보기</button>
+                </div>
+                
+                <div class="validation-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4>🔍 중복 데이터 검사</h4>
+                        <div class="validation-status status-fail">실패</div>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">발견된 중복: 23건 | 마지막 검사: 1시간 전</p>
+                    <button class="btn btn-primary" onclick="runValidation('duplicate')">검사 실행</button>
+                    <button class="btn btn-warning" onclick="removeDuplicates()">중복 제거</button>
+                </div>
+                
+                <div class="validation-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4>📈 데이터 일관성 검증</h4>
+                        <div class="validation-status status-pending">진행중</div>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">진행률: 75% | 예상 완료: 5분 후</p>
+                    <button class="btn btn-primary" onclick="runValidation('consistency')">검증 실행</button>
+                    <button class="btn btn-success" onclick="viewResults('consistency')">결과 보기</button>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="btn btn-success" onclick="runAllValidations()">🔍 전체 검증 실행</button>
+                <button class="btn btn-warning" onclick="exportReport()">📋 리포트 생성</button>
+                <button class="btn btn-primary" onclick="autoFix()">🔧 자동 수정</button>
+            </div>
+            
+            <div style="margin-bottom: 2rem; background: #f8f9fa; padding: 1.5rem; border-radius: 10px;">
+                <h3>📋 데이터 검증 로그</h3>
+                <div class="log-display" id="validation-log">
+[2024-01-20 14:30:15] INFO: 데이터 검증 시스템 초기화
+[2024-01-20 14:30:16] SUCCESS: 데이터 형식 검증 완료 (1,201/1,247)
+[2024-01-20 14:30:17] WARNING: 중복 데이터 23건 발견
+[2024-01-20 14:30:18] INFO: 일관성 검증 시작 (진행률: 75%)
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('validation-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+        
+        function updateStats() {
+            const totalRecords = Math.floor(Math.random() * 200 + 1200);
+            const invalidRecords = Math.floor(Math.random() * 50 + 30);
+            const validRecords = totalRecords - invalidRecords;
+            const validationRate = ((validRecords / totalRecords) * 100).toFixed(1);
+            
+            document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+            document.getElementById('valid-records').textContent = validRecords.toLocaleString();
+            document.getElementById('invalid-records').textContent = invalidRecords;
+            document.getElementById('validation-rate').textContent = `${validationRate}%`;
+        }
+        
+        function runValidation(type) {
+            addLog(`${type} 검증 시작`);
+            setTimeout(() => {
+                addLog(`${type} 검증 완료`, 'SUCCESS');
+                updateStats();
+            }, 2000);
+            alert(`${type} 검증을 시작합니다.`);
+        }
+        
+        function viewResults(type) {
+            addLog(`${type} 검증 결과 조회`);
+            alert(`${type} 검증 결과를 새 창에서 엽니다.`);
+        }
+        
+        function removeDuplicates() {
+            addLog('중복 데이터 제거 시작');
+            setTimeout(() => {
+                addLog('23건 중복 데이터 제거 완료', 'SUCCESS');
+                updateStats();
+            }, 3000);
+            alert('중복 데이터를 제거합니다.');
+        }
+        
+        function runAllValidations() {
+            addLog('전체 검증 시작');
+            setTimeout(() => {
+                addLog('형식 검증 완료');
+            }, 1000);
+            setTimeout(() => {
+                addLog('중복 검사 완료');
+            }, 2000);
+            setTimeout(() => {
+                addLog('일관성 검증 완료');
+            }, 3000);
+            setTimeout(() => {
+                addLog('전체 검증 완료', 'SUCCESS');
+                updateStats();
+            }, 4000);
+            alert('전체 검증을 시작합니다.');
+        }
+        
+        function exportReport() {
+            addLog('검증 리포트 생성');
+            const reportData = {
+                timestamp: new Date().toISOString(),
+                totalRecords: document.getElementById('total-records').textContent,
+                validRecords: document.getElementById('valid-records').textContent,
+                invalidRecords: document.getElementById('invalid-records').textContent,
+                validationRate: document.getElementById('validation-rate').textContent
+            };
+            
+            const dataStr = JSON.stringify(reportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `validation-report-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            alert('검증 리포트가 생성되었습니다.');
+        }
+        
+        function autoFix() {
+            addLog('자동 수정 시작');
+            setTimeout(() => {
+                addLog('데이터 형식 오류 15건 수정');
+            }, 1000);
+            setTimeout(() => {
+                addLog('누락된 필드 8건 보완');
+            }, 2000);
+            setTimeout(() => {
+                addLog('자동 수정 완료 - 23건 수정됨', 'SUCCESS');
+                updateStats();
+            }, 3000);
+            alert('자동 수정을 시작합니다.');
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('데이터 검증 시스템 페이지 로드');
+            updateStats();
+        });
+    </script>
+</body>
+</html> 

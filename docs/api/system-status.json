@@ -1,0 +1,95 @@
+{
+  "activeFunctions": 15,
+  "totalExecutions": 1247,
+  "successRate": 97.2,
+  "lastUpdate": "2025-01-27T14:30:00Z",
+  "functions": {
+    "grider-main": {
+      "status": "active",
+      "lastExecution": "2025-01-27T14:28:00Z",
+      "nextExecution": "2025-01-27T15:00:00Z",
+      "successRate": 98.5,
+      "totalRuns": 892
+    },
+    "ultimate-system": {
+      "status": "active", 
+      "lastExecution": "2025-01-27T14:25:00Z",
+      "nextExecution": "2025-01-27T14:55:00Z",
+      "successRate": 96.8,
+      "totalRuns": 245
+    },
+    "dashboard": {
+      "status": "active",
+      "lastExecution": "2025-01-27T14:29:30Z",
+      "dataSource": "api/latest-data.json",
+      "updateInterval": 60
+    },
+    "kakao-talk": {
+      "status": "active",
+      "lastMessage": "2025-01-27T14:28:15Z",
+      "tokenExpiry": "2025-02-26T14:30:00Z",
+      "messagesSent": 156
+    },
+    "multi-platform": {
+      "status": "pending",
+      "configuredPlatforms": ["slack", "discord", "telegram", "email"],
+      "activeConnections": 0
+    },
+    "ai-analytics": {
+      "status": "active",
+      "lastAnalysis": "2025-01-27T14:15:00Z",
+      "predictionsGenerated": 42,
+      "accuracyRate": 89.3
+    },
+    "optimization": {
+      "status": "active",
+      "lastOptimization": "2025-01-27T13:45:00Z",
+      "performanceGain": 12.5,
+      "resourceSaved": "15%"
+    },
+    "data-validator": {
+      "status": "active",
+      "lastValidation": "2025-01-27T14:29:45Z",
+      "errorsDetected": 2,
+      "autoFixed": 2
+    },
+    "scheduler": {
+      "status": "active",
+      "scheduledJobs": 8,
+      "nextJob": "2025-01-27T15:00:00Z",
+      "missedJobs": 0
+    },
+    "file-manager": {
+      "status": "active",
+      "lastCleanup": "2025-01-27T06:00:00Z",
+      "totalFiles": 1247,
+      "storageUsed": "2.3GB"
+    },
+    "token-manager": {
+      "status": "active",
+      "tokensManaged": 5,
+      "expiringTokens": 1,
+      "lastRefresh": "2025-01-27T12:00:00Z"
+    },
+    "weather-service": {
+      "status": "active",
+      "lastUpdate": "2025-01-27T14:00:00Z",
+      "location": "안산시",
+      "apiCalls": 48
+    }
+  },
+  "systemMetrics": {
+    "uptime": "2d 14h 30m",
+    "memoryUsage": "1.2GB",
+    "cpuUsage": "15%",
+    "diskUsage": "45%",
+    "networkLatency": "23ms"
+  },
+  "alerts": [
+    {
+      "level": "info",
+      "message": "모든 시스템이 정상 작동 중입니다",
+      "timestamp": "2025-01-27T14:30:00Z"
+    }
+  ]
+} 

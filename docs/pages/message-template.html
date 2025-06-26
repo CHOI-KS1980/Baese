@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>메시지 템플릿 관리</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header p { opacity: 0.9; font-size: 1.1rem; }
+        .content { padding: 2rem; }
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .template-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+        }
+        .template-textarea { width: 100%; height: 120px; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; resize: vertical; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 메시지 템플릿 관리</h1>
+            <p>카카오톡 및 다중 플랫폼 메시지 템플릿</p>
+        </div>
+        <div class="content">
+            <div class="template-grid">
+                <div class="template-card">
+                    <h4 style="margin-bottom: 1rem;">🎉 성공 메시지 템플릿</h4>
+                    <textarea class="template-textarea" id="success-template">🎉 배민 데이터 수집 성공!
+📊 수집된 데이터: {data_count}건
+💰 예상 수익: {estimated_profit}원
+⏰ 수집 시간: {collection_time}
+📍 지역: {location}</textarea>
+                    <button class="btn btn-success" onclick="saveTemplate('success')">저장</button>
+                    <button class="btn btn-primary" onclick="testTemplate('success')">테스트</button>
+                </div>
+                
+                <div class="template-card">
+                    <h4 style="margin-bottom: 1rem;">❌ 오류 메시지 템플릿</h4>
+                    <textarea class="template-textarea" id="error-template">❌ 배민 데이터 수집 실패
+🔍 오류 내용: {error_message}
+⏰ 발생 시간: {error_time}
+🔄 다음 시도: {next_retry}
+📞 문의: 시스템 관리자</textarea>
+                    <button class="btn btn-success" onclick="saveTemplate('error')">저장</button>
+                    <button class="btn btn-primary" onclick="testTemplate('error')">테스트</button>
+                </div>
+                
+                <div class="template-card">
+                    <h4 style="margin-bottom: 1rem;">📊 보고서 메시지 템플릿</h4>
+                    <textarea class="template-textarea" id="report-template">📊 일간 성과 보고서
+📈 총 주문량: {total_orders}건
+💰 총 수익: {total_revenue}원
+📍 최고 지역: {top_region}
+⭐ 성과: {performance_rating}</textarea>
+                    <button class="btn btn-success" onclick="saveTemplate('report')">저장</button>
+                    <button class="btn btn-primary" onclick="testTemplate('report')">테스트</button>
+                </div>
+                
+                <div class="template-card">
+                    <h4 style="margin-bottom: 1rem;">⚠️ 경고 메시지 템플릿</h4>
+                    <textarea class="template-textarea" id="warning-template">⚠️ 시스템 경고 알림
+🚨 경고 유형: {warning_type}
+📊 현재 상태: {current_status}
+⏰ 발생 시간: {warning_time}
+🔧 권장 조치: {recommended_action}</textarea>
+                    <button class="btn btn-success" onclick="saveTemplate('warning')">저장</button>
+                    <button class="btn btn-primary" onclick="testTemplate('warning')">테스트</button>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="btn btn-success" onclick="saveAllTemplates()">💾 모든 템플릿 저장</button>
+                <button class="btn btn-warning" onclick="exportTemplates()">📁 템플릿 내보내기</button>
+                <button class="btn btn-primary" onclick="resetTemplates()">🔄 기본값 복원</button>
+            </div>
+            
+            <div style="margin-bottom: 2rem; background: #f8f9fa; padding: 1.5rem; border-radius: 10px;">
+                <h3>📋 템플릿 관리 로그</h3>
+                <div class="log-display" id="template-log">
+[2024-01-20 14:30:15] INFO: 메시지 템플릿 관리 시스템 초기화
+[2024-01-20 14:30:16] SUCCESS: 4개 템플릿 로드 완료
+[2024-01-20 14:30:17] INFO: 템플릿 편집 준비 완료
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('template-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+        
+        function saveTemplate(type) {
+            const templateElement = document.getElementById(`${type}-template`);
+            const content = templateElement.value;
+            
+            addLog(`${type} 템플릿 저장`);
+            setTimeout(() => {
+                addLog(`${type} 템플릿 저장 완료`, 'SUCCESS');
+            }, 500);
+            alert(`${type} 템플릿이 저장되었습니다.`);
+        }
+        
+        function testTemplate(type) {
+            const templateElement = document.getElementById(`${type}-template`);
+            let content = templateElement.value;
+            
+            // 템플릿 변수 치환
+            const testData = {
+                data_count: '156',
+                estimated_profit: '245,000',
+                collection_time: '14:30:25',
+                location: '강남구',
+                error_message: '네트워크 연결 오류',
+                error_time: '14:30:15',
+                next_retry: '14:35:00',
+                total_orders: '324',
+                total_revenue: '1,250,000',
+                top_region: '강남구',
+                performance_rating: '95점',
+                warning_type: '높은 CPU 사용률',
+                current_status: '85% 사용중',
+                warning_time: '14:30:20',
+                recommended_action: '시스템 최적화 권장'
+            };
+            
+            Object.keys(testData).forEach(key => {
+                content = content.replace(new RegExp(`{${key}}`, 'g'), testData[key]);
+            });
+            
+            addLog(`${type} 템플릿 테스트 메시지 생성`);
+            alert(`테스트 메시지:\n\n${content}`);
+        }
+        
+        function saveAllTemplates() {
+            addLog('모든 템플릿 저장 시작');
+            
+            const templates = ['success', 'error', 'report', 'warning'];
+            templates.forEach((template, index) => {
+                setTimeout(() => {
+                    addLog(`${template} 템플릿 저장 완료`);
+                    if (index === templates.length - 1) {
+                        addLog('모든 템플릿 저장 완료', 'SUCCESS');
+                    }
+                }, (index + 1) * 300);
+            });
+            
+            alert('모든 템플릿을 저장합니다.');
+        }
+        
+        function exportTemplates() {
+            const templates = {
+                success: document.getElementById('success-template').value,
+                error: document.getElementById('error-template').value,
+                report: document.getElementById('report-template').value,
+                warning: document.getElementById('warning-template').value,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(templates, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `message-templates-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            addLog('템플릿 내보내기 완료', 'SUCCESS');
+            alert('템플릿이 파일로 내보내졌습니다.');
+        }
+        
+        function resetTemplates() {
+            if (confirm('모든 템플릿을 기본값으로 복원하시겠습니까?')) {
+                // 기본 템플릿으로 복원
+                document.getElementById('success-template').value = `🎉 배민 데이터 수집 성공!
+📊 수집된 데이터: {data_count}건
+💰 예상 수익: {estimated_profit}원
+⏰ 수집 시간: {collection_time}
+📍 지역: {location}`;
+
+                document.getElementById('error-template').value = `❌ 배민 데이터 수집 실패
+🔍 오류 내용: {error_message}
+⏰ 발생 시간: {error_time}
+🔄 다음 시도: {next_retry}
+📞 문의: 시스템 관리자`;
+
+                document.getElementById('report-template').value = `📊 일간 성과 보고서
+📈 총 주문량: {total_orders}건
+💰 총 수익: {total_revenue}원
+📍 최고 지역: {top_region}
+⭐ 성과: {performance_rating}`;
+
+                document.getElementById('warning-template').value = `⚠️ 시스템 경고 알림
+🚨 경고 유형: {warning_type}
+📊 현재 상태: {current_status}
+⏰ 발생 시간: {warning_time}
+🔧 권장 조치: {recommended_action}`;
+                
+                addLog('모든 템플릿이 기본값으로 복원되었습니다', 'WARNING');
+                alert('모든 템플릿이 기본값으로 복원되었습니다.');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('메시지 템플릿 관리 시스템 페이지 로드');
+        });
+    </script>
+</body>
+</html> 

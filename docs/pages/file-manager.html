@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파일 관리자 시스템</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .file-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .file-browser {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .breadcrumb {
+            background: #e9ecef;
+            padding: 1rem;
+            font-size: 0.9rem;
+            color: #666;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .file-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: #f8f9fa;
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+            width: 30px;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-meta {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .file-size {
+            color: #667eea;
+            font-weight: 600;
+            margin-right: 1rem;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .cleanup-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .cleanup-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .cleanup-card h4 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .cleanup-description {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .cleanup-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        .log-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .search-box {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .backup-section {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .backup-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .backup-item:last-child {
+            border-bottom: none;
+        }
+
+        @media (max-width: 768px) {
+            .file-stats {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            .cleanup-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 파일 관리자 시스템</h1>
+            <p>로그, 백업, 캐시 파일 관리 및 정리</p>
+        </div>
+
+        <div class="content">
+            <!-- 파일 통계 -->
+            <div class="file-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-files">1,247</div>
+                    <div class="stat-label">총 파일 수</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-size">2.3GB</div>
+                    <div class="stat-label">총 용량</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="log-files">156</div>
+                    <div class="stat-label">로그 파일</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="cache-files">89</div>
+                    <div class="stat-label">캐시 파일</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="backup-files">23</div>
+                    <div class="stat-label">백업 파일</div>
+                </div>
+            </div>
+
+            <!-- 파일 브라우저 -->
+            <div class="section">
+                <h3>📂 파일 브라우저</h3>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="file-search" placeholder="파일명, 확장자, 크기로 검색...">
+                    <div class="filter-buttons">
+                        <button class="btn btn-primary btn-sm" onclick="filterFiles('all')">전체</button>
+                        <button class="btn btn-warning btn-sm" onclick="filterFiles('log')">로그</button>
+                        <button class="btn btn-success btn-sm" onclick="filterFiles('backup')">백업</button>
+                        <button class="btn btn-primary btn-sm" onclick="filterFiles('cache')">캐시</button>
+                        <button class="btn btn-danger btn-sm" onclick="filterFiles('large')">대용량</button>
+                    </div>
+                </div>
+                
+                <div class="file-browser">
+                    <div class="breadcrumb">
+                        📁 Home > semiauto > dashboard > logs
+                    </div>
+                    <div class="file-list" id="file-list">
+                        <div class="file-item">
+                            <div class="file-icon">📄</div>
+                            <div class="file-info">
+                                <div class="file-name">grider_system.log</div>
+                                <div class="file-meta">2024-01-20 14:30 | 로그 파일</div>
+                            </div>
+                            <div class="file-size">2.3MB</div>
+                            <div class="file-actions">
+                                <button class="btn btn-primary btn-sm" onclick="viewFile('grider_system.log')">보기</button>
+                                <button class="btn btn-warning btn-sm" onclick="downloadFile('grider_system.log')">다운로드</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteFile('grider_system.log')">삭제</button>
+                            </div>
+                        </div>
+                        
+                        <div class="file-item">
+                            <div class="file-icon">📊</div>
+                            <div class="file-info">
+                                <div class="file-name">ai_analytics_backup.json</div>
+                                <div class="file-meta">2024-01-20 12:00 | 백업 파일</div>
+                            </div>
+                            <div class="file-size">156KB</div>
+                            <div class="file-actions">
+                                <button class="btn btn-primary btn-sm" onclick="viewFile('ai_analytics_backup.json')">보기</button>
+                                <button class="btn btn-success btn-sm" onclick="restoreFile('ai_analytics_backup.json')">복원</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteFile('ai_analytics_backup.json')">삭제</button>
+                            </div>
+                        </div>
+                        
+                        <div class="file-item">
+                            <div class="file-icon">🗂️</div>
+                            <div class="file-info">
+                                <div class="file-name">cache_data.tmp</div>
+                                <div class="file-meta">2024-01-20 14:25 | 임시 파일</div>
+                            </div>
+                            <div class="file-size">45MB</div>
+                            <div class="file-actions">
+                                <button class="btn btn-warning btn-sm" onclick="clearCache('cache_data.tmp')">정리</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteFile('cache_data.tmp')">삭제</button>
+                            </div>
+                        </div>
+                        
+                        <div class="file-item">
+                            <div class="file-icon">📈</div>
+                            <div class="file-info">
+                                <div class="file-name">performance_report.pdf</div>
+                                <div class="file-meta">2024-01-20 09:00 | 보고서</div>
+                            </div>
+                            <div class="file-size">8.7MB</div>
+                            <div class="file-actions">
+                                <button class="btn btn-primary btn-sm" onclick="viewFile('performance_report.pdf')">보기</button>
+                                <button class="btn btn-warning btn-sm" onclick="downloadFile('performance_report.pdf')">다운로드</button>
+                                <button class="btn btn-success btn-sm" onclick="shareFile('performance_report.pdf')">공유</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 자동 정리 설정 -->
+            <div class="section">
+                <h3>🧹 자동 정리 설정</h3>
+                <div class="cleanup-controls">
+                    <div class="cleanup-card">
+                        <h4>📄 로그 파일 정리</h4>
+                        <div class="cleanup-description">
+                            7일 이상 된 로그 파일을 자동으로 압축하고 30일 이후 삭제합니다.
+                        </div>
+                        <div class="cleanup-stats">
+                            <span>정리 대상: 34개 파일</span>
+                            <span>절약 용량: 1.2GB</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 75%"></div>
+                        </div>
+                        <button class="btn btn-warning" onclick="cleanupLogs()">로그 정리 실행</button>
+                    </div>
+
+                    <div class="cleanup-card">
+                        <h4>💾 캐시 파일 정리</h4>
+                        <div class="cleanup-description">
+                            임시 캐시 파일과 오래된 데이터를 정리하여 시스템 성능을 향상시킵니다.
+                        </div>
+                        <div class="cleanup-stats">
+                            <span>정리 대상: 89개 파일</span>
+                            <span>절약 용량: 245MB</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 45%"></div>
+                        </div>
+                        <button class="btn btn-primary" onclick="cleanupCache()">캐시 정리 실행</button>
+                    </div>
+
+                    <div class="cleanup-card">
+                        <h4>🗃️ 백업 파일 관리</h4>
+                        <div class="cleanup-description">
+                            중복 백업 파일을 확인하고 오래된 백업을 안전하게 정리합니다.
+                        </div>
+                        <div class="cleanup-stats">
+                            <span>중복 파일: 12개</span>
+                            <span>절약 용량: 567MB</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 60%"></div>
+                        </div>
+                        <button class="btn btn-success" onclick="cleanupBackups()">백업 정리 실행</button>
+                    </div>
+
+                    <div class="cleanup-card">
+                        <h4>🔍 중복 파일 검사</h4>
+                        <div class="cleanup-description">
+                            시스템 전체에서 중복된 파일을 찾아 디스크 공간을 최적화합니다.
+                        </div>
+                        <div class="cleanup-stats">
+                            <span>검사 완료: 85%</span>
+                            <span>발견된 중복: 23개</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 85%"></div>
+                        </div>
+                        <button class="btn btn-danger" onclick="findDuplicates()">중복 파일 검사</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 백업 관리 -->
+            <div class="section">
+                <h3>💾 백업 관리</h3>
+                <div class="backup-section">
+                    <div style="margin-bottom: 1rem;">
+                        <button class="btn btn-success" onclick="createBackup()">📦 새 백업 생성</button>
+                        <button class="btn btn-primary" onclick="scheduleBackup()">⏰ 자동 백업 설정</button>
+                        <button class="btn btn-warning" onclick="verifyBackups()">✅ 백업 무결성 검사</button>
+                    </div>
+                    
+                    <div class="backup-item">
+                        <div>
+                            <strong>시스템 전체 백업</strong>
+                            <div style="font-size: 0.9rem; color: #666;">2024-01-20 06:00 | 2.1GB</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary btn-sm" onclick="restoreBackup('system_backup_20240120')">복원</button>
+                            <button class="btn btn-warning btn-sm" onclick="downloadBackup('system_backup_20240120')">다운로드</button>
+                        </div>
+                    </div>
+                    
+                    <div class="backup-item">
+                        <div>
+                            <strong>설정 파일 백업</strong>
+                            <div style="font-size: 0.9rem; color: #666;">2024-01-20 12:00 | 45MB</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary btn-sm" onclick="restoreBackup('config_backup_20240120')">복원</button>
+                            <button class="btn btn-warning btn-sm" onclick="downloadBackup('config_backup_20240120')">다운로드</button>
+                        </div>
+                    </div>
+                    
+                    <div class="backup-item">
+                        <div>
+                            <strong>데이터베이스 백업</strong>
+                            <div style="font-size: 0.9rem; color: #666;">2024-01-19 18:00 | 892MB</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary btn-sm" onclick="restoreBackup('db_backup_20240119')">복원</button>
+                            <button class="btn btn-warning btn-sm" onclick="downloadBackup('db_backup_20240119')">다운로드</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 제어 버튼 -->
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="btn btn-warning" onclick="runFullCleanup()">🧹 전체 정리 실행</button>
+                <button class="btn btn-success" onclick="createSystemBackup()">💾 시스템 백업</button>
+                <button class="btn btn-primary" onclick="analyzeStorage()">📊 저장소 분석</button>
+                <button class="btn btn-danger" onclick="emergencyCleanup()">🚨 긴급 정리</button>
+            </div>
+
+            <!-- 실시간 로그 -->
+            <div class="section">
+                <h3>📋 파일 관리 로그</h3>
+                <div class="log-display" id="file-manager-log">
+[2024-01-20 14:30:15] INFO: 파일 관리자 시스템 초기화
+[2024-01-20 14:30:16] INFO: 파일 스캔 시작 (총 1,247개 파일)
+[2024-01-20 14:30:17] INFO: 로그 파일 156개 발견 (총 234MB)
+[2024-01-20 14:30:18] WARNING: 대용량 캐시 파일 감지 (45MB)
+[2024-01-20 14:30:19] INFO: 백업 파일 23개 확인 완료
+[2024-01-20 14:30:20] SUCCESS: 파일 시스템 분석 완료
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addLog(message, type = 'INFO') {
+            const logDisplay = document.getElementById('file-manager-log');
+            const timestamp = new Date().toLocaleString();
+            const logEntry = `[${timestamp}] ${type}: ${message}\n`;
+            logDisplay.textContent += logEntry;
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+
+        function updateStats() {
+            // 파일 통계 업데이트
+            const totalFiles = Math.floor(Math.random() * 200 + 1200);
+            const totalSize = (Math.random() * 1 + 2).toFixed(1);
+            const logFiles = Math.floor(Math.random() * 50 + 150);
+            const cacheFiles = Math.floor(Math.random() * 30 + 80);
+            const backupFiles = Math.floor(Math.random() * 10 + 20);
+
+            document.getElementById('total-files').textContent = totalFiles.toLocaleString();
+            document.getElementById('total-size').textContent = `${totalSize}GB`;
+            document.getElementById('log-files').textContent = logFiles;
+            document.getElementById('cache-files').textContent = cacheFiles;
+            document.getElementById('backup-files').textContent = backupFiles;
+        }
+
+        function viewFile(filename) {
+            addLog(`파일 열기: ${filename}`);
+            alert(`${filename} 파일을 새 창에서 엽니다.`);
+        }
+
+        function downloadFile(filename) {
+            addLog(`파일 다운로드: ${filename}`);
+            alert(`${filename} 파일 다운로드를 시작합니다.`);
+        }
+
+        function deleteFile(filename) {
+            if (confirm(`${filename} 파일을 삭제하시겠습니까?`)) {
+                addLog(`파일 삭제: ${filename}`, 'WARNING');
+                alert(`${filename} 파일이 삭제되었습니다.`);
+                updateStats();
+            }
+        }
+
+        function restoreFile(filename) {
+            addLog(`파일 복원: ${filename}`, 'SUCCESS');
+            alert(`${filename} 파일이 복원되었습니다.`);
+        }
+
+        function clearCache(filename) {
+            addLog(`캐시 정리: ${filename}`);
+            alert(`${filename} 캐시가 정리되었습니다.`);
+            updateStats();
+        }
+
+        function shareFile(filename) {
+            addLog(`파일 공유: ${filename}`);
+            alert(`${filename} 파일 공유 링크가 생성되었습니다.`);
+        }
+
+        function filterFiles(type) {
+            addLog(`파일 필터 적용: ${type}`);
+            alert(`${type} 파일로 필터링되었습니다.`);
+        }
+
+        function cleanupLogs() {
+            addLog('로그 파일 정리 시작');
+            setTimeout(() => {
+                addLog('34개 로그 파일 압축 완료', 'SUCCESS');
+                addLog('1.2GB 디스크 공간 확보', 'SUCCESS');
+                updateStats();
+            }, 2000);
+            alert('로그 파일 정리를 시작합니다. 완료까지 약 2분이 소요됩니다.');
+        }
+
+        function cleanupCache() {
+            addLog('캐시 파일 정리 시작');
+            setTimeout(() => {
+                addLog('89개 캐시 파일 삭제 완료', 'SUCCESS');
+                addLog('245MB 디스크 공간 확보', 'SUCCESS');
+                updateStats();
+            }, 1500);
+            alert('캐시 파일 정리를 시작합니다.');
+        }
+
+        function cleanupBackups() {
+            addLog('백업 파일 정리 시작');
+            setTimeout(() => {
+                addLog('12개 중복 백업 파일 제거', 'SUCCESS');
+                addLog('567MB 디스크 공간 확보', 'SUCCESS');
+                updateStats();
+            }, 3000);
+            alert('백업 파일 정리를 시작합니다.');
+        }
+
+        function findDuplicates() {
+            addLog('중복 파일 검사 시작');
+            setTimeout(() => {
+                addLog('23개 중복 파일 발견', 'WARNING');
+                addLog('중복 파일 검사 완료', 'SUCCESS');
+            }, 2500);
+            alert('중복 파일 검사를 시작합니다.');
+        }
+
+        function createBackup() {
+            addLog('새 백업 생성 시작');
+            setTimeout(() => {
+                addLog('시스템 백업 생성 완료', 'SUCCESS');
+                addLog('백업 크기: 2.3GB', 'INFO');
+                updateStats();
+            }, 4000);
+            alert('새 백업을 생성합니다. 완료까지 약 4분이 소요됩니다.');
+        }
+
+        function scheduleBackup() {
+            addLog('자동 백업 설정');
+            alert('자동 백업이 매일 오전 6시로 설정되었습니다.');
+        }
+
+        function verifyBackups() {
+            addLog('백업 무결성 검사 시작');
+            setTimeout(() => {
+                addLog('모든 백업 파일 무결성 확인', 'SUCCESS');
+            }, 2000);
+            alert('백업 무결성 검사를 시작합니다.');
+        }
+
+        function restoreBackup(backupId) {
+            if (confirm(`${backupId} 백업을 복원하시겠습니까?`)) {
+                addLog(`백업 복원 시작: ${backupId}`);
+                setTimeout(() => {
+                    addLog('백업 복원 완료', 'SUCCESS');
+                }, 3000);
+                alert('백업 복원을 시작합니다.');
+            }
+        }
+
+        function downloadBackup(backupId) {
+            addLog(`백업 다운로드: ${backupId}`);
+            alert(`${backupId} 백업 다운로드를 시작합니다.`);
+        }
+
+        function runFullCleanup() {
+            addLog('전체 정리 시작');
+            setTimeout(() => {
+                addLog('로그 파일 정리 완료');
+            }, 1000);
+            setTimeout(() => {
+                addLog('캐시 파일 정리 완료');
+            }, 2000);
+            setTimeout(() => {
+                addLog('백업 파일 정리 완료');
+            }, 3000);
+            setTimeout(() => {
+                addLog('전체 정리 완료 - 총 2.1GB 확보', 'SUCCESS');
+                updateStats();
+            }, 4000);
+            alert('전체 정리를 시작합니다. 완료까지 약 4분이 소요됩니다.');
+        }
+
+        function createSystemBackup() {
+            addLog('시스템 전체 백업 시작');
+            setTimeout(() => {
+                addLog('시스템 백업 완료 (2.3GB)', 'SUCCESS');
+                updateStats();
+            }, 5000);
+            alert('시스템 전체 백업을 시작합니다.');
+        }
+
+        function analyzeStorage() {
+            addLog('저장소 분석 시작');
+            setTimeout(() => {
+                addLog('저장소 분석 완료', 'SUCCESS');
+                addLog('추천: 로그 파일 정리로 1.2GB 확보 가능', 'INFO');
+            }, 2000);
+            alert('저장소 분석을 시작합니다.');
+        }
+
+        function emergencyCleanup() {
+            if (confirm('긴급 정리를 실행하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                addLog('긴급 정리 시작', 'ERROR');
+                setTimeout(() => {
+                    addLog('임시 파일 전체 삭제');
+                    addLog('오래된 로그 파일 강제 삭제');
+                    addLog('긴급 정리 완료 - 3.4GB 확보', 'SUCCESS');
+                    updateStats();
+                }, 3000);
+                alert('긴급 정리를 실행합니다.');
+            }
+        }
+
+        // 검색 기능
+        document.getElementById('file-search').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            addLog(`파일 검색: "${searchTerm}"`);
+        });
+
+        // 주기적 업데이트
+        setInterval(() => {
+            updateStats();
+        }, 30000);
+
+        // 페이지 로드시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('파일 관리자 시스템 페이지 로드');
+            updateStats();
+        });
+    </script>
+</body>
+</html> 
