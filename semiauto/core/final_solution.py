@@ -147,6 +147,11 @@ class TokenManager:
         self.refresh_token = refresh_token
         self.access_token = None
         self.token_expires_at = None
+        
+        # 즉시 토큰 갱신 시도
+        logger.info("🔄 TokenManager 초기화 - 토큰 갱신 시도")
+        if not self.refresh_access_token():
+            logger.error("❌ 초기 토큰 갱신 실패")
     
     def refresh_access_token(self):
         """액세스 토큰 갱신"""
@@ -186,9 +191,12 @@ class TokenManager:
     def get_valid_token(self):
         """유효한 액세스 토큰 반환 (필요시 자동 갱신)"""
         if not self.access_token or self.is_token_expired():
+            logger.info("🔄 토큰 갱신 시도...")
             if not self.refresh_access_token():
-                raise Exception("토큰 갱신 실패")
+                logger.error("❌ 토큰 갱신 실패 - None 반환")
+                return None
         
+        logger.info(f"✅ 유효한 토큰 반환: {self.access_token[:20] if self.access_token else 'None'}...")
         return self.access_token
     
     def is_token_expired(self):
