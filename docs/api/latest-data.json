@@ -1,4 +1,28 @@
 {
-  "error": "Source file not found",
-  "timestamp": "2025-06-27T04:19:41.221565+09:00"
+  "총점": 0,
+  "물량점수": 0,
+  "수락률점수": 0,
+  "총완료": 0,
+  "총거절": 0,
+  "수락률": 0.0,
+  "아침점심피크": {
+    "current": 0,
+    "target": 0
+  },
+  "오후논피크": {
+    "current": 0,
+    "target": 0
+  },
+  "저녁피크": {
+    "current": 0,
+    "target": 0
+  },
+  "심야논피크": {
+    "current": 0,
+    "target": 0
+  },
+  "riders": [],
+  "error": true,
+  "error_reason": "크롤링 실패(HTML 없음)",
+  "timestamp": "2025-06-27 04:44:50"
 }
