@@ -612,11 +612,14 @@ class GriderAutoSender:
             filled_blocks = round(percentage / 10)
             return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
-        # 5칸짜리 라이더 기여도용 진행률 막대 함수
+        # 10칸짜리 라이더 기여도용 진행률 막대 함수
         def get_rider_progress_bar(contribution: float) -> str:
-            if not isinstance(contribution, (int, float)) or contribution < 0: return ""
-            filled_blocks = round(contribution / 20) # 100 / 5 = 20
-            return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
+            if not isinstance(contribution, (int, float)) or contribution < 0:
+                contribution = 0
+            # 기여도는 100%를 넘을 수 있으므로 시각적 표현을 위해 100으로 제한
+            contribution = min(contribution, 100)
+            filled_blocks = round(contribution / 10)
+            return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
         try:
             # 헤더
@@ -658,7 +661,7 @@ class GriderAutoSender:
             )
 
             # 날씨 정보
-            weather_summary = "🌍 오늘의 날씨 (기상청)\n" + data.get('weather_info', '날씨 정보 조회 불가')
+            weather_summary = data.get('weather_info')
 
             # 이번주 미션 예상 점수
             weekly_acceptance_rate = float(data.get('수락률', 0))
