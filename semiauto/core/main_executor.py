@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 # 한국시간 설정
 KST = pytz.timezone('Asia/Seoul')
 
+def get_korea_time():
+    """한국시간 기준 현재 시간 반환"""
+    return datetime.now(KST)
+
 class KoreaHolidayChecker:
     """한국천문연구원 공휴일 체커"""
     
@@ -399,16 +403,12 @@ class GriderDataCollector:
         """HTML 내용에서 날짜를 확인"""
         return target_date in html or target_date.replace('-', '.') in html
 
-    def _get_korea_time(self):
-        """한국시간 기준 현재 시간 반환"""
-        return datetime.now(KST)
-
     def _get_mission_date(self):
         """
         한국시간 기준 현재 미션 날짜 반환 (06시 기준)
         - 시간 오차에 더 안정적인 방식으로 변경
         """
-        korea_time = self._get_korea_time()
+        korea_time = get_korea_time()
         # 미션 기준 시간(오전 6시)을 적용하기 위해 현재 시간에서 6시간을 뺍니다.
         # 이렇게 하면 오전 0시부터 5시 59분까지는 자동으로 전날로 계산됩니다.
         mission_time = korea_time - timedelta(hours=6)
@@ -462,23 +462,37 @@ class GriderDataCollector:
             
             logger.info(f"기본 점수 파싱: 총점={data.get('총점')}, 완료={data.get('총완료')}, 수락률={data.get('수락률')}%")
 
-            # 2. 미션 데이터 (quantity_item)
+            # 2. 미션 데이터 (sla_table 에서 오늘의 데이터 추출)
             peak_data = {}
-            peak_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
+            mission_date = self._get_mission_date()
             
-            quantity_items = soup.select('.quantity_item')
-            for item in quantity_items:
-                title_node = item.select_one('.quantity_title')
-                if not title_node: continue
-                
-                title = title_node.get_text(strip=True)
-                # performance_value: 현재 달성 건수, number_value > span: 목표 건수
-                current = get_number(item.select_one('.performance_value').get_text())
-                target = get_number(item.select_one('.number_value span:not(.performance_value)').get_text())
-                
-                # 표준 이름으로 변환
-                standard_title = peak_map.get(title, title)
-                peak_data[standard_title] = {'current': current, 'target': target}
+            sla_table = soup.select_one('.sla_table')
+            if sla_table:
+                logger.info("✅ 물량 점수관리 테이블('.sla_table')을 찾았습니다. 오늘 날짜의 데이터를 검색합니다.")
+                found_today = False
+                rows = sla_table.select('tbody tr')
+                for row in rows:
+                    cols = row.select('td')
+                    if len(cols) > 2 and mission_date in cols[1].get_text(strip=True):
+                        logger.info(f"✅ 오늘 날짜({mission_date})의 행을 찾았습니다.")
+                        found_today = True
+                        
+                        peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+                        # td[3] 부터 피크 데이터
+                        for i, peak_name in enumerate(peak_names):
+                            peak_text = cols[i + 3].get_text(strip=True)
+                            # e.g., "24/21건"
+                            match = re.search(r'(\\d+)/(\\d+)건', peak_text)
+                            if match:
+                                current, target = int(match.group(1)), int(match.group(2))
+                                peak_data[peak_name] = {'current': current, 'target': target}
+                            else:
+                                peak_data[peak_name] = {'current': 0, 'target': 0}
+                        break # 오늘 날짜를 찾았으니 루프 종료
+                if not found_today:
+                    logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
+            else:
+                logger.warning("⚠️ 물량 점수관리 테이블('.sla_table')을 찾지 못했습니다.")
 
             data.update(peak_data)
             logger.info(f"미션 데이터 파싱: {len(peak_data)}개 피크")
@@ -636,30 +650,47 @@ class GriderAutoSender:
 
         try:
             # 헤더
-            header = "�� 심플 배민 플러스 미션 알리미"
+            header = "심플 배민 플러스 미션 알리미"
 
             # 시간대별 미션 현황
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
+            
+            # 피크별 시작 시간 정의
+            peak_start_hours = {
+                '아침점심피크': 10, # 오전 10시
+                '오후논피크': 14,   # 오후 2시
+                '저녁피크': 17,     # 오후 5시
+                '심야논피크': 21,   # 밤 9시
+            }
+            
+            peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+            
             peak_summary = ""
             alerts = []
-            
-            # 파싱된 데이터 구조에 맞게 수정
-            parsed_peaks = {
-                '아침점심피크': data.get('아침점심피크', {'current': 0, 'target': 0}),
-                '오후논피크': data.get('오후논피크', {'current': 0, 'target': 0}),
-                '저녁피크': data.get('저녁피크', {'current': 0, 'target': 0}),
-                '심야논피크': data.get('심야논피크', {'current': 0, 'target': 0})
-            }
+            current_hour = get_korea_time().hour
 
-            for peak, details in parsed_peaks.items():
+            for peak in peak_order:
+                # 해당 피크의 시작 시간이 지났는지 확인
+                if current_hour < peak_start_hours.get(peak, 0):
+                    continue # 시작 시간이 안됐으면 건너뛰기
+                
+                details = data.get(peak, {'current': 0, 'target': 0})
                 emoji = peak_emojis.get(peak, '❓')
-                is_achieved = details['current'] >= details['target']
-                shortfall = details['target'] - details['current']
-                status_icon = "✅ (달성)" if is_achieved else f"❌ ({shortfall}건 부족)"
-                peak_summary += f"{emoji} {peak}: {details['current']}/{details['target']} {status_icon}\n"
-                if not is_achieved and shortfall > 0:
-                    alerts.append(f"{peak.replace('피크','')} {shortfall}건")
+                
+                # Check if details exist and have target
+                if details.get('target', 0) > 0:
+                    is_achieved = details['current'] >= details['target']
+                    shortfall = details['target'] - details['current']
+                    status_icon = "✅ (달성)" if is_achieved else f"❌ ({shortfall}건 부족)"
+                    peak_summary += f"{emoji} {peak}: {details['current']}/{details['target']} {status_icon}\\n"
+                    if not is_achieved and shortfall > 0:
+                        alerts.append(f"{peak.replace('피크','')} {shortfall}건")
+                else: # target이 0이거나 데이터가 없는 경우 (오류 처리)
+                     peak_summary += f"{emoji} {peak}: 데이터 없음\\n"
+
             peak_summary = peak_summary.strip()
+            if not peak_summary:
+                peak_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다."
 
             # 금일 수행 내역 (라이더 데이터 합산 기준)
             all_riders = data.get('riders', [])
