@@ -333,8 +333,11 @@ class GriderDataCollector:
             # 2. 주간 데이터 페이지로 이동하여 주간 데이터 수집
             weekly_url = "https://jangboo.grider.ai/orders/sla/list"
             weekly_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            # 점수 영역의 숫자가 실제로 로드될 때까지 추가로 기다립니다. (숫자가 하나라도 포함될 때까지)
-            sub_wait_xpath = "//span[@data-text='total' and string-length(text()) > 0 and number(translate(text(), '0123456789', '')) != number(text())]"
+            # 두 개의 핵심 영역(점수, 건수)에 모두 숫자가 포함될 때까지 대기
+            sub_wait_xpath = (
+                "//body[count(.//span[@data-text='total' and number(translate(., '0123456789', '')) != number(.)]) > 0 and "
+                "count(.//div[@data-total_value='midnight_peak_count' and number(translate(., '0123456789', '')) != number(.)]) > 0]"
+            )
             weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath, sub_wait_xpath=sub_wait_xpath)
             if not weekly_html: return self._get_error_data("주간 데이터 페이지 크롤링 실패")
             
