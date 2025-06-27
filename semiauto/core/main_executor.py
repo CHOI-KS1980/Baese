@@ -19,6 +19,7 @@ import re
 import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup, Tag
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
+from dotenv import load_dotenv
 
 # Selenium 명시적 대기를 위한 모듈 추가
 from selenium.webdriver.support.ui import WebDriverWait
@@ -577,44 +578,87 @@ class GriderDataCollector:
             return "🌍 오늘의 날씨 (기상청)\n날씨 정보 조회 불가"
 
 class GriderAutoSender:
-    """G-Rider 자동화 메인 클래스"""
+    """G-Rider 자동화 메시지 발송기"""
+    
     def __init__(self, rest_api_key=None, refresh_token=None):
-        if not rest_api_key or not refresh_token:
-            key, token = load_config()
-            rest_api_key, refresh_token = key, token
-        if not rest_api_key or not refresh_token:
-            raise ValueError(" 카카오 API 설정이 필요합니다.")
-        self.token_manager = TokenManager(rest_api_key, refresh_token)
+        self.config = {
+            'REST_API_KEY': rest_api_key or os.getenv('KAKAO_REST_API_KEY'),
+            'REFRESH_TOKEN': refresh_token or os.getenv('KAKAO_REFRESH_TOKEN')
+        }
+        self.token_manager = TokenManager(self.config['REST_API_KEY'], self.config['REFRESH_TOKEN'])
         self.data_collector = GriderDataCollector()
 
+    def save_dashboard_data(self, data: dict):
+        """크롤링된 데이터를 대시보드용 JSON 파일로 저장"""
+        # 스크립트 파일의 위치를 기준으로 dashboard 디렉토리 경로 설정
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        dashboard_api_dir = os.path.join(base_dir, '..', 'dashboard', 'api')
+
+        # 디렉토리가 없으면 생성
+        os.makedirs(dashboard_api_dir, exist_ok=True)
+
+        # 파일 경로 설정
+        file_path = os.path.join(dashboard_api_dir, 'latest-data.json')
+
+        try:
+            # 데이터에 타임스탬프 추가
+            data_to_save = data.copy()
+            data_to_save['last_updated'] = get_korea_time().isoformat()
+
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+            logger.info(f"대시보드 데이터 저장 완료: {file_path}")
+            return True
+        except Exception as e:
+            logger.error(f"대시보드 데이터 저장 실패: {e}")
+            return False
+
     def send_report(self):
-        """데이터를 수집하고, 파일로 저장한 뒤, 카톡으로 리포트를 전송합니다."""
-        data = self.data_collector.get_grider_data()
-        if not data or data.get('error'):
-            logger.error(f"데이터 수집에 실패하여 리포트 전송을 중단합니다. 원인: {data.get('error_reason', '알 수 없음')}")
+        """G-Rider 운행 리포트 자동 발송"""
+        
+        # 1. G-Rider 데이터 수집
+        grider_data = self.data_collector.get_grider_data()
+        
+        # 2. 데이터 유효성 검사
+        if grider_data['error']:
+            logger.error(f"데이터 수집 실패: {grider_data['error_reason']}")
+            # 에러 발생 시에도 대시보드 데이터는 업데이트 (상태 확인용)
+            self.save_dashboard_data(grider_data)
             return
 
-        output_path = 'docs/api/latest-data.json'
-        try:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            logger.info(f"✅ 크롤링 결과를 {output_path} 파일로 성공적으로 저장했습니다.")
-        except Exception as e:
-            logger.error(f"❌ 크롤링 결과를 파일로 저장하는 중 오류 발생: {e}", exc_info=True)
+        # 3. 메시지 포맷팅
+        formatted_message = self.format_message(grider_data)
+
+        # 4. 카카오톡 메시지 전송
+        self.send_kakao_message(formatted_message)
         
+        # 5. 클립보드에 복사 (로컬 환경에서만)
+        if os.getenv('GITHUB_ACTIONS') != 'true':
+            try:
+                import pyperclip
+                pyperclip.copy(formatted_message)
+                logger.info(" 메시지가 클립보드에 복사되었습니다.")
+            except ImportError:
+                logger.warning(" pyperclip 모듈이 설치되지 않아 클립보드 복사를 건너뜁니다.")
+        
+        # 6. 대시보드용 데이터 저장
+        self.save_dashboard_data(grider_data)
+    
+    def send_kakao_message(self, text: str):
+        """카카오톡 메시지 전송 실행"""
         access_token = self.token_manager.get_valid_token()
         if not access_token:
-            logger.error("유효한 카카오 토큰이 없어 리포트 전송을 중단합니다.")
+            logger.error("유효한 토큰이 없어 메시지 전송을 건너뜁니다.")
             return
-            
-        message = self.format_message(data)
-        kakao_sender = KakaoSender(access_token)
-        kakao_sender.send_text_message(message)
-        logger.info("카카오톡 리포트 전송을 요청했습니다.")
+
+        sender = KakaoSender(access_token)
+        if not sender.send_text_message(text):
+            logger.error("카카오톡 메시지 전송에 실패했습니다.")
+        else:
+            logger.info("카카오톡 리포트 전송을 요청했습니다.")
 
     def format_message(self, data: dict) -> str:
-        """사용자 정의 규칙에 따라 상세한 카카오톡 메시지를 생성합니다."""
+        """카카오톡 전송을 위한 메시지 포맷팅"""
         
         def get_acceptance_progress_bar(percentage: float) -> str:
             if not 0 <= percentage <= 100: return ""
@@ -720,26 +764,41 @@ class GriderAutoSender:
             return "리포트 생성 중 오류가 발생했습니다."
 
 def load_config():
-    """설정 파일 또는 환경변수에서 로드"""
-    rest_api_key = os.getenv('KAKAO_REST_API_KEY')
-    refresh_token = os.getenv('KAKAO_REFRESH_TOKEN')
-    if rest_api_key and refresh_token: return rest_api_key, refresh_token
+    """환경변수 또는 .env 파일에서 설정 로드"""
+    # .env 파일 경로를 스크립트 파일 기준으로 설정
+    dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    load_dotenv(dotenv_path)
     
-    config_file = 'semiauto/config.txt'
-    if not os.path.exists(config_file): return None, None
-    try:
-        with open(config_file, 'r', encoding='utf-8') as f:
-            config = {line.split('=')[0]: line.split('=')[1].strip() for line in f if '=' in line}
-        return config.get('REST_API_KEY'), config.get('REFRESH_TOKEN')
-    except Exception as e:
-        logger.error(f" 설정 파일 로드 실패: {e}")
-        return None, None
+    config = {
+        'G_ID': os.getenv('G_ID'),
+        'G_PW': os.getenv('G_PW'),
+        'KAKAO_REST_API_KEY': os.getenv('KAKAO_REST_API_KEY'),
+        'KAKAO_REFRESH_TOKEN': os.getenv('KAKAO_REFRESH_TOKEN'),
+        'KOREA_HOLIDAY_API_KEY': os.getenv('KOREA_HOLIDAY_API_KEY')
+    }
+    
+    # 필수 설정값 확인
+    if not all([config['G_ID'], config['G_PW'], config['KAKAO_REST_API_KEY'], config['KAKAO_REFRESH_TOKEN']]):
+        logger.warning("필수 환경변수가 모두 설정되지 않았습니다.")
+        
+    return config
 
 def main():
-    try:
-        GriderAutoSender().send_report()
-    except (ValueError, Exception) as e:
-        logger.error(f" 실행 실패: {e}", exc_info=True)
+    """메인 실행 함수"""
+    logger.info("="*50)
+    logger.info(" G-Rider 자동화 스크립트 시작")
+    logger.info("="*50)
+    
+    config = load_config()
+    sender = GriderAutoSender(
+        rest_api_key=config.get('KAKAO_REST_API_KEY'),
+        refresh_token=config.get('KAKAO_REFRESH_TOKEN')
+    )
+    sender.send_report()
+    
+    logger.info("="*50)
+    logger.info(" G-Rider 자동화 스크립트 종료")
+    logger.info("="*50)
 
 if __name__ == '__main__':
     main() 

@@ -1,308 +1,57 @@
-name: 🌟 차세대 G라이더 자동화 시스템
-
-on:
-  push:
-    branches: [ "main" ]
-  schedule:
-    # 30분 간격 기본 실행 (KST: 06:00 ~ 다음날 00:30)
-    - cron: '0,30 21-23,0-15 * * *'
-    # 피크 타임 추가 실행 (KST: 점심/저녁 피크의 15분, 45분)
-    - cron: '15,45 2-5,8-10 * * *'
-  
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: '실행 모드'
-        required: false
-        default: 'ultimate'
-        type: choice
-        options:
-          - ultimate
-          - ai_only
-          - optimization
-          - status_check
-      priority:
-        description: '우선순위'
-        required: false
-        default: 'normal'
-        type: choice
-        options:
-          - normal
-          - high
-          - emergency
-
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+name: 📊 G-Rider 데이터 자동 업데이트 및 대시보드 배포
 
 env:
   PYTHON_VERSION: '3.11'
-  NODE_VERSION: '18'
+  TZ: 'Asia/Seoul'
 
-permissions:
-  contents: write
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2,17,32,47 * * * *'
 
 jobs:
-  ultimate-automation:
-    name: 🌟 차세대 자동화 실행
+  update-data:
+    name: 📊 데이터 업데이트
     runs-on: ubuntu-latest
-    timeout-minutes: 8
     
     steps:
-    - name: 📥 코드 체크아웃
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
+      - name: ⬇️ 코드 체크아웃
+        uses: actions/checkout@v4
 
-    - name: 🐍 Python 환경 설정 (캐싱 전략 개선)
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      - name: 🐍 Python 환경 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
-    - name: 📦 의존성 캐시 로드 및 설치
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-
+      - name: 📦 의존성 설치
+        run: pip install -r requirements.txt
 
-    - name: 📦 의존성 설치
-      run: |
-        python -m pip install --upgrade pip --quiet
-        pip install --prefer-binary -r requirements.txt --quiet
+      - name: 🚀 파이썬 스크립트 실행
+        run: python semiauto/core/main_executor.py
+        env:
+          G_ID: ${{ secrets.G_ID }}
+          G_PW: ${{ secrets.G_PW }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
 
-    - name: 🌐 Chrome 설치 (필요시)
-      run: |
-        if ! command -v google-chrome >/dev/null 2>&1; then
-          echo "🔄 Chrome이 설치되지 않았습니다. 설치를 시작합니다."
-          sudo apt-get update -qq && sudo apt-get install -y google-chrome-stable --quiet
-        else
-          echo "✅ Chrome이 이미 설치되어 있습니다."
-        fi
-        google-chrome --version
+      - name: 📤 배포 아티팩트 업로드
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './semiauto/dashboard'
 
-    - name: 🚀 ChromeDriver 설치 (버전 자동 매칭 최종판)
-      run: |
-        # 1. 설치된 Chrome의 Major 버전을 정확히 가져옵니다 (e.g., 137)
-        CHROME_MAJOR_VERSION=$(google-chrome --product-version | cut -d. -f1)
-        echo "Installed Chrome Major Version: $CHROME_MAJOR_VERSION"
-
-        # 2. 해당 Major 버전에 맞는 최신 ChromeDriver 다운로드 URL을 찾습니다.
-        DRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json | jq -r --arg ver "$CHROME_MAJOR_VERSION" '[.versions[] | select(.version | startswith($ver))] | last | .downloads.chromedriver[] | select(.platform=="linux64") | .url')
-        echo "Found ChromeDriver URL for $CHROME_MAJOR_VERSION: $DRIVER_URL"
-
-        # 3. ChromeDriver를 다운로드하고 설치합니다.
-        curl -sL "$DRIVER_URL" -o chromedriver.zip
-        unzip -q chromedriver.zip
-        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        chromedriver --version
-
-    - name: 🌟 차세대 시스템 실행
-      env:
-        GRIDER_ID: ${{ secrets.GRIDER_ID }}
-        GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
-        KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-        KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-        KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
-      run: |
-        # 1. config.txt를 semiauto 폴더 안에 직접 생성 (cd 사용 안함)
-        echo "✅ 필수 환경변수 확인 완료"
-        cat > semiauto/config.txt << EOF
-        REST_API_KEY=${KAKAO_REST_API_KEY}
-        REFRESH_TOKEN=${KAKAO_REFRESH_TOKEN}
-        GRIDER_ID=${GRIDER_ID}
-        GRIDER_PASSWORD=${GRIDER_PASSWORD}
-        KOREA_HOLIDAY_API_KEY=${KOREA_HOLIDAY_API_KEY}
-        EOF
-        echo "✅ 설정 파일 생성 완료: semiauto/config.txt"
-
-        # 2. 프로젝트 루트에서 final_solution.py를 모듈로 실행
-        echo "🚀 G-Rider 자동화 시스템 실행"
-        python -m semiauto.core.main_executor
-
-    - name: 🔍 결과 분석
-      if: always()
-      run: |
-        cd semiauto
-        echo "🔍 크롤링 로그 분석"
-        echo "================================"
-        
-        # ✨ 최종 정리: 디버그 HTML 파일 분석 로직 완전 삭제
-
-        # 로그 파일 상세 분석 (경로 수정)
-        if [ -f "../grider_automation.log" ]; then
-          echo "📄 크롤링 관련 로그 분석:"
-          echo "🔍 마지막 크롤링 시도:"
-          grep -A 5 -B 5 "크롤링" ../grider_automation.log | tail -n 20
-          
-          echo "🔍 에러 메시지:"
-          grep -i "error\|실패\|오류" ../grider_automation.log | tail -n 10
-          
-          echo "🔍 로그인 관련:"
-          grep -i "login\|로그인" ../grider_automation.log | tail -n 5
-        fi
-
-    - name: 대시보드 데이터 업데이트 및 배포
-      if: success()
-      run: |
-        # Git 설정
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-
-        # Git 인덱스에서 로그 파일을 강제로 제거 (추적 중지) - 충돌의 근본 원인 해결
-        git rm -f --cached grider_automation.log || true
-        
-        # 변경사항 스테이징 (docs 폴더만)
-        git add docs/
-        
-        # 커밋 및 푸시
-        if ! git diff --staged --quiet; then
-          git commit -m "📊 대시보드 실시간 데이터 업데이트 (${{ github.run_number }})"
-          
-          # 푸시 전 pull 실행 (rebase 전략 사용)
-          git pull --rebase origin main
-          git push
-        else
-          echo "✅ 변경된 데이터가 없어 커밋하지 않습니다."
-        fi
-
-    - name: 📊 실행 결과 분석
-      if: always()
-      run: |
-        echo "📊 실행 결과 분석"
-        
-        # 로그 파일 확인 (경로 수정)
-        if [ -f "grider_automation.log" ]; then
-          echo "📄 실행 로그 마지막 10줄:"
-          tail -n 10 grider_automation.log
-        fi
-        
-        # 메시지 히스토리 확인
-        if [ -f "message_history.json" ]; then
-          echo "📨 메시지 히스토리 상태:"
-          python -c "
-        import json
-        try:
-            with open('message_history.json', 'r') as f:
-                data = json.load(f)
-                total_sent = len(data.get('sent_messages', {}))
-                total_failed = len(data.get('failed_messages', {}))
-                print(f'✅ 전송 성공: {total_sent}개')
-                print(f'❌ 전송 실패: {total_failed}개')
-        except:
-            print('   히스토리 파일 분석 실패')
-        "
-        fi
-        
-        # 대시보드 데이터 상태 확인 (경로 수정)
-        if [ -f "docs/api/latest-data.json" ]; then
-          echo "🌐 대시보드 데이터 상태:"
-          python -c "
-        import json
-        try:
-            with open('docs/api/latest-data.json', 'r') as f:
-                data = json.load(f)
-                print(f'📊 총점: {data.get(\"총점\", 0)}점')
-                print(f'✅ 총완료: {data.get(\"총완료\", 0)}개')
-                print(f'🏍️ 활성 라이더: {len(data.get(\"riders\", []))}명')
-                print(f'📅 업데이트: {data.get(\"timestamp\", \"알 수 없음\")}')
-        except Exception as e:
-            print(f'❌ 대시보드 데이터 분석 실패: {e}')
-        "
-        fi
-
-    - name: 📤 디버그 아티팩트 업로드 (항상 실행)
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: grider-debug-artifacts-${{ github.run_number }}
-        path: |
-          debug_*.html
-          debug_*.png
-          grider_automation.log
-        retention-days: 7
-
-    - name: 📁 아티팩트 업로드
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: ultimate-system-logs-${{ github.run_number }}
-        path: |
-          semiauto/*.log
-          semiauto/*_history.json
-          semiauto/*_data.json
-          semiauto/*_cache.json
-          semiauto/dashboard/api/*.json
-        retention-days: 7
-
-  performance-monitoring:
-    name: 📈 성능 모니터링
+  deploy:
+    name: 🚀 대시보드 배포
+    needs: update-data
     runs-on: ubuntu-latest
-    needs: ultimate-automation
-    if: always()
-    
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-    - name: 📥 아티팩트 다운로드
-      uses: actions/download-artifact@v4
-      with:
-        name: ultimate-system-logs-${{ github.run_number }}
-        path: ./logs
-
-    - name: 📊 성능 분석 리포트
-      run: |
-        echo "📈 차세대 G라이더 시스템 성능 분석"
-        echo "=" $(printf '=%.0s' {1..50})
-        
-        # 실행 성공/실패 판정
-        if [ "${{ needs.ultimate-automation.result }}" == "success" ]; then
-          echo "✅ 실행 상태: 성공"
-          echo "🎉 모든 컴포넌트가 정상 작동했습니다."
-        else
-          echo "❌ 실행 상태: 실패"
-          echo "🔍 로그를 확인하여 문제점을 파악해주세요."
-        fi
-        
-        echo ""
-        echo "📊 시스템 구성 요소:"
-        echo "  🤖 AI 기반 성과 예측 및 이상 감지"
-        echo "  🔍 실시간 데이터 검증 및 자동 수정"
-        echo "  📅 정확한 시간 기반 스케줄링"
-        echo "  🔄 누락 메시지 자동 복구"
-        echo "  📈 성능 모니터링 및 최적화"
-        echo "  🌐 실시간 웹 대시보드"
-        echo "  🌟 차세대 통합 관리"
-        
-        echo ""
-        echo "🔗 모니터링 대시보드: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-        echo "📁 로그 아티팩트: ultimate-system-logs-${{ github.run_number }}"
-
-  health-check:
-    name: 🏥 시스템 헬스 체크
-    runs-on: ubuntu-latest
-    needs: ultimate-automation
-    if: failure()
-    
-    steps:
-    - name: 🚨 시스템 장애 알림
-      run: |
-        echo "🚨 차세대 G라이더 시스템 장애 감지!"
-        echo ""
-        echo "🔍 장애 정보:"
-        echo "  • 시간: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-        echo "  • 워크플로우: ${{ github.workflow }}"
-        echo "  • 실행 번호: ${{ github.run_number }}"
-        echo "  • 트리거: ${{ github.event_name }}"
-        
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "  • 수동 실행 모드: ${{ github.event.inputs.mode }}"
-          echo "  • 우선순위: ${{ github.event.inputs.priority }}"
-        fi
-        
-        echo ""
-        echo "🛠️ 복구 방법:"
-        echo "  1. Actions 탭에서 로그 확인"
-        echo "  2. 아티팩트에서 상세 로그 다운로드"
-        echo "  3. 필요시 수동으로 workflow_dispatch 실행"
-        echo "  4. 대시보드에서 실시간 상태 확인" 
+      - name: 🚀 페이지 배포
+        id: deployment
+        uses: actions/deploy-pages@v4 
