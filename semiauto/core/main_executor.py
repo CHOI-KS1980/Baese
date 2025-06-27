@@ -395,6 +395,17 @@ class GriderDataCollector:
         except Exception:
             logger.warning("⚠️ 총점 데이터 로드 확인 시간 초과, 페이지 소스를 그대로 반환합니다.")
 
+        # [최종 진단] 스크린샷과 HTML 소스를 저장하여 결정적인 증거를 확보합니다.
+        debug_html_path = 'debug_page_source.html'
+        debug_img_path = 'debug_screenshot.png'
+        try:
+            driver.save_screenshot(debug_img_path)
+            with open(debug_html_path, 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            logger.info(f"✅ [DIAGNOSTIC] 증거 수집 완료: {debug_img_path}, {debug_html_path}")
+        except Exception as e:
+            logger.error(f"❌ [DIAGNOSTIC] 증거 수집 실패: {e}")
+
         if self._verify_date_in_html(driver.page_source, target_date):
             return driver.page_source
         raise Exception("날짜 검증 실패")

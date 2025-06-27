@@ -213,16 +213,16 @@ jobs:
         "
         fi
 
-    - name: 📤 실패 시 아티팩트 업로드
-      if: failure()
+    - name: 📤 디버그 아티팩트 업로드 (항상 실행)
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: grider-debug-artifacts
+        name: grider-debug-artifacts-${{ github.run_number }}
         path: |
-          debug_failed_page_*.html
-          debug_date_nav_failed.html
-          debug_failed_screenshot_*.png
+          debug_*.html
+          debug_*.png
           grider_automation.log
+        retention-days: 7
 
     - name: 📁 아티팩트 업로드
       if: always()
