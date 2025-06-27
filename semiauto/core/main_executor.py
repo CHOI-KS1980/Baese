@@ -466,18 +466,24 @@ class GriderDataCollector:
             peak_data = {}
             mission_date = self._get_mission_date()
             
-            # 1. "물량 점수관리" 제목 h3 태그를 먼저 찾는다.
-            title_h3 = soup.find('h3', class_='page_sub_title', string=lambda t: '물량 점수관리' in t if t else False)
+            # [최종 수정] 제목 텍스트를 공백 등과 무관하게 가장 확실하게 검색합니다.
+            title_h3 = None
+            all_h3s = soup.find_all('h3', class_='page_sub_title')
+            for h3 in all_h3s:
+                if '물량 점수관리' in h3.get_text(strip=True):
+                    title_h3 = h3
+                    logger.info("✅ '물량 점수관리' 제목을 포함하는 h3 태그를 찾았습니다.")
+                    break
             
             sla_table = None
             if title_h3:
-                # 2. h3 태그의 부모('.item') 안에서 '.sla_table'을 찾는다. (가장 가까운 테이블 보장)
+                # h3 태그의 부모('.item') 안에서 '.sla_table'을 찾는다. (가장 가까운 테이블 보장)
                 parent_item = title_h3.find_parent('div', class_='item')
                 if parent_item:
                     sla_table = parent_item.find('table', class_='sla_table')
 
             if sla_table:
-                logger.info("✅ [ULTIMATE] '물량 점수관리' 테이블을 정확히 찾았습니다.")
+                logger.info("✅ '물량 점수관리' 테이블을 정확히 찾았습니다.")
                 found_today = False
                 rows = sla_table.select('tbody tr')
                 for row in rows:
@@ -505,7 +511,7 @@ class GriderDataCollector:
                 if not found_today:
                     logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
             else:
-                logger.warning("⚠️ [ULTIMATE] '물량 점수관리' 제목 또는 테이블을 찾지 못했습니다.")
+                logger.warning("⚠️ '물량 점수관리' 제목 또는 테이블을 찾지 못했습니다.")
 
             data.update(peak_data)
             logger.info(f"미션 데이터 파싱: {len(peak_data)}개 피크")
