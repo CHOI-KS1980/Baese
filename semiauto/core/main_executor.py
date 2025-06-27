@@ -483,7 +483,7 @@ class GriderDataCollector:
                             peak_text = cols[i + 3].get_text(strip=True)
                             
                             # 더 강력한 파싱: 텍스트에서 숫자 2개를 순서대로 추출
-                            numbers = re.findall(r'\d+', peak_text)
+                            numbers = re.findall(r'(\d+)', peak_text)
                             
                             if len(numbers) >= 2:
                                 current, target = int(numbers[0]), int(numbers[1])
