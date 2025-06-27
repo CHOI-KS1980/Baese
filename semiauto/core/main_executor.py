@@ -468,31 +468,42 @@ class GriderDataCollector:
             
             sla_table = soup.select_one('.sla_table')
             if sla_table:
-                logger.info("✅ 물량 점수관리 테이블('.sla_table')을 찾았습니다. 오늘 날짜의 데이터를 검색합니다.")
+                logger.info("✅ [DIAGNOSTIC] 물량 점수관리 테이블('.sla_table')을 찾았습니다.")
+                logger.info(f"✅ [DIAGNOSTIC] Table HTML: {sla_table.prettify()}")
+                
                 found_today = False
                 rows = sla_table.select('tbody tr')
-                for row in rows:
+                logger.info(f"✅ [DIAGNOSTIC] 테이블에서 {len(rows)}개의 행을 찾았습니다. 오늘 날짜({mission_date})를 검색합니다.")
+
+                for i, row in enumerate(rows):
                     cols = row.select('td')
-                    if len(cols) > 2 and mission_date in cols[1].get_text(strip=True):
-                        logger.info(f"✅ 오늘 날짜({mission_date})의 행을 찾았습니다.")
-                        found_today = True
+                    if len(cols) > 1:
+                        date_text = cols[1].get_text(strip=True)
+                        logger.info(f"✅ [DIAGNOSTIC] Row {i+1} Date Text: '{date_text}'")
                         
-                        peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-                        # td[3] 부터 피크 데이터
-                        for i, peak_name in enumerate(peak_names):
-                            peak_text = cols[i + 3].get_text(strip=True)
+                        if mission_date in date_text:
+                            logger.info(f"✅ [DIAGNOSTIC] 오늘 날짜({mission_date})의 행을 찾았습니다.")
+                            found_today = True
                             
-                            # 더 강력한 파싱: 텍스트에서 숫자 2개를 순서대로 추출
-                            numbers = re.findall(r'(\d+)', peak_text)
-                            
-                            if len(numbers) >= 2:
-                                current, target = int(numbers[0]), int(numbers[1])
-                                peak_data[peak_name] = {'current': current, 'target': target}
-                                logger.info(f"✅ 피크 '{peak_name}' 파싱 성공: {current}/{target}")
-                            else:
-                                peak_data[peak_name] = {'current': 0, 'target': 0}
-                                logger.warning(f"⚠️ 피크 '{peak_name}' 파싱 실패: '{peak_text}'에서 숫자 2개를 찾을 수 없음")
-                        break # 오늘 날짜를 찾았으니 루프 종료
+                            peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+                            # td[3] 부터 피크 데이터
+                            for j, peak_name in enumerate(peak_names):
+                                peak_cell = cols[j + 3]
+                                peak_text = peak_cell.get_text(strip=True)
+                                logger.info(f"✅ [DIAGNOSTIC] Parsing Peak: '{peak_name}' | Raw Text: '{peak_text}' | Raw HTML: {peak_cell.prettify()}")
+                                
+                                # 더 강력한 파싱: 텍스트에서 숫자 2개를 순서대로 추출
+                                numbers = re.findall(r'(\d+)', peak_text)
+                                logger.info(f"✅ [DIAGNOSTIC] Found numbers: {numbers}")
+                                
+                                if len(numbers) >= 2:
+                                    current, target = int(numbers[0]), int(numbers[1])
+                                    peak_data[peak_name] = {'current': current, 'target': target}
+                                    logger.info(f"✅ 피크 '{peak_name}' 파싱 성공: {current}/{target}")
+                                else:
+                                    peak_data[peak_name] = {'current': 0, 'target': 0}
+                                    logger.warning(f"⚠️ 피크 '{peak_name}' 파싱 실패: '{peak_text}'에서 숫자 2개를 찾을 수 없음")
+                            break # 오늘 날짜를 찾았으니 루프 종료
                 if not found_today:
                     logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
             else:
