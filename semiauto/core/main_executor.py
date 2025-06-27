@@ -641,6 +641,17 @@ class GriderDataCollector:
 
             data.update(peak_data)
 
+            # [최종 해결] 일일 완료 건수를 신뢰 가능한 피크 타임 건수의 합계로 계산합니다.
+            calculated_daily_completed = sum(
+                details.get('current', 0) for peak_name, details in peak_data.items()
+            )
+            if calculated_daily_completed > 0:
+                logger.info(f"🔄 [정확도 개선] 일일 완료 건수를 피크 데이터 합산으로 재계산: {data.get('일일_완료', 0)} -> {calculated_daily_completed}")
+                data['일일_완료'] = calculated_daily_completed
+            else:
+                # 피크 합산이 0일 경우, 기존에 파싱된 (부정확할 수 있는) daily_completed 값을 그대로 사용합니다.
+                logger.warning("⚠️ 피크 데이터 합산 결과가 0입니다. 기존 일일 완료 건수 값을 사용합니다: " + str(data.get('일일_완료', 0)))
+
             # 3. 라이더 데이터 (rider_item) - SLA 페이지에 없을 수 있으므로 방어적으로 처리
             riders = []
             rider_list_area = soup.select_one('.rider_list')
@@ -864,8 +875,7 @@ class GriderAutoSender:
             weekly_summary = (
                 "📊 이번주 미션 예상점수\n"
                 f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-                f"완료: {weekly_completed}  거절: {weekly_rejected}\n"
-                f"수락률: {weekly_acceptance_rate:.1f}%\n"
+                f"주간 수락률: {weekly_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
             )
 
