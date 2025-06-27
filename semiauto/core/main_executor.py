@@ -438,61 +438,120 @@ class GriderDataCollector:
                 data['주간_총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
                 data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
             
-            # 1-1. 금일 수행 내역 (일일 데이터) - 새로 추가
+            # 1-1. 금일 수행 내역 (일일 데이터) - 정확한 HTML 요소 기반 크롤링
             logger.info("🔍 일일 데이터 크롤링 시작...")
             
-            # 완료 갯수
-            complete_count_element = soup.select_one('div.total_value_item[data-total_value="complete_count"]')
-            if complete_count_element:
-                daily_completed = get_number(complete_count_element.get_text())
-                logger.info(f"✅ 일일 완료 데이터 발견: {complete_count_element.get_text().strip()} -> {daily_completed}")
+            # 완료 갯수 - 더 정확한 셀렉터 사용
+            complete_selectors = [
+                'div.total_value_item.rider_contents.row[data-total_value="complete_count"]',
+                'div[data-total_value="complete_count"]',
+                '.total_value_item[data-total_value="complete_count"]'
+            ]
+            
+            daily_completed = 0
+            for selector in complete_selectors:
+                complete_element = soup.select_one(selector)
+                if complete_element:
+                    daily_completed = get_number(complete_element.get_text())
+                    logger.info(f"✅ 완료 데이터 발견 [{selector}]: {complete_element.get_text().strip()} -> {daily_completed}")
+                    break
             else:
-                # 대체 셀렉터 시도
-                logger.warning("⚠️ 기본 완료 셀렉터 실패, 대체 방법 시도...")
-                alt_selectors = [
-                    '.total_value_item[data-total_value="complete_count"]',
-                    '[data-total_value="complete_count"]',
-                    '.rider_contents:contains("완료")'
-                ]
-                daily_completed = 0
-                for selector in alt_selectors:
-                    try:
-                        element = soup.select_one(selector)
-                        if element:
-                            daily_completed = get_number(element.get_text())
-                            logger.info(f"✅ 대체 셀렉터로 완료 데이터 발견: {selector} -> {daily_completed}")
-                            break
-                    except:
-                        continue
-                else:
-                    logger.error("❌ 모든 완료 데이터 셀렉터 실패")
+                logger.warning("⚠️ 완료 데이터 HTML 요소 찾기 실패")
             
-            # 거절 갯수들 (거절 + 배차취소 + 배달취소)
-            reject_count_element = soup.select_one('div.total_value_item[data-total_value="reject_count"]')
-            accept_cancel_element = soup.select_one('div.total_value_item[data-total_value="accept_cancel_count"]')
-            delivery_cancel_element = soup.select_one('div.total_value_item[data-total_value="accept_cancel_rider_fault_count"]')
+            # 거절 갯수 - 정확한 HTML 요소들
+            reject_selectors = [
+                'div.total_value_item.rider_contents.row[data-total_value="reject_count"]',
+                'div[data-total_value="reject_count"]',
+                '.total_value_item[data-total_value="reject_count"]'
+            ]
             
-            daily_rejected = get_number(reject_count_element.get_text()) if reject_count_element else 0
-            daily_accept_cancel = get_number(accept_cancel_element.get_text()) if accept_cancel_element else 0
-            daily_delivery_cancel = get_number(delivery_cancel_element.get_text()) if delivery_cancel_element else 0
+            daily_rejected = 0
+            for selector in reject_selectors:
+                reject_element = soup.select_one(selector)
+                if reject_element:
+                    daily_rejected = get_number(reject_element.get_text())
+                    logger.info(f"✅ 거절 데이터 발견 [{selector}]: {reject_element.get_text().strip()} -> {daily_rejected}")
+                    break
+            else:
+                logger.warning("⚠️ 거절 데이터 HTML 요소 찾기 실패")
             
-            logger.info(f"🔍 거절 관련 데이터: 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
+            # 배차취소 갯수
+            accept_cancel_selectors = [
+                'div.total_value_item.rider_contents.row[data-total_value="accept_cancel_count"]',
+                'div[data-total_value="accept_cancel_count"]',
+                '.total_value_item[data-total_value="accept_cancel_count"]'
+            ]
             
-            # 데이터 검증: 일일 데이터가 너무 클 경우 (500건 이상) 의심
-            if daily_completed > 500:
-                logger.warning(f"⚠️ 일일 완료 데이터가 의심스럽게 큽니다: {daily_completed}건. 주간 데이터일 가능성 있음")
-                # 임시로 라이더 개별 완료 합계로 대체
+            daily_accept_cancel = 0
+            for selector in accept_cancel_selectors:
+                cancel_element = soup.select_one(selector)
+                if cancel_element:
+                    daily_accept_cancel = get_number(cancel_element.get_text())
+                    logger.info(f"✅ 배차취소 데이터 발견 [{selector}]: {cancel_element.get_text().strip()} -> {daily_accept_cancel}")
+                    break
+            else:
+                logger.warning("⚠️ 배차취소 데이터 HTML 요소 찾기 실패")
+            
+            # 배달취소 갯수
+            delivery_cancel_selectors = [
+                'div.total_value_item.rider_contents.row[data-total_value="accept_cancel_rider_fault_count"]',
+                'div[data-total_value="accept_cancel_rider_fault_count"]',
+                '.total_value_item[data-total_value="accept_cancel_rider_fault_count"]'
+            ]
+            
+            daily_delivery_cancel = 0
+            for selector in delivery_cancel_selectors:
+                delivery_element = soup.select_one(selector)
+                if delivery_element:
+                    daily_delivery_cancel = get_number(delivery_element.get_text())
+                    logger.info(f"✅ 배달취소 데이터 발견 [{selector}]: {delivery_element.get_text().strip()} -> {daily_delivery_cancel}")
+                    break
+            else:
+                logger.warning("⚠️ 배달취소 데이터 HTML 요소 찾기 실패")
+            
+            logger.info(f"🔍 HTML에서 수집된 데이터: 완료={daily_completed}, 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
+            
+            # 총 거절 갯수 계산 (거절 + 배차취소 + 배달취소)
+            total_daily_rejected = daily_rejected + daily_accept_cancel + daily_delivery_cancel
+            
+            # HTML 크롤링 실패 시 대안: 라이더별 데이터 합산
+            if daily_completed == 0 and total_daily_rejected == 0:
+                logger.warning("⚠️ HTML 크롤링 실패. 라이더별 데이터 합산으로 대체합니다.")
+                
+                # 라이더 데이터가 파싱되었다면 그것을 사용
                 all_riders = data.get('riders', [])
                 if all_riders:
-                    daily_completed_from_riders = sum(r.get('완료', 0) for r in all_riders)
-                    logger.info(f"🔄 라이더 개별 완료 합계로 대체: {daily_completed_from_riders}건")
-                    daily_completed = daily_completed_from_riders
+                    # 모든 라이더의 완료 건수 합산
+                    rider_total_completed = sum(rider.get('완료', 0) for rider in all_riders)
+                    
+                    # 모든 라이더의 거절 건수 합산 (거절 + 취소 포함)
+                    rider_total_rejected = 0
+                    for rider in all_riders:
+                        rider_rejected = rider.get('거절', 0)
+                        rider_canceled = rider.get('취소', 0)
+                        rider_total_rejected += rider_rejected + rider_canceled
+                    
+                    # 대체 데이터 적용
+                    daily_completed = rider_total_completed
+                    total_daily_rejected = rider_total_rejected
+                    
+                    logger.info(f"🔄 라이더별 데이터로 대체 완료: 완료={daily_completed}, 거절={total_daily_rejected}")
+                else:
+                    logger.error("❌ 라이더 데이터도 없어서 일일 데이터를 구할 수 없습니다.")
             
             # 일일 데이터 저장
             data['일일_완료'] = daily_completed
-            data['일일_거절_합계'] = daily_rejected + daily_accept_cancel + daily_delivery_cancel
+            data['일일_거절_합계'] = total_daily_rejected
             
-            logger.info(f"✅ 최종 일일 데이터: 완료={daily_completed}, 거절(합계)={data['일일_거절_합계']}")
+            # 정확한 수락률 계산
+            total_daily_orders = daily_completed + total_daily_rejected
+            if total_daily_orders > 0:
+                daily_acceptance_rate = (daily_completed / total_daily_orders) * 100
+                data['일일_수락률'] = round(daily_acceptance_rate, 1)
+            else:
+                data['일일_수락률'] = 0.0
+            
+            logger.info(f"✅ 최종 일일 데이터: 완료={daily_completed}, 거절(합계)={total_daily_rejected}, 수락률={data['일일_수락률']}%")
             
             # 주간 데이터와 비교 로깅
             weekly_completed = data.get('주간_총완료', 0)
