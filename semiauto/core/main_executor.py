@@ -296,6 +296,23 @@ class GriderDataCollector:
             if not self._perform_login(driver):
                 raise Exception("G라이더 로그인 실패")
             
+            # 1. 로그인 후 자동으로 이동된 대시보드에서 바로 일간 데이터 수집
+            logger.info("로그인 성공 후 대시보드에서 일간 데이터 수집 시도...")
+            daily_wait_xpath = "//h3[contains(text(), '라이더 현황')]"
+            try:
+                # _perform_login에서 이미 URL 이동을 확인했지만, 여기서 컨텐츠가 확실히 로드될 때까지 한번 더 기다립니다.
+                WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, daily_wait_xpath)))
+                logger.info(f"✅ 대시보드 컨텐츠 로드 확인 ({daily_wait_xpath})")
+                daily_html = driver.page_source
+                if len(daily_html) < 1000: raise Exception("대시보드 HTML 길이가 너무 짧아 로딩 실패로 간주")
+            except Exception as e:
+                logger.error(f"대시보드에서 데이터 수집 실패: {e}", exc_info=True)
+                return self._get_error_data("일간 데이터 페이지(대시보드) 크롤링 실패")
+
+            daily_data = self._parse_daily_data(daily_html)
+            logger.info("✅ 일간 데이터 파싱 완료")
+
+            # 2. 주간 데이터 페이지로 이동하여 주간 데이터 수집
             weekly_url = "https://jangboo.grider.ai/orders/sla/list"
             weekly_wait_xpath = "//h3[contains(text(), '물량 점수관리')]"
             weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath)
@@ -303,14 +320,6 @@ class GriderDataCollector:
             
             weekly_data = self._parse_weekly_data(weekly_html)
             logger.info("✅ 주간 데이터 파싱 완료")
-
-            daily_url = "https://jangboo.grider.ai/dashboard"
-            daily_wait_xpath = "//h3[contains(text(), '라이더 현황')]"
-            daily_html = self._crawl_page(driver, daily_url, daily_wait_xpath)
-            if not daily_html: return self._get_error_data("일간 데이터 페이지 크롤링 실패")
-            
-            daily_data = self._parse_daily_data(daily_html)
-            logger.info("✅ 일간 데이터 파싱 완료")
             
             final_data = {**weekly_data, **daily_data}
             final_data['weather_info'] = self._get_weather_info_detailed()
