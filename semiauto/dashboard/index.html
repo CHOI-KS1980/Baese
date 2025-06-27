@@ -430,11 +430,11 @@
 
                 <div class="stat-card warning">
                     <div class="stat-header">
-                        <span class="stat-title">수락률</span>
-                        <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+                        <div class="stat-title" id="active-riders-title">운행중인 라이더</div>
+                        <div class="stat-icon"><i class="fas fa-motorcycle"></i></div>
                     </div>
-                    <div class="stat-value" id="acceptance-rate">0%</div>
-                    <div class="stat-label">전체 수락률</div>
+                    <div class="stat-value" id="active-riders">0</div>
+                    <div class="stat-label">데이터에 포함된 라이더 수</div>
                 </div>
 
                 <div class="stat-card danger">
@@ -457,9 +457,10 @@
 
             <!-- 라이더 현황 -->
             <div class="riders-section">
-                <h2 class="section-title"><i class="fas fa-motorcycle"></i> 라이더 현황</h2>
-                <div id="riders-list">
-                    <!-- 라이더 데이터가 여기에 동적으로 추가됩니다 -->
+                <h2 class="section-title"><i class="fas fa-users"></i>라이더 현황</h2>
+                <div id="rider-list-container">
+                    <!-- 라이더 목록이 여기에 동적으로 추가됩니다 -->
+                    <div class="rider-item-placeholder">데이터를 불러오는 중...</div>
                 </div>
             </div>
 
@@ -592,7 +593,7 @@
 
         // 라이더 현황 업데이트
         function updateRidersSection(data) {
-            const ridersList = document.getElementById('riders-list');
+            const ridersList = document.getElementById('rider-list-container');
             ridersList.innerHTML = '';
             
             const riders = data.riders || [];

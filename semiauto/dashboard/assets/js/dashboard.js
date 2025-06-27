@@ -129,251 +129,93 @@ function initializeCharts() {
 // 데이터 새로고침
 async function refreshData() {
     console.log('🔄 데이터 새로고침 시작');
-    
     try {
-        // API에서 데이터 가져오기 (실제로는 GitHub Actions에서 생성된 JSON 파일)
         const data = await fetchLatestData();
-        
-        if (data) {
+        if (data && !data.error) {
             updateDashboard(data);
-            updateSystemStatus('online');
-            lastDataUpdate = new Date();
+            updateSystemStatus('online', data.last_updated);
         } else {
-            updateSystemStatus('offline');
+            const errorMessage = data ? data.error_reason : '데이터 파일을 찾을 수 없습니다.';
+            updateSystemStatus('error', null, errorMessage);
+            showNotification(errorMessage, 'error');
         }
-        
     } catch (error) {
         console.error('❌ 데이터 새로고침 실패:', error);
-        updateSystemStatus('error');
-        showNotification('데이터 로드에 실패했습니다.', 'error');
+        updateSystemStatus('error', null, error.message);
     }
-    
-    // 마지막 업데이트 시간 표시
-    document.getElementById('last-update-time').textContent = 
-        new Date().toLocaleString('ko-KR');
 }
 
 // 최신 데이터 가져오기
 async function fetchLatestData() {
     try {
-        // GitHub Pages에서 JSON 파일 읽기
         const response = await fetch('api/latest-data.json?t=' + Date.now());
-        
         if (!response.ok) {
-            throw new Error('데이터 로드 실패');
+            throw new Error(`데이터 파일 로드 실패 (${response.status})`);
         }
-        
         return await response.json();
     } catch (error) {
-        console.warn('API 데이터 로드 실패, 샘플 데이터 사용');
-        return generateSampleData();
+        console.error('fetchLatestData 에러:', error);
+        // 샘플 데이터 대신 null을 반환하여 오류 처리를 유도
+        return null; 
     }
-}
-
-// 샘플 데이터 생성 (실제 데이터가 없을 때)
-function generateSampleData() {
-    const now = new Date();
-    const hour = now.getHours();
-    
-    // 시간대별 성과 시뮬레이션
-    const isPeakTime = (hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 19);
-    const baseScore = isPeakTime ? 850 : 720;
-    const baseMissions = isPeakTime ? 25 : 18;
-    const baseRiders = isPeakTime ? 35 : 28;
-    
-    return {
-        timestamp: now.toISOString(),
-        current_score: baseScore + Math.floor(Math.random() * 100),
-        completed_missions: baseMissions + Math.floor(Math.random() * 10),
-        active_riders: baseRiders + Math.floor(Math.random() * 8),
-        estimated_income: (baseScore + Math.floor(Math.random() * 100)) * 120,
-        score_change: (Math.random() - 0.5) * 50,
-        mission_change: Math.floor((Math.random() - 0.5) * 6),
-        riders_change: Math.floor((Math.random() - 0.5) * 4),
-        performance_history: generatePerformanceHistory(),
-        mission_distribution: {
-            completed: baseMissions + Math.floor(Math.random() * 5),
-            in_progress: Math.floor(Math.random() * 8),
-            pending: Math.floor(Math.random() * 12)
-        },
-        system_status: 'operational',
-        last_action: {
-            time: new Date(now.getTime() - Math.random() * 300000).toISOString(),
-            action: '데이터 수집 완료',
-            status: 'success'
-        }
-    };
-}
-
-// 성과 히스토리 생성
-function generatePerformanceHistory() {
-    const history = [];
-    const now = new Date();
-    
-    for (let i = 23; i >= 0; i--) {
-        const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-        const hour = time.getHours();
-        const isPeakTime = (hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 19);
-        
-        history.push({
-            timestamp: time.toISOString(),
-            score: (isPeakTime ? 800 : 650) + Math.floor(Math.random() * 200),
-            missions: (isPeakTime ? 20 : 15) + Math.floor(Math.random() * 15),
-            riders: (isPeakTime ? 30 : 25) + Math.floor(Math.random() * 10)
-        });
-    }
-    
-    return history;
 }
 
 // 대시보드 업데이트
 function updateDashboard(data) {
-    // 부드러운 전환을 위한 페이드 효과
-    const dashboard = document.querySelector('.dashboard-main');
-    const originalOpacity = dashboard.style.opacity;
-    
-    // 데이터가 변경된 경우에만 애니메이션 적용
-    const hasChanges = hasDataChanged(data);
-    
-    if (hasChanges) {
-        dashboard.style.transition = 'opacity 0.3s ease';
-        dashboard.style.opacity = '0.8';
-    }
-    
-    // 통계 카드 업데이트
-    updateStatCard('current-score', data.current_score, data.score_change, '점');
-    updateStatCard('completed-missions', data.completed_missions, data.mission_change, '개');
-    updateStatCard('active-riders', data.active_riders, data.riders_change, '명');
-    updateStatCard('estimated-income', formatNumber(data.estimated_income), 
-                   formatNumber(data.estimated_income * 0.1), '원');
-    
-    // 차트 업데이트 (부드러운 애니메이션)
-    updatePerformanceChart(data.performance_history);
-    updateMissionChart(data.mission_distribution);
-    
-    // 활동 로그 업데이트
-    updateActivityLog(data.last_action);
-    
-    // 메시지 미리보기 업데이트
-    updateMessagePreview(data);
-    
-    // 부드럽게 다시 나타내기
-    if (hasChanges) {
-        setTimeout(() => {
-            dashboard.style.opacity = originalOpacity || '1';
-        }, 300);
-    }
-}
+    const weeklyData = data.주간데이터 || {};
+    const riders = data.라이더목록 || [];
 
-// 데이터 변경 감지
-let lastData = null;
-function hasDataChanged(newData) {
-    if (!lastData) {
-        lastData = newData;
-        return true;
-    }
-    
-    const changed = 
-        lastData.current_score !== newData.current_score ||
-        lastData.completed_missions !== newData.completed_missions ||
-        lastData.active_riders !== newData.active_riders;
-    
-    lastData = newData;
-    return changed;
-}
+    // 운행 기록이 있는 라이더만 필터링
+    const activeRiders = riders.filter(rider => (rider.총완료 || 0) > 0);
 
-// 통계 카드 업데이트
-function updateStatCard(elementId, value, change, unit) {
-    const valueElement = document.getElementById(elementId);
-    const changeElement = document.getElementById(elementId.replace('-', '-') + '-change');
-    
-    if (valueElement) {
-        valueElement.textContent = formatNumber(value) + unit;
-        
-        // 애니메이션 효과
-        valueElement.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-            valueElement.style.transform = 'scale(1)';
-        }, 200);
-    }
-    
-    if (changeElement && change !== undefined) {
-        const changeText = change > 0 ? `+${formatNumber(change)}${unit}` : `${formatNumber(change)}${unit}`;
-        changeElement.textContent = changeText;
-        changeElement.className = `stat-change ${change >= 0 ? 'positive' : 'negative'}`;
-    }
-}
+    // 1. 통계 카드 업데이트
+    document.getElementById('total-score').textContent = weeklyData.총점 || 0;
+    document.getElementById('total-completed').textContent = weeklyData.총완료 || 0;
+    document.getElementById('acceptance-rate').textContent = `${weeklyData.수락률 || 0}%`;
+    document.getElementById('active-riders').textContent = activeRiders.length; // 실제 운행중인 라이더 수로 변경
 
-// 성과 차트 업데이트
-function updatePerformanceChart(history) {
-    if (!performanceChart || !history) return;
-    
-    const labels = history.slice(-12).map(item => {
-        const time = new Date(item.timestamp);
-        return time.getHours().toString().padStart(2, '0') + ':00';
-    });
-    
-    const scoreData = history.slice(-12).map(item => item.score);
-    const missionData = history.slice(-12).map(item => item.missions);
-    
-    performanceChart.data.labels = labels;
-    performanceChart.data.datasets[0].data = scoreData;
-    performanceChart.data.datasets[1].data = missionData;
-    performanceChart.update('active');
-}
+    // 2. 라이더 현황 업데이트
+    const riderListContainer = document.getElementById('rider-list-container');
+    riderListContainer.innerHTML = ''; // 기존 목록 초기화
 
-// 미션 차트 업데이트
-function updateMissionChart(distribution) {
-    if (!missionChart || !distribution) return;
-    
-    missionChart.data.datasets[0].data = [
-        distribution.completed,
-        distribution.in_progress,
-        distribution.pending
-    ];
-    missionChart.update('active');
-}
-
-// 활동 로그 업데이트
-function updateActivityLog(lastAction) {
-    const activityLog = document.getElementById('activity-log');
-    if (!activityLog || !lastAction) return;
-    
-    const newActivity = document.createElement('div');
-    newActivity.className = 'activity-item';
-    newActivity.innerHTML = `
-        <div class="activity-time">${new Date(lastAction.time).toLocaleString('ko-KR')}</div>
-        <div class="activity-content">${lastAction.action}</div>
-    `;
-    
-    // 최신 항목을 맨 위에 추가
-    activityLog.insertBefore(newActivity, activityLog.firstChild);
-    
-    // 오래된 항목 제거 (최대 10개)
-    while (activityLog.children.length > 10) {
-        activityLog.removeChild(activityLog.lastChild);
+    if (activeRiders.length === 0) {
+        riderListContainer.innerHTML = '<div class="rider-item-placeholder">운행 기록이 있는 라이더가 없습니다.</div>';
+    } else {
+        activeRiders.forEach(rider => {
+            const riderElement = document.createElement('div');
+            riderElement.className = 'rider-item';
+            // 라이더 정보 표시 (필요에 따라 상세화)
+            riderElement.innerHTML = `
+                <div class="rider-name">${rider.이름}</div>
+                <div class="rider-stats">
+                    <span>완료: ${rider.총완료}</span>
+                    <span>수락률: ${rider.수락률}%</span>
+                    <span>기여도: ${rider.기여도}%</span>
+                </div>
+            `;
+            riderListContainer.appendChild(riderElement);
+        });
     }
+
+    showNotification('대시보드 데이터가 업데이트되었습니다.', 'success');
 }
 
 // 시스템 상태 업데이트
-function updateSystemStatus(status) {
-    const statusElement = document.getElementById('system-status');
-    const statusIcon = statusElement.querySelector('i');
+function updateSystemStatus(status, lastUpdated, errorMessage = '데이터 수신 중단') {
+    const statusIndicator = document.getElementById('system-status-indicator');
+    const statusText = document.getElementById('system-status-text');
     
-    statusIcon.className = 'fas fa-circle';
+    statusIndicator.className = `status-indicator ${status}`;
     
     switch (status) {
         case 'online':
-            statusIcon.style.color = '#27ae60';
-            statusElement.querySelector('span').textContent = '정상 운영';
+            statusText.textContent = `실시간 연결 (${new Date(lastUpdated).toLocaleString('ko-KR')} 기준)`;
             break;
         case 'offline':
-            statusIcon.style.color = '#e74c3c';
-            statusElement.querySelector('span').textContent = '연결 끊김';
+            statusText.textContent = '연결 끊김';
             break;
         case 'error':
-            statusIcon.style.color = '#f39c12';
-            statusElement.querySelector('span').textContent = '오류 발생';
+            statusText.textContent = `오류: ${errorMessage}`;
             break;
     }
 }
@@ -591,5 +433,8 @@ window.addEventListener('resize', () => {
     if (performanceChart) performanceChart.resize();
     if (missionChart) missionChart.resize();
 });
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', refreshData);
 
 console.log('🌟 G라이더 대시보드 JavaScript 로드 완료'); 
