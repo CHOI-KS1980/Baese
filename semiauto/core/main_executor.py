@@ -439,9 +439,33 @@ class GriderDataCollector:
                 data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
             
             # 1-1. 금일 수행 내역 (일일 데이터) - 새로 추가
+            logger.info("🔍 일일 데이터 크롤링 시작...")
+            
             # 완료 갯수
             complete_count_element = soup.select_one('div.total_value_item[data-total_value="complete_count"]')
-            daily_completed = get_number(complete_count_element.get_text()) if complete_count_element else 0
+            if complete_count_element:
+                daily_completed = get_number(complete_count_element.get_text())
+                logger.info(f"✅ 일일 완료 데이터 발견: {complete_count_element.get_text().strip()} -> {daily_completed}")
+            else:
+                # 대체 셀렉터 시도
+                logger.warning("⚠️ 기본 완료 셀렉터 실패, 대체 방법 시도...")
+                alt_selectors = [
+                    '.total_value_item[data-total_value="complete_count"]',
+                    '[data-total_value="complete_count"]',
+                    '.rider_contents:contains("완료")'
+                ]
+                daily_completed = 0
+                for selector in alt_selectors:
+                    try:
+                        element = soup.select_one(selector)
+                        if element:
+                            daily_completed = get_number(element.get_text())
+                            logger.info(f"✅ 대체 셀렉터로 완료 데이터 발견: {selector} -> {daily_completed}")
+                            break
+                    except:
+                        continue
+                else:
+                    logger.error("❌ 모든 완료 데이터 셀렉터 실패")
             
             # 거절 갯수들 (거절 + 배차취소 + 배달취소)
             reject_count_element = soup.select_one('div.total_value_item[data-total_value="reject_count"]')
@@ -452,11 +476,46 @@ class GriderDataCollector:
             daily_accept_cancel = get_number(accept_cancel_element.get_text()) if accept_cancel_element else 0
             daily_delivery_cancel = get_number(delivery_cancel_element.get_text()) if delivery_cancel_element else 0
             
+            logger.info(f"🔍 거절 관련 데이터: 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
+            
+            # 데이터 검증: 일일 데이터가 너무 클 경우 (500건 이상) 의심
+            if daily_completed > 500:
+                logger.warning(f"⚠️ 일일 완료 데이터가 의심스럽게 큽니다: {daily_completed}건. 주간 데이터일 가능성 있음")
+                # 임시로 라이더 개별 완료 합계로 대체
+                all_riders = data.get('riders', [])
+                if all_riders:
+                    daily_completed_from_riders = sum(r.get('완료', 0) for r in all_riders)
+                    logger.info(f"🔄 라이더 개별 완료 합계로 대체: {daily_completed_from_riders}건")
+                    daily_completed = daily_completed_from_riders
+            
             # 일일 데이터 저장
             data['일일_완료'] = daily_completed
             data['일일_거절_합계'] = daily_rejected + daily_accept_cancel + daily_delivery_cancel
             
-            logger.info(f"✅ 일일 데이터 수집: 완료={daily_completed}, 거절(합계)={data['일일_거절_합계']}")
+            logger.info(f"✅ 최종 일일 데이터: 완료={daily_completed}, 거절(합계)={data['일일_거절_합계']}")
+            
+            # 주간 데이터와 비교 로깅
+            weekly_completed = data.get('주간_총완료', 0)
+            if daily_completed == weekly_completed:
+                logger.warning(f"⚠️ 일일 데이터와 주간 데이터가 동일합니다! daily={daily_completed}, weekly={weekly_completed}")
+                logger.warning("🔄 일일 데이터가 올바르지 않을 가능성이 높아 라이더 개별 데이터로 재계산합니다.")
+                
+                # 라이더 개별 데이터에서 일일 추정치 계산
+                all_riders = data.get('riders', [])
+                if all_riders:
+                    # 라이더별 완료건수의 평균을 내서 일일 추정치 계산
+                    rider_completions = [r.get('완료', 0) for r in all_riders if r.get('완료', 0) > 0]
+                    if rider_completions:
+                        # 주간 데이터를 7로 나누어 일일 추정치 계산
+                        estimated_daily = weekly_completed // 7 if weekly_completed > 0 else sum(rider_completions) // len(rider_completions)
+                        logger.info(f"🔄 일일 추정치로 대체: {estimated_daily}건")
+                        data['일일_완료'] = estimated_daily
+                        data['일일_거절_합계'] = data.get('주간_총거절', 0) // 7  # 주간 거절도 7로 나누어 추정
+                        logger.info(f"✅ 추정 일일 데이터: 완료={estimated_daily}, 거절={data['일일_거절_합계']}")
+                    else:
+                        logger.error("❌ 라이더 데이터도 없어 일일 추정 불가")
+            else:
+                logger.info(f"✅ 일일/주간 데이터 정상 분리: daily={daily_completed}, weekly={weekly_completed}")
             
             # 2. 미션 데이터 (더욱 정밀한 방식으로 테이블 탐색)
             peak_data = {}
