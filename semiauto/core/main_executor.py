@@ -359,6 +359,14 @@ class GriderDataCollector:
 
                 html = driver.page_source
 
+                # [진단 코드] 크롤러가 보고 있는 HTML을 파일로 저장합니다.
+                try:
+                    with open('crawled_page.html', 'w', encoding='utf-8') as f:
+                        f.write(html)
+                    logger.info("✅ [진단] 크롤링된 HTML을 crawled_page.html 파일로 저장했습니다.")
+                except Exception as e:
+                    logger.error(f"❌ [진단] HTML 파일 저장 실패: {e}")
+
                 if len(html) < 1000:
                     raise Exception("HTML 길이가 너무 짧아 로딩 실패로 간주")
                 
