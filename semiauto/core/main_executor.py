@@ -686,26 +686,30 @@ class GriderAutoSender:
             if not peak_summary:
                 peak_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다."
 
-            # [최종 수정] 라이더 데이터를 합산하여 정확한 주간 종합 실적을 생성
+            # [최종] 금일 수행 내역 (라이더 데이터 합산)
             all_riders = data.get('riders', [])
-            
-            # 라이더 데이터 기반으로 완료, 거절(취소 포함) 건수 계산
-            weekly_completed = sum(r.get('완료', 0) for r in all_riders)
-            weekly_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
-            weekly_total_for_rate = weekly_completed + weekly_rejected
-            
-            # 수락률 계산
-            weekly_acceptance_rate = (weekly_completed / weekly_total_for_rate * 100) if weekly_total_for_rate > 0 else 100
+            today_completed = sum(r.get('완료', 0) for r in all_riders)
+            today_rejected_with_cancels = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
+            today_total_for_rate = today_completed + today_rejected_with_cancels
+            today_acceptance_rate = (today_completed / today_total_for_rate * 100) if today_total_for_rate > 0 else 100
 
-            # 대시보드 상단의 점수 데이터는 그대로 활용
+            today_summary = (
+                "📈 금일 수행 내역\n"
+                f"완료: {today_completed}  거절(취소포함): {today_rejected_with_cancels}\n"
+                f"수락률: {today_acceptance_rate:.1f}%\n"
+                f"{get_acceptance_progress_bar(today_acceptance_rate)}"
+            )
+
+            # [최종] 이번주 미션 예상 점수 (웹사이트 요약 데이터)
             total_score = data.get('총점', 0)
             quantity_score = data.get('물량점수', 0)
             acceptance_score = data.get('수락률점수', 0)
-            
+            weekly_acceptance_rate = float(data.get('수락률', 0))
+
             weekly_summary = (
-                "📊 이번주 종합 실적 (라이더 합산)\n"
+                "📊 이번주 미션 예상점수\n"
                 f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-                f"수락률: {weekly_acceptance_rate:.1f}% | 완료: {weekly_completed} | 거절(취소포함): {weekly_rejected}\n"
+                f"수락률: {weekly_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
             )
 
@@ -713,23 +717,17 @@ class GriderAutoSender:
             weather_summary = data.get('weather_info')
 
             # 라이더 순위
-            # 완료 건수가 1 이상인 라이더만 필터링 및 정렬
             active_riders = sorted([r for r in data.get('riders', []) if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
-            
-            # 실제 라이더들의 완료 건수 합계를 총 완료 건수로 사용
             total_delivery_count = sum(r.get('완료', 0) for r in active_riders)
             
             rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
-            # 상위 5명까지만 노출
             for i, rider in enumerate(active_riders[:5]):
                 rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
                 contribution = (rider.get('완료', 0) / total_delivery_count * 100) if total_delivery_count > 0 else 0
                 rider_name = rider['name'].replace('(본인)', '').strip()
                 
-                # 피크별 배달 건수 요약
                 peak_counts_str = ' '.join([f"{peak_emojis.get(p, '❓')}{rider.get(p, 0)}" for p in peak_emojis])
                 
-                # 수락률 계산
                 rider_completed = rider.get('완료', 0)
                 rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
                 rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100
@@ -749,7 +747,7 @@ class GriderAutoSender:
             
             # 메시지 조합
             message_parts = [
-                header, peak_summary, weather_summary, 
+                header, peak_summary, today_summary, weather_summary, 
                 weekly_summary, rider_ranking_summary, alert_summary
             ]
             return "\n\n".join(filter(None, message_parts))
