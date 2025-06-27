@@ -506,8 +506,9 @@ class GriderDataCollector:
             
             logger.info(f"🔍 HTML에서 수집된 데이터: 완료={daily_completed}, 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
             
-            # 총 거절 갯수 계산 (거절 + 배차취소 + 배달취소)
+            # 🎯 요구사항: 거절 = 거절 + 배차취소 + 배달취소 (모든 거절 유형 합계)
             total_daily_rejected = daily_rejected + daily_accept_cancel + daily_delivery_cancel
+            logger.info(f"🔄 거절 데이터 합산: {daily_rejected} + {daily_accept_cancel} + {daily_delivery_cancel} = {total_daily_rejected}")
             
             # 🔧 개선: 데이터 검증 및 진단 추가
             if daily_completed == 0 and total_daily_rejected == 0:
@@ -869,7 +870,7 @@ class GriderAutoSender:
 
             today_summary = (
                 "📈 금일 수행 내역\n"
-                f"완료: {daily_completed}  거절(취소포함): {daily_rejected_with_cancels}\n"
+                f"완료: {daily_completed}  거절: {daily_rejected_with_cancels}\n"
                 f"수락률: {daily_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
             )
@@ -887,7 +888,7 @@ class GriderAutoSender:
             weekly_summary = (
                 "📊 이번주 미션 예상점수\n"
                 f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-                f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected}\n"
+                f"완료: {weekly_completed}  거절: {weekly_rejected}\n"
                 f"수락률: {weekly_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
             )
