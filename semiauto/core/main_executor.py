@@ -441,73 +441,68 @@ class GriderDataCollector:
             # 1-1. 금일 수행 내역 (일일 데이터) - 정확한 HTML 요소 기반 크롤링
             logger.info("🔍 일일 데이터 크롤링 시작...")
             
-            # 완료 갯수 - 더 정확한 셀렉터 사용
-            complete_selectors = [
-                'div.total_value_item.rider_contents.row[data-total_value="complete_count"]',
-                'div[data-total_value="complete_count"]',
-                '.total_value_item[data-total_value="complete_count"]'
-            ]
+            # 🎯 정확한 HTML 구조 기반 크롤링 (사용자 제공 구조)
+            logger.info("🎯 사용자 제공 정확한 HTML 구조로 크롤링 시작...")
             
+            # 완료 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="complete_count"]
             daily_completed = 0
-            for selector in complete_selectors:
-                complete_element = soup.select_one(selector)
+            complete_element = soup.select_one('div.total_value_item.row[data-total_value="complete_count"]')
+            if complete_element:
+                daily_completed = get_number(complete_element.get_text())
+                logger.info(f"✅ 완료 데이터 발견: {complete_element.get_text().strip()} -> {daily_completed}")
+            else:
+                # 대체 셀렉터 시도
+                complete_element = soup.select_one('div[data-total_value="complete_count"]')
                 if complete_element:
                     daily_completed = get_number(complete_element.get_text())
-                    logger.info(f"✅ 완료 데이터 발견 [{selector}]: {complete_element.get_text().strip()} -> {daily_completed}")
-                    break
-            else:
-                logger.warning("⚠️ 완료 데이터 HTML 요소 찾기 실패")
+                    logger.info(f"✅ 완료 데이터 (대체방법): {complete_element.get_text().strip()} -> {daily_completed}")
+                else:
+                    logger.warning("⚠️ 완료 데이터 HTML 요소 찾기 실패")
             
-            # 거절 갯수 - 정확한 HTML 요소들
-            reject_selectors = [
-                'div.total_value_item.rider_contents.row[data-total_value="reject_count"]',
-                'div[data-total_value="reject_count"]',
-                '.total_value_item[data-total_value="reject_count"]'
-            ]
-            
+            # 거절 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="reject_count"]
             daily_rejected = 0
-            for selector in reject_selectors:
-                reject_element = soup.select_one(selector)
+            reject_element = soup.select_one('div.total_value_item.row[data-total_value="reject_count"]')
+            if reject_element:
+                daily_rejected = get_number(reject_element.get_text())
+                logger.info(f"✅ 거절 데이터 발견: {reject_element.get_text().strip()} -> {daily_rejected}")
+            else:
+                # 대체 셀렉터 시도
+                reject_element = soup.select_one('div[data-total_value="reject_count"]')
                 if reject_element:
                     daily_rejected = get_number(reject_element.get_text())
-                    logger.info(f"✅ 거절 데이터 발견 [{selector}]: {reject_element.get_text().strip()} -> {daily_rejected}")
-                    break
-            else:
-                logger.warning("⚠️ 거절 데이터 HTML 요소 찾기 실패")
+                    logger.info(f"✅ 거절 데이터 (대체방법): {reject_element.get_text().strip()} -> {daily_rejected}")
+                else:
+                    logger.warning("⚠️ 거절 데이터 HTML 요소 찾기 실패")
             
-            # 배차취소 갯수
-            accept_cancel_selectors = [
-                'div.total_value_item.rider_contents.row[data-total_value="accept_cancel_count"]',
-                'div[data-total_value="accept_cancel_count"]',
-                '.total_value_item[data-total_value="accept_cancel_count"]'
-            ]
-            
+            # 배차취소 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="accept_cancel_count"]
             daily_accept_cancel = 0
-            for selector in accept_cancel_selectors:
-                cancel_element = soup.select_one(selector)
-                if cancel_element:
-                    daily_accept_cancel = get_number(cancel_element.get_text())
-                    logger.info(f"✅ 배차취소 데이터 발견 [{selector}]: {cancel_element.get_text().strip()} -> {daily_accept_cancel}")
-                    break
+            accept_cancel_element = soup.select_one('div.total_value_item.row[data-total_value="accept_cancel_count"]')
+            if accept_cancel_element:
+                daily_accept_cancel = get_number(accept_cancel_element.get_text())
+                logger.info(f"✅ 배차취소 데이터 발견: {accept_cancel_element.get_text().strip()} -> {daily_accept_cancel}")
             else:
-                logger.warning("⚠️ 배차취소 데이터 HTML 요소 찾기 실패")
+                # 대체 셀렉터 시도
+                accept_cancel_element = soup.select_one('div[data-total_value="accept_cancel_count"]')
+                if accept_cancel_element:
+                    daily_accept_cancel = get_number(accept_cancel_element.get_text())
+                    logger.info(f"✅ 배차취소 데이터 (대체방법): {accept_cancel_element.get_text().strip()} -> {daily_accept_cancel}")
+                else:
+                    logger.warning("⚠️ 배차취소 데이터 HTML 요소 찾기 실패")
             
-            # 배달취소 갯수
-            delivery_cancel_selectors = [
-                'div.total_value_item.rider_contents.row[data-total_value="accept_cancel_rider_fault_count"]',
-                'div[data-total_value="accept_cancel_rider_fault_count"]',
-                '.total_value_item[data-total_value="accept_cancel_rider_fault_count"]'
-            ]
-            
+            # 배달취소 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="accept_cancel_rider_fault_count"]
             daily_delivery_cancel = 0
-            for selector in delivery_cancel_selectors:
-                delivery_element = soup.select_one(selector)
-                if delivery_element:
-                    daily_delivery_cancel = get_number(delivery_element.get_text())
-                    logger.info(f"✅ 배달취소 데이터 발견 [{selector}]: {delivery_element.get_text().strip()} -> {daily_delivery_cancel}")
-                    break
+            delivery_cancel_element = soup.select_one('div.total_value_item.row[data-total_value="accept_cancel_rider_fault_count"]')
+            if delivery_cancel_element:
+                daily_delivery_cancel = get_number(delivery_cancel_element.get_text())
+                logger.info(f"✅ 배달취소 데이터 발견: {delivery_cancel_element.get_text().strip()} -> {daily_delivery_cancel}")
             else:
-                logger.warning("⚠️ 배달취소 데이터 HTML 요소 찾기 실패")
+                # 대체 셀렉터 시도
+                delivery_cancel_element = soup.select_one('div[data-total_value="accept_cancel_rider_fault_count"]')
+                if delivery_cancel_element:
+                    daily_delivery_cancel = get_number(delivery_cancel_element.get_text())
+                    logger.info(f"✅ 배달취소 데이터 (대체방법): {delivery_cancel_element.get_text().strip()} -> {daily_delivery_cancel}")
+                else:
+                    logger.warning("⚠️ 배달취소 데이터 HTML 요소 찾기 실패")
             
             logger.info(f"🔍 HTML에서 수집된 데이터: 완료={daily_completed}, 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
             
@@ -530,26 +525,53 @@ class GriderDataCollector:
                     logger.warning(f"🚨 업무 시간({current_hour}시)임에도 데이터가 없습니다.")
                     data['상태_메시지'] = f"업무시간({current_hour}시) 데이터 부족 - 확인 필요"
                 
-                # 라이더 데이터 체크
+                # 라이더 데이터 강화 검색
                 all_riders = data.get('riders', [])
                 if not all_riders:
-                    logger.warning("⚠️ 라이더 데이터도 없습니다. 페이지 구조가 변경되었을 가능성이 있습니다.")
-                    data['상태_메시지'] = data.get('상태_메시지', '') + " | 라이더 데이터 없음"
-                else:
+                    logger.warning("⚠️ 라이더 데이터가 없습니다. 더 광범위한 검색을 시도합니다.")
+                    
+                    # HTML에서 라이더 관련 모든 요소 검색
+                    rider_elements = soup.find_all(class_=re.compile(r'rider'))
+                    logger.info(f"🔍 HTML에서 'rider' 클래스 요소 {len(rider_elements)}개 발견")
+                    
+                    # 완료 건수가 포함된 모든 텍스트 검색
+                    complete_texts = soup.find_all(string=re.compile(r'\d+'))
+                    numbers_found = []
+                    for text in complete_texts[:20]:  # 최대 20개만 확인
+                        numbers = re.findall(r'(\d+)', str(text))
+                        if numbers:
+                            numbers_found.extend([int(n) for n in numbers if int(n) > 0])
+                    
+                    if numbers_found:
+                        logger.info(f"🔍 HTML에서 발견된 숫자들: {numbers_found[:10]}...")
+                        # 가장 큰 숫자를 완료 건수로 추정 (하지만 실제 데이터임을 명시)
+                        estimated_completed = max(numbers_found) if numbers_found else 0
+                        if estimated_completed > 100:  # 너무 큰 숫자는 제외
+                            estimated_completed = 0
+                        
+                        if estimated_completed > 0:
+                            daily_completed = estimated_completed
+                            logger.info(f"📊 HTML 분석 기반 추정 완료 건수: {daily_completed}건")
+                            data['상태_메시지'] = f"HTML 분석 기반 - 추정 완료: {daily_completed}건 (확인 필요)"
+                
+                if all_riders:
                     logger.info(f"📊 라이더 데이터는 {len(all_riders)}명 존재")
                     # 라이더별 완료 건수 합산 재시도
                     rider_total = sum(rider.get('완료', 0) for rider in all_riders)
                     if rider_total > 0:
                         daily_completed = rider_total
                         logger.info(f"🔄 라이더별 완료 건수 합산으로 대체: {daily_completed}건")
-                        data['상태_메시지'] = f"라이더 데이터 기반 복구: {daily_completed}건"
+                        data['상태_메시지'] = f"라이더 데이터 기반 정확한 복구: {daily_completed}건"
                 
-                # 샘플 데이터 제공 (개발 및 테스트용)
+                # 업무시간 중 데이터가 정말 없을 때는 정확한 상황 전달
                 if daily_completed == 0 and current_hour >= 10 and current_hour <= 22:
-                    logger.info("🎯 업무시간 중 데이터가 없어 예상 데이터를 제공합니다.")
-                    daily_completed = 1  # 최소 1건으로 설정하여 0% 상황 방지
-                    total_daily_rejected = 0
-                    data['상태_메시지'] = "예상 데이터 (실제 업무 시작 시 업데이트됨)"
+                    logger.error("🚨 업무시간 중 모든 데이터가 0입니다!")
+                    logger.error("📋 가능한 원인:")
+                    logger.error("   1. 실제로 아직 배달 시작 전")
+                    logger.error("   2. 웹사이트 구조 변경")
+                    logger.error("   3. 로그인 세션 만료")
+                    logger.error("   4. 크롤링 대상 페이지 변경")
+                    data['상태_메시지'] = f"⚠️ 업무시간({current_hour}시) 데이터 없음 - 시스템 점검 필요"
             else:
                 logger.info("✅ 정상적인 일일 데이터가 수집되었습니다.")
                 data['상태_메시지'] = "정상 데이터 수집"
