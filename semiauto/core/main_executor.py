@@ -346,12 +346,19 @@ class GriderDataCollector:
                 driver.find_element(By.ID, 'password').send_keys(USER_PW)
                 driver.find_element(By.ID, 'loginBtn').click()
                 
-                # 로그인 성공 후 대시보드 URL로 변경될 때까지 대기
-                wait.until(EC.url_contains('/dashboard'))
+                # 로그인 성공 후, 올바른 SLA 리스트 페이지로 직접 이동
+                logger.info("로그인 성공. 최종 데이터 페이지(SLA 리스트)로 이동합니다.")
+                sla_list_url = "https://jangboo.grider.ai/orders/sla/list"
+                driver.get(sla_list_url)
 
-                target_date = self._get_mission_date()
-                html = self._navigate_to_date_data(driver, target_date)
-                
+                # 페이지가 완전히 로드될 때까지 명시적으로 대기 ('물량 점수관리' 제목 확인)
+                WebDriverWait(driver, 30).until(
+                    EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), '물량 점수관리')]"))
+                )
+                logger.info("✅ SLA 리스트 페이지 로드 확인 ('물량 점수관리' 제목 확인)")
+
+                html = driver.page_source
+
                 if len(html) < 1000:
                     raise Exception("HTML 길이가 너무 짧아 로딩 실패로 간주")
                 
@@ -363,9 +370,6 @@ class GriderDataCollector:
 
             except Exception as e:
                 logger.error(f" 크롤링 시도 {attempt + 1} 실패: {e}")
-                if driver:
-                    with open(f'debug_failed_page_{attempt + 1}.html', 'w', encoding='utf-8') as f:
-                        f.write(driver.page_source)
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
                 else:
@@ -376,43 +380,6 @@ class GriderDataCollector:
             driver.quit()
         
         return None
-
-    def _navigate_to_date_data(self, driver, target_date: str) -> str:
-        """URL 파라미터 방식으로 날짜별 데이터 조회"""
-        url_with_date = f"https://jangboo.grider.ai/dashboard?date={target_date}"
-        driver.get(url_with_date)
-        
-        # 페이지 이동 후 캐시 문제 방지를 위해 강제로 새로고침
-        driver.refresh()
-        logger.info(f"페이지 새로고침 완료: {url_with_date}")
-        
-        # 데이터가 로드될 때까지 명시적으로 대기 (총점 값에 숫자가 나타날 때까지)
-        try:
-            WebDriverWait(driver, 30).until(
-                lambda d: re.search(r'\d', d.find_element(By.CSS_SELECTOR, ".score_total_value").text)
-            )
-            logger.info("✅ 대시보드 데이터 로드 확인 (총점 확인)")
-        except Exception:
-            logger.warning("⚠️ 총점 데이터 로드 확인 시간 초과, 페이지 소스를 그대로 반환합니다.")
-
-        # [최종 진단] 스크린샷과 HTML 소스를 저장하여 결정적인 증거를 확보합니다.
-        debug_html_path = 'debug_page_source.html'
-        debug_img_path = 'debug_screenshot.png'
-        try:
-            driver.save_screenshot(debug_img_path)
-            with open(debug_html_path, 'w', encoding='utf-8') as f:
-                f.write(driver.page_source)
-            logger.info(f"✅ [DIAGNOSTIC] 증거 수집 완료: {debug_img_path}, {debug_html_path}")
-        except Exception as e:
-            logger.error(f"❌ [DIAGNOSTIC] 증거 수집 실패: {e}")
-
-        if self._verify_date_in_html(driver.page_source, target_date):
-            return driver.page_source
-        raise Exception("날짜 검증 실패")
-
-    def _verify_date_in_html(self, html: str, target_date: str) -> bool:
-        """HTML 내용에서 날짜를 확인"""
-        return target_date in html or target_date.replace('-', '.') in html
 
     def _get_mission_date(self):
         """
@@ -458,7 +425,7 @@ class GriderDataCollector:
                 num_str = match.group(1)
                 return float(num_str) if to_float else int(num_str)
 
-            # 1. 기본 점수 정보 (summary_score)
+            # 1. 기본 점수 정보 (summary_score) - 이 부분은 SLA 페이지에 없을 수 있으므로 방어적으로 코딩
             summary_area = soup.select_one('.summary_score')
             if summary_area:
                 data['총점'] = get_number(summary_area.select_one('.score_total_value').get_text())
@@ -471,8 +438,6 @@ class GriderDataCollector:
                 data['총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
                 data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
             
-            logger.info(f"기본 점수 파싱: 총점={data.get('총점')}, 완료={data.get('총완료')}, 수락률={data.get('수락률')}%")
-
             # 2. 미션 데이터 (더욱 정밀한 방식으로 테이블 탐색)
             peak_data = {}
             mission_date = self._get_mission_date()
@@ -514,10 +479,8 @@ class GriderDataCollector:
                             if len(numbers) >= 2:
                                 current, target = int(numbers[0]), int(numbers[1])
                                 peak_data[peak_name] = {'current': current, 'target': target}
-                                logger.info(f"✅ 피크 '{peak_name}' 파싱 성공: {current}/{target}")
                             else:
                                 peak_data[peak_name] = {'current': 0, 'target': 0}
-                                logger.warning(f"⚠️ 피크 '{peak_name}' 파싱 실패: '{peak_text}'에서 숫자 2개를 찾을 수 없음")
                         break # 오늘 날짜를 찾았으니 루프 종료
                 if not found_today:
                     logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
@@ -525,55 +488,55 @@ class GriderDataCollector:
                 logger.warning("⚠️ '물량 점수관리' 제목 또는 테이블을 찾지 못했습니다.")
 
             data.update(peak_data)
-            logger.info(f"미션 데이터 파싱: {len(peak_data)}개 피크")
 
-            # 3. 라이더 데이터 (rider_item)
+            # 3. 라이더 데이터 (rider_item) - SLA 페이지에 없을 수 있으므로 방어적으로 처리
             riders = []
-            rider_items = soup.select('.rider_list .rider_item')
-            
-            # 헤더에서 컬럼 순서 파악
-            header_nodes = soup.select('.rider_th .rider_contents')
-            headers = [h.get_text(strip=True) for h in header_nodes]
-            
-            for item in rider_items:
-                rider_data = {}
+            rider_list_area = soup.select_one('.rider_list')
+            if rider_list_area:
+                rider_items = rider_list_area.select('.rider_item')
                 
-                # 이름과 아이디 먼저 추출 (이름 파싱 강화)
-                name_node = item.select_one('.rider_name')
-                if name_node:
-                    # '수락률' 같은 불필요한 자식 태그가 있다면 먼저 제거
-                    for child_tag in name_node.find_all(['span', 'div']):
-                        child_tag.decompose()
-                    rider_data['name'] = name_node.get_text(strip=True).replace('이름', '')
-                else:
-                    rider_data['name'] = '이름없음'
-
-                id_node = item.select_one('.user_id')
-                rider_data['id'] = id_node.get_text(strip=True).replace('아이디', '') if id_node else ''
-
-                # 나머지 데이터는 헤더 순서에 맞춰 파싱
-                cols = item.select('.rider_contents')
-                col_data = {header: node.get_text(strip=True) for header, node in zip(headers, cols)}
+                # 헤더에서 컬럼 순서 파악
+                header_nodes = soup.select('.rider_th .rider_contents')
+                headers = [h.get_text(strip=True) for h in header_nodes]
                 
-                rider_data['수락률'] = get_number(item.select_one('.acceptance_rate_box').get_text(), to_float=True)
-                rider_data['완료'] = get_number(col_data.get('완료', '').replace('완료', ''))
-                rider_data['거절'] = get_number(col_data.get('거절', '').replace('거절', ''))
-                rider_data['배차취소'] = get_number(col_data.get('배차취소', '').replace('배차취소', ''))
-                rider_data['배달취소'] = get_number(col_data.get('배달취소', '').replace('배달취소', ''))
-                rider_data['기여도'] = get_number(col_data.get('기여도', '').replace('%', ''), to_float=True)
-                
-                # 피크 데이터 파싱
-                rider_data['아침점심피크'] = get_number(col_data.get('오전', '').replace('오전', ''))
-                rider_data['오후논피크'] = get_number(col_data.get('오후', '').replace('오후', ''))
-                rider_data['저녁피크'] = get_number(col_data.get('저녁', '').replace('저녁', ''))
-                rider_data['심야논피크'] = get_number(col_data.get('심야', '').replace('심야', ''))
+                for item in rider_items:
+                    rider_data = {}
+                    
+                    # 이름과 아이디 먼저 추출 (이름 파싱 강화)
+                    name_node = item.select_one('.rider_name')
+                    if name_node:
+                        # '수락률' 같은 불필요한 자식 태그가 있다면 먼저 제거
+                        for child_tag in name_node.find_all(['span', 'div']):
+                            child_tag.decompose()
+                        rider_data['name'] = name_node.get_text(strip=True).replace('이름', '')
+                    else:
+                        rider_data['name'] = '이름없음'
 
-                riders.append(rider_data)
+                    id_node = item.select_one('.user_id')
+                    rider_data['id'] = id_node.get_text(strip=True).replace('아이디', '') if id_node else ''
+
+                    # 나머지 데이터는 헤더 순서에 맞춰 파싱
+                    cols = item.select('.rider_contents')
+                    col_data = {header: node.get_text(strip=True) for header, node in zip(headers, cols)}
+                    
+                    rider_data['수락률'] = get_number(item.select_one('.acceptance_rate_box').get_text(), to_float=True)
+                    rider_data['완료'] = get_number(col_data.get('완료', '').replace('완료', ''))
+                    rider_data['거절'] = get_number(col_data.get('거절', '').replace('거절', ''))
+                    rider_data['배차취소'] = get_number(col_data.get('배차취소', '').replace('배차취소', ''))
+                    rider_data['배달취소'] = get_number(col_data.get('배달취소', '').replace('배달취소', ''))
+                    rider_data['기여도'] = get_number(col_data.get('기여도', '').replace('%', ''), to_float=True)
+                    
+                    # 피크 데이터 파싱
+                    rider_data['아침점심피크'] = get_number(col_data.get('오전', '').replace('오전', ''))
+                    rider_data['오후논피크'] = get_number(col_data.get('오후', '').replace('오후', ''))
+                    rider_data['저녁피크'] = get_number(col_data.get('저녁', '').replace('저녁', ''))
+                    rider_data['심야논피크'] = get_number(col_data.get('심야', '').replace('심야', ''))
+
+                    riders.append(rider_data)
 
             data['riders'] = riders
-            logger.info(f"라이더 데이터 파싱: {len(riders)}명")
             
-            data['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            data['timestamp'] = datetime.now().strftime("%Y-m-d %H:%M:%S")
             return data
 
         except Exception as e:
