@@ -425,7 +425,7 @@ class GriderDataCollector:
                 num_str = match.group(1)
                 return float(num_str) if to_float else int(num_str)
 
-            # 1. 기본 점수 정보 (summary_score) - 이 부분은 SLA 페이지에 없을 수 있으므로 방어적으로 코딩
+            # 1. 주간/전체 점수 정보 파싱 (기존 로직 유지)
             summary_area = soup.select_one('.summary_score')
             if summary_area:
                 data['총점'] = get_number(summary_area.select_one('.score_total_value').get_text())
@@ -438,163 +438,10 @@ class GriderDataCollector:
                 data['주간_총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
                 data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
             
-            # 1-1. 금일 수행 내역 (일일 데이터) - 정확한 HTML 요소 기반 크롤링
-            logger.info("🔍 일일 데이터 크롤링 시작...")
-            
-            # 🎯 정확한 HTML 구조 기반 크롤링 (사용자 제공 구조)
-            logger.info("🎯 사용자 제공 정확한 HTML 구조로 크롤링 시작...")
-            
-            # 완료 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="complete_count"]
-            daily_completed = 0
-            complete_element = soup.select_one('div.total_value_item.row[data-total_value="complete_count"]')
-            if complete_element:
-                daily_completed = get_number(complete_element.get_text())
-                logger.info(f"✅ 완료 데이터 발견: {complete_element.get_text().strip()} -> {daily_completed}")
-            else:
-                logger.warning("⚠️ 완료 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"complete_count\"])")
-            
-            # 거절 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="reject_count"]
-            daily_rejected = 0
-            reject_element = soup.select_one('div.total_value_item.row[data-total_value="reject_count"]')
-            if reject_element:
-                daily_rejected = get_number(reject_element.get_text())
-                logger.info(f"✅ 거절 데이터 발견: {reject_element.get_text().strip()} -> {daily_rejected}")
-            else:
-                logger.warning("⚠️ 거절 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"reject_count\"])")
-            
-            # 배차취소 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="accept_cancel_count"]
-            daily_accept_cancel = 0
-            accept_cancel_element = soup.select_one('div.total_value_item.row[data-total_value="accept_cancel_count"]')
-            if accept_cancel_element:
-                daily_accept_cancel = get_number(accept_cancel_element.get_text())
-                logger.info(f"✅ 배차취소 데이터 발견: {accept_cancel_element.get_text().strip()} -> {daily_accept_cancel}")
-            else:
-                logger.warning("⚠️ 배차취소 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"accept_cancel_count\"])")
-            
-            # 배달취소 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="accept_cancel_rider_fault_count"]
-            daily_delivery_cancel = 0
-            delivery_cancel_element = soup.select_one('div.total_value_item.row[data-total_value="accept_cancel_rider_fault_count"]')
-            if delivery_cancel_element:
-                daily_delivery_cancel = get_number(delivery_cancel_element.get_text())
-                logger.info(f"✅ 배달취소 데이터 발견: {delivery_cancel_element.get_text().strip()} -> {daily_delivery_cancel}")
-            else:
-                logger.warning("⚠️ 배달취소 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"accept_cancel_rider_fault_count\"])")
-            
-            logger.info(f"🔍 HTML에서 수집된 데이터: 완료={daily_completed}, 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
-            
-            # 🎯 요구사항: 거절 = 거절 + 배차취소 + 배달취소 (모든 거절 유형 합계)
-            total_daily_rejected = daily_rejected + daily_accept_cancel + daily_delivery_cancel
-            logger.info(f"🔄 거절 데이터 합산: {daily_rejected} + {daily_accept_cancel} + {daily_delivery_cancel} = {total_daily_rejected}")
-            
-            # 🔧 개선: 데이터 검증 및 진단 추가
-            if daily_completed == 0 and total_daily_rejected == 0:
-                logger.warning("⚠️ 모든 일일 데이터가 0입니다. 상세 진단을 시작합니다...")
-                
-                # 현재 시간 확인
-                current_hour = get_korea_time().hour
-                logger.info(f"📅 현재 한국시간: {get_korea_time().strftime('%Y-%m-%d %H:%M:%S')} (시간: {current_hour}시)")
-                
-                # 업무 시간 판단
-                if current_hour < 6 or current_hour > 23:
-                    logger.info("⏰ 현재 업무 시간이 아닙니다. (06:00-23:00 범위 밖)")
-                    data['상태_메시지'] = f"업무시간 외 ({current_hour}시) - 데이터 없음은 정상"
-                else:
-                    logger.warning(f"🚨 업무 시간({current_hour}시)임에도 데이터가 없습니다.")
-                    data['상태_메시지'] = f"업무시간({current_hour}시) 데이터 부족 - 확인 필요"
-                
-                # 라이더 데이터 강화 검색
-                all_riders = data.get('riders', [])
-                if not all_riders:
-                    logger.warning("⚠️ 라이더 데이터가 없습니다. 더 광범위한 검색을 시도합니다.")
-                    
-                    # HTML에서 라이더 관련 모든 요소 검색
-                    rider_elements = soup.find_all(class_=re.compile(r'rider'))
-                    logger.info(f"🔍 HTML에서 'rider' 클래스 요소 {len(rider_elements)}개 발견")
-                    
-                    # 완료 건수가 포함된 모든 텍스트 검색
-                    complete_texts = soup.find_all(string=re.compile(r'\d+'))
-                    numbers_found = []
-                    for text in complete_texts[:20]:  # 최대 20개만 확인
-                        numbers = re.findall(r'(\d+)', str(text))
-                        if numbers:
-                            numbers_found.extend([int(n) for n in numbers if int(n) > 0])
-                    
-                    if numbers_found:
-                        logger.info(f"🔍 HTML에서 발견된 숫자들: {numbers_found[:10]}...")
-                        # 가장 큰 숫자를 완료 건수로 추정 (하지만 실제 데이터임을 명시)
-                        estimated_completed = max(numbers_found) if numbers_found else 0
-                        if estimated_completed > 100:  # 너무 큰 숫자는 제외
-                            estimated_completed = 0
-                        
-                        if estimated_completed > 0:
-                            daily_completed = estimated_completed
-                            logger.info(f"📊 HTML 분석 기반 추정 완료 건수: {daily_completed}건")
-                            data['상태_메시지'] = f"HTML 분석 기반 - 추정 완료: {daily_completed}건 (확인 필요)"
-                
-                if all_riders:
-                    logger.info(f"📊 라이더 데이터는 {len(all_riders)}명 존재")
-                    # 라이더별 완료 건수 합산 재시도
-                    rider_total = sum(rider.get('완료', 0) for rider in all_riders)
-                    if rider_total > 0:
-                        daily_completed = rider_total
-                        logger.info(f"🔄 라이더별 완료 건수 합산으로 대체: {daily_completed}건")
-                        data['상태_메시지'] = f"라이더 데이터 기반 정확한 복구: {daily_completed}건"
-                
-                # 업무시간 중 데이터가 정말 없을 때는 정확한 상황 전달
-                if daily_completed == 0 and current_hour >= 10 and current_hour <= 22:
-                    logger.error("🚨 업무시간 중 모든 데이터가 0입니다!")
-                    logger.error("📋 가능한 원인:")
-                    logger.error("   1. 실제로 아직 배달 시작 전")
-                    logger.error("   2. 웹사이트 구조 변경")
-                    logger.error("   3. 로그인 세션 만료")
-                    logger.error("   4. 크롤링 대상 페이지 변경")
-                    data['상태_메시지'] = f"⚠️ 업무시간({current_hour}시) 데이터 없음 - 시스템 점검 필요"
-            else:
-                logger.info("✅ 정상적인 일일 데이터가 수집되었습니다.")
-                data['상태_메시지'] = "정상 데이터 수집"
-            
-            # 일일 데이터 저장
-            data['일일_완료'] = daily_completed
-            data['일일_거절_합계'] = total_daily_rejected
-            
-            # 정확한 수락률 계산
-            total_daily_orders = daily_completed + total_daily_rejected
-            if total_daily_orders > 0:
-                daily_acceptance_rate = (daily_completed / total_daily_orders) * 100
-                data['일일_수락률'] = round(daily_acceptance_rate, 1)
-            else:
-                data['일일_수락률'] = 0.0
-            
-            logger.info(f"✅ 최종 일일 데이터: 완료={daily_completed}, 거절(합계)={total_daily_rejected}, 수락률={data['일일_수락률']}%")
-            
-            # 주간 데이터와 비교 로깅
-            weekly_completed = data.get('주간_총완료', 0)
-            if daily_completed == weekly_completed:
-                logger.warning(f"⚠️ 일일 데이터와 주간 데이터가 동일합니다! daily={daily_completed}, weekly={weekly_completed}")
-                logger.warning("🔄 일일 데이터가 올바르지 않을 가능성이 높아 라이더 개별 데이터로 재계산합니다.")
-                
-                # 라이더 개별 데이터에서 일일 추정치 계산
-                all_riders = data.get('riders', [])
-                if all_riders:
-                    # 라이더별 완료건수의 평균을 내서 일일 추정치 계산
-                    rider_completions = [r.get('완료', 0) for r in all_riders if r.get('완료', 0) > 0]
-                    if rider_completions:
-                        # 주간 데이터를 7로 나누어 일일 추정치 계산
-                        estimated_daily = weekly_completed // 7 if weekly_completed > 0 else sum(rider_completions) // len(rider_completions)
-                        logger.info(f"🔄 일일 추정치로 대체: {estimated_daily}건")
-                        data['일일_완료'] = estimated_daily
-                        data['일일_거절_합계'] = data.get('주간_총거절', 0) // 7  # 주간 거절도 7로 나누어 추정
-                        logger.info(f"✅ 추정 일일 데이터: 완료={estimated_daily}, 거절={data['일일_거절_합계']}")
-                    else:
-                        logger.error("❌ 라이더 데이터도 없어 일일 추정 불가")
-            else:
-                logger.info(f"✅ 일일/주간 데이터 정상 분리: daily={daily_completed}, weekly={weekly_completed}")
-            
-            # 2. 미션 데이터 (더욱 정밀한 방식으로 테이블 탐색)
+            # 2. 미션 데이터 (피크 타임) 파싱 (기존 로직 유지)
             peak_data = {}
             mission_date = self._get_mission_date()
             
-            # [최종 수정] 제목 텍스트를 공백 등과 무관하게 가장 확실하게 검색합니다.
             title_h3 = None
             all_h3s = soup.find_all('h3', class_='page_sub_title')
             for h3 in all_h3s:
@@ -605,100 +452,89 @@ class GriderDataCollector:
             
             sla_table = None
             if title_h3:
-                # h3 태그의 부모('.item') 안에서 '.sla_table'을 찾는다. (가장 가까운 테이블 보장)
                 parent_item = title_h3.find_parent('div', class_='item')
                 if parent_item:
                     sla_table = parent_item.find('table', class_='sla_table')
 
             if sla_table:
-                logger.info("✅ '물량 점수관리' 테이블을 정확히 찾았습니다.")
                 found_today = False
                 rows = sla_table.select('tbody tr')
                 for row in rows:
                     cols = row.select('td')
                     if len(cols) > 2 and mission_date in cols[1].get_text(strip=True):
-                        logger.info(f"✅ 오늘 날짜({mission_date})의 행을 찾았습니다.")
                         found_today = True
-                        
                         peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-                        # td[3] 부터 피크 데이터
                         for i, peak_name in enumerate(peak_names):
                             peak_text = cols[i + 3].get_text(strip=True)
-                            
-                            # 더 강력한 파싱: 텍스트에서 숫자 2개를 순서대로 추출
                             numbers = re.findall(r'(\d+)', peak_text)
-                            
-                            if len(numbers) >= 2:
-                                current, target = int(numbers[0]), int(numbers[1])
-                                peak_data[peak_name] = {'current': current, 'target': target}
-                            else:
-                                peak_data[peak_name] = {'current': 0, 'target': 0}
-                        break # 오늘 날짜를 찾았으니 루프 종료
-                if not found_today:
-                    logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
+                            peak_data[peak_name] = {'current': int(numbers[0]), 'target': int(numbers[1])} if len(numbers) >= 2 else {'current': 0, 'target': 0}
+                        break
+                if not found_today: logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
             else:
                 logger.warning("⚠️ '물량 점수관리' 제목 또는 테이블을 찾지 못했습니다.")
-
             data.update(peak_data)
 
-            # [최종 해결] 일일 완료 건수를 신뢰 가능한 피크 타임 건수의 합계로 계산합니다.
-            calculated_daily_completed = sum(
-                details.get('current', 0) for peak_name, details in peak_data.items()
-            )
-            if calculated_daily_completed > 0:
-                logger.info(f"🔄 [정확도 개선] 일일 완료 건수를 피크 데이터 합산으로 재계산: {data.get('일일_완료', 0)} -> {calculated_daily_completed}")
-                data['일일_완료'] = calculated_daily_completed
-            else:
-                # 피크 합산이 0일 경우, 기존에 파싱된 (부정확할 수 있는) daily_completed 값을 그대로 사용합니다.
-                logger.warning("⚠️ 피크 데이터 합산 결과가 0입니다. 기존 일일 완료 건수 값을 사용합니다: " + str(data.get('일일_완료', 0)))
-
-            # 3. 라이더 데이터 (rider_item) - SLA 페이지에 없을 수 있으므로 방어적으로 처리
+            # 3. [핵심 수정] 라이더 데이터 우선 파싱
             riders = []
             rider_list_area = soup.select_one('.rider_list')
             if rider_list_area:
                 rider_items = rider_list_area.select('.rider_item')
+                logger.info(f"✅ 라이더 목록({len(rider_items)}명)을 찾았습니다. 개별 데이터 파싱을 시작합니다.")
                 
-                # 헤더에서 컬럼 순서 파악
                 header_nodes = soup.select('.rider_th .rider_contents')
                 headers = [h.get_text(strip=True) for h in header_nodes]
                 
                 for item in rider_items:
                     rider_data = {}
-                    
-                    # 이름과 아이디 먼저 추출 (이름 파싱 강화)
                     name_node = item.select_one('.rider_name')
                     if name_node:
-                        # '수락률' 같은 불필요한 자식 태그가 있다면 먼저 제거
-                        for child_tag in name_node.find_all(['span', 'div']):
-                            child_tag.decompose()
+                        for child_tag in name_node.find_all(['span', 'div']): child_tag.decompose()
                         rider_data['name'] = name_node.get_text(strip=True).replace('이름', '')
-                    else:
-                        rider_data['name'] = '이름없음'
-
+                    else: rider_data['name'] = '이름없음'
+                    
                     id_node = item.select_one('.user_id')
                     rider_data['id'] = id_node.get_text(strip=True).replace('아이디', '') if id_node else ''
 
-                    # 나머지 데이터는 헤더 순서에 맞춰 파싱
                     cols = item.select('.rider_contents')
                     col_data = {header: node.get_text(strip=True) for header, node in zip(headers, cols)}
                     
                     rider_data['수락률'] = get_number(item.select_one('.acceptance_rate_box').get_text(), to_float=True)
-                    rider_data['완료'] = get_number(col_data.get('완료', '').replace('완료', ''))
-                    rider_data['거절'] = get_number(col_data.get('거절', '').replace('거절', ''))
-                    rider_data['배차취소'] = get_number(col_data.get('배차취소', '').replace('배차취소', ''))
-                    rider_data['배달취소'] = get_number(col_data.get('배달취소', '').replace('배달취소', ''))
+                    rider_data['완료'] = get_number(col_data.get('완료', ''))
+                    rider_data['거절'] = get_number(col_data.get('거절', ''))
+                    rider_data['배차취소'] = get_number(col_data.get('배차취소', ''))
+                    rider_data['배달취소'] = get_number(col_data.get('배달취소', ''))
                     rider_data['기여도'] = get_number(col_data.get('기여도', '').replace('%', ''), to_float=True)
                     
-                    # 피크 데이터 파싱
-                    rider_data['아침점심피크'] = get_number(col_data.get('오전', '').replace('오전', ''))
-                    rider_data['오후논피크'] = get_number(col_data.get('오후', '').replace('오후', ''))
-                    rider_data['저녁피크'] = get_number(col_data.get('저녁', '').replace('저녁', ''))
-                    rider_data['심야논피크'] = get_number(col_data.get('심야', '').replace('심야', ''))
+                    rider_data['아침점심피크'] = get_number(col_data.get('오전', ''))
+                    rider_data['오후논피크'] = get_number(col_data.get('오후', ''))
+                    rider_data['저녁피크'] = get_number(col_data.get('저녁', ''))
+                    rider_data['심야논피크'] = get_number(col_data.get('심야', ''))
 
                     riders.append(rider_data)
-
-            data['riders'] = riders
+            else:
+                logger.warning("‼️ [핵심 문제] 라이더 데이터 목록('.rider_list')을 찾지 못했습니다. 일일 통계가 부정확할 수 있습니다.")
             
+            data['riders'] = riders
+
+            # 4. [핵심 수정] 일일 데이터 계산 로직 변경
+            if riders:
+                # [정확도 100%] 라이더 데이터 기반으로 일일 통계 재계산
+                logger.info("✅ 라이더 데이터 기반으로 정확한 일일 통계를 계산합니다.")
+                daily_completed = sum(r.get('완료', 0) for r in riders)
+                total_daily_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in riders)
+                data['상태_메시지'] = "정상 (라이더 데이터 기반)"
+            else:
+                # [FALLBACK] 라이더 데이터가 없을 경우, 피크 합산으로 완료 건수 계산
+                logger.warning("⚠️ 라이더 데이터가 없어 피크 합산으로 완료 건수를 계산합니다. 거절/취소 건수는 계산이 불가합니다.")
+                daily_completed = sum(details.get('current', 0) for peak_name, details in peak_data.items())
+                total_daily_rejected = 0 # 부정확한 데이터 대신 0으로 처리
+                data['상태_메시지'] = "경고: 라이더 목록 누락"
+
+            data['일일_완료'] = daily_completed
+            data['일일_거절_합계'] = total_daily_rejected
+            
+            logger.info(f"✅ 최종 계산된 일일 데이터: 완료={daily_completed}, 거절/취소(합계)={total_daily_rejected}")
+
             data['timestamp'] = datetime.now().strftime("%Y-m-d %H:%M:%S")
             return data
 
