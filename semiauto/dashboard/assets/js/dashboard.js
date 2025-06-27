@@ -169,13 +169,20 @@ function updateDashboard(data) {
     const activeRiders = riders.filter(rider => (rider.완료 || 0) > 0);
 
     // 1. 통계 카드 업데이트
-    document.getElementById('total-score').textContent = data.총점 || 0;
-    document.getElementById('total-completed').textContent = data.총완료 || 0;
-    document.getElementById('acceptance-rate').textContent = `${data.수락률 || 0}%`;
-    document.getElementById('active-riders').textContent = activeRiders.length;
+    const totalScoreEl = document.getElementById('total-score');
+    const totalCompletedEl = document.getElementById('total-completed');
+    const acceptanceRateEl = document.getElementById('acceptance-rate');
+    const activeRidersEl = document.getElementById('active-riders');
+
+    if (totalScoreEl) totalScoreEl.textContent = data.총점 || 0;
+    if (totalCompletedEl) totalCompletedEl.textContent = data.총완료 || 0;
+    if (acceptanceRateEl) acceptanceRateEl.textContent = `${data.수락률 || 0}%`;
+    if (activeRidersEl) activeRidersEl.textContent = activeRiders.length;
 
     // 2. 라이더 현황 업데이트
     const riderListContainer = document.getElementById('rider-list-container');
+    if (!riderListContainer) return; // 요소가 없으면 중단
+
     riderListContainer.innerHTML = ''; // 기존 목록 초기화
 
     if (activeRiders.length === 0) {
@@ -184,7 +191,7 @@ function updateDashboard(data) {
         activeRiders.forEach(rider => {
             const riderElement = document.createElement('div');
             riderElement.className = 'rider-item';
-            // 실제 키 이름('name', '완료', '수락률')을 사용하고, 기여도는 일단 제외
+            // 실제 키 이름('name', '완료', '수락률')을 사용
             riderElement.innerHTML = `
                 <div class="rider-name">${rider.name}</div>
                 <div class="rider-stats">
