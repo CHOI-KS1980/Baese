@@ -481,13 +481,17 @@ class GriderDataCollector:
                         # td[3] 부터 피크 데이터
                         for i, peak_name in enumerate(peak_names):
                             peak_text = cols[i + 3].get_text(strip=True)
-                            # e.g., "24/21건"
-                            match = re.search(r'(\d+)/(\d+)건', peak_text)
-                            if match:
-                                current, target = int(match.group(1)), int(match.group(2))
+                            
+                            # 더 강력한 파싱: 텍스트에서 숫자 2개를 순서대로 추출
+                            numbers = re.findall(r'\d+', peak_text)
+                            
+                            if len(numbers) >= 2:
+                                current, target = int(numbers[0]), int(numbers[1])
                                 peak_data[peak_name] = {'current': current, 'target': target}
+                                logger.info(f"✅ 피크 '{peak_name}' 파싱 성공: {current}/{target}")
                             else:
                                 peak_data[peak_name] = {'current': 0, 'target': 0}
+                                logger.warning(f"⚠️ 피크 '{peak_name}' 파싱 실패: '{peak_text}'에서 숫자 2개를 찾을 수 없음")
                         break # 오늘 날짜를 찾았으니 루프 종료
                 if not found_today:
                     logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
