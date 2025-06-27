@@ -329,7 +329,9 @@ class GriderDataCollector:
             # 2. 주간 데이터 페이지로 이동하여 주간 데이터 수집
             weekly_url = "https://jangboo.grider.ai/orders/sla/list"
             weekly_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath)
+            # 점수 영역의 숫자가 실제로 로드될 때까지 추가로 기다립니다.
+            sub_wait_xpath = "//span[@data-text='total' and text()!='']"
+            weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath, sub_wait_xpath=sub_wait_xpath)
             if not weekly_html: return self._get_error_data("주간 데이터 페이지 크롤링 실패")
             
             weekly_data = self._parse_weekly_data(weekly_html)
@@ -380,13 +382,19 @@ class GriderDataCollector:
             logger.error(f"로그인 과정에서 오류 발생: {e}")
             return False
 
-    def _crawl_page(self, driver, url, wait_xpath, max_retries=3, retry_delay=5):
+    def _crawl_page(self, driver, url, wait_xpath, max_retries=3, retry_delay=5, sub_wait_xpath=None):
         for attempt in range(max_retries):
             try:
                 logger.info(f"{url} 페이지 크롤링 시도 {attempt + 1}/{max_retries}")
                 driver.get(url)
                 WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, wait_xpath)))
                 logger.info(f"✅ 페이지 로드 확인 ({wait_xpath})")
+
+                if sub_wait_xpath:
+                    logger.info(f"하위 요소 대기 시작: {sub_wait_xpath}")
+                    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, sub_wait_xpath)))
+                    logger.info(f"✅ 하위 요소 로드 확인 ({sub_wait_xpath})")
+                
                 html = driver.page_source
                 if len(html) < 1000: raise Exception("HTML 길이가 너무 짧아 로딩 실패로 간주")
                 return html
