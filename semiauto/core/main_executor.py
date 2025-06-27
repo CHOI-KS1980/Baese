@@ -420,27 +420,45 @@ class GriderDataCollector:
         def get_text_safe(node):
             return node.get_text(strip=True) if node and isinstance(node, Tag) else ""
 
+        # 1. 점수 영역 파싱 (예상 총 점수, 물량/수락률 점수)
+        summary_score_area = soup.select_one('.summary_score')
+        if summary_score_area:
+            logger.info("✅ 주간 데이터의 점수 요약 (.summary_score)을 찾았습니다.")
+            data['총점'] = get_number(get_text_safe(summary_score_area.select_one('.score_total_value[data-text="total"]')))
+            data['물량점수'] = get_number(get_text_safe(summary_score_area.select_one('.detail_score_value[data-text="quantity"]')))
+            data['수락률점수'] = get_number(get_text_safe(summary_score_area.select_one('.detail_score_value[data-text="acceptance"]')))
+            logger.info(f"점수 파싱: 총점={data['총점']}, 물량={data['물량점수']}, 수락률={data['수락률점수']}")
+        else:
+            logger.warning("⚠️ 주간 데이터에서 점수 요약 영역(.summary_score)을 찾지 못했습니다.")
+
+        # 2. 건수 영역 파싱 (총 완료/거절 건수 및 수락률 재계산)
         summary_header = soup.select_one('.rider_th.total_value_th')
         if summary_header:
-            logger.info("✅ 주간 데이터의 summary header (.rider_th.total_value_th)를 찾았습니다.")
+            logger.info("✅ 주간 데이터의 라이더 요약 헤더 (.rider_th.total_value_th)를 찾았습니다.")
 
             def get_total_val(cls, to_float=False):
                 node = summary_header.select_one(f'div[data-total_value="{cls}"]')
                 text = get_text_safe(node)
                 return get_number(text, to_float)
 
+            # 사용자 요청에 따라 이 곳의 데이터를 최종 값으로 사용
             data['총완료'] = get_total_val('complete_count')
-            data['총거절'] = get_total_val('reject_count')
-            # 배차취소와 배달취소도 거절에 포함시킵니다.
-            accept_cancel_count = get_total_val('accept_cancel_count')
-            rider_fault_cancel_count = get_total_val('accept_cancel_rider_fault_count')
-            data['총거절'] += accept_cancel_count + rider_fault_cancel_count
-
-            data['수락률'] = get_total_val('acceptance_rate', to_float=True)
             
-            logger.info(f"주간 요약: 완료={data['총완료']}, 거절={data['총거절']}, 수락률={data['수락률']}%")
+            base_rejects = get_total_val('reject_count')
+            accept_cancel = get_total_val('accept_cancel_count')
+            rider_fault_cancel = get_total_val('accept_cancel_rider_fault_count')
+            data['총거절'] = base_rejects + accept_cancel + rider_fault_cancel
+
+            # 사용자 요청에 따라 수락률 재계산
+            total_for_rate = data['총완료'] + data['총거절']
+            if total_for_rate > 0:
+                data['수락률'] = (data['총완료'] / total_for_rate) * 100
+            else:
+                data['수락률'] = 0.0
+            
+            logger.info(f"주간 건수 계산: 완료={data['총완료']}, 거절(합산)={data['총거절']}, 재계산된 수락률={data['수락률']:.1f}%")
         else:
-            logger.warning("⚠️ 주간 데이터에서 summary header (.rider_th.total_value_th)를 찾지 못했습니다.")
+            logger.warning("⚠️ 주간 데이터에서 라이더 요약 헤더 (.rider_th.total_value_th)를 찾지 못했습니다.")
 
         return data
 
