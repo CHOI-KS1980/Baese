@@ -482,7 +482,7 @@ class GriderDataCollector:
                         for i, peak_name in enumerate(peak_names):
                             peak_text = cols[i + 3].get_text(strip=True)
                             # e.g., "24/21건"
-                            match = re.search(r'(\\d+)/(\\d+)건', peak_text)
+                            match = re.search(r'(\d+)/(\d+)건', peak_text)
                             if match:
                                 current, target = int(match.group(1)), int(match.group(2))
                                 peak_data[peak_name] = {'current': current, 'target': target}
@@ -569,7 +569,8 @@ class GriderDataCollector:
                 "Snow": "❄️", "Blizzard": "🌨️"
             }
             def get_icon(desc):
-                return next((icon for key, icon in weather_icon_map.items() if key in desc), "")
+                # 날씨 설명에 맞는 아이콘을 찾고, 없으면 기본 아이콘(☁️) 반환
+                return next((icon for key, icon in weather_icon_map.items() if key in desc), "☁️")
 
             for forecast in weather_data.get('weather', [{}])[0].get('hourly', []):
                 hour = int(forecast.get('time', '0')) // 100
