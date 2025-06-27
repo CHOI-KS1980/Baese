@@ -676,11 +676,11 @@ class GriderAutoSender:
                     is_achieved = details['current'] >= details['target']
                     shortfall = details['target'] - details['current']
                     status_icon = "✅ (달성)" if is_achieved else f"❌ ({shortfall}건 부족)"
-                    peak_summary += f"{emoji} {peak}: {details['current']}/{details['target']} {status_icon}\\n"
+                    peak_summary += f"{emoji} {peak}: {details['current']}/{details['target']} {status_icon}\n"
                     if not is_achieved and shortfall > 0:
                         alerts.append(f"{peak.replace('피크','')} {shortfall}건")
                 else: # target이 0이거나 데이터가 없는 경우 (오류 처리)
-                     peak_summary += f"{emoji} {peak}: 데이터 없음\\n"
+                     peak_summary += f"{emoji} {peak}: 데이터 없음\n"
 
             peak_summary = peak_summary.strip()
             if not peak_summary:
@@ -719,7 +719,8 @@ class GriderAutoSender:
             total_delivery_count = sum(r.get('완료', 0) for r in active_riders)
             
             rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
-            for i, rider in enumerate(active_riders):
+            # 상위 5명까지만 노출
+            for i, rider in enumerate(active_riders[:5]):
                 rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
                 contribution = (rider.get('완료', 0) / total_delivery_count * 100) if total_delivery_count > 0 else 0
                 rider_name = rider['name'].replace('(본인)', '').strip()
