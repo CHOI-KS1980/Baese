@@ -366,12 +366,21 @@ class GriderDataCollector:
                     time.sleep(retry_delay)
                 else:
                     logger.error(" 모든 크롤링 시도 실패")
+        
+        # 모든 시도 실패 후 driver가 살아있으면 종료
+        if driver:
+            driver.quit()
+        
         return None
 
     def _navigate_to_date_data(self, driver, target_date: str) -> str:
         """URL 파라미터 방식으로 날짜별 데이터 조회"""
         url_with_date = f"https://jangboo.grider.ai/dashboard?date={target_date}"
         driver.get(url_with_date)
+        
+        # 페이지 이동 후 캐시 문제 방지를 위해 강제로 새로고침
+        driver.refresh()
+        logger.info(f"페이지 새로고침 완료: {url_with_date}")
         
         # 데이터가 로드될 때까지 명시적으로 대기 (총점 값에 숫자가 나타날 때까지)
         try:
@@ -395,11 +404,15 @@ class GriderDataCollector:
         return datetime.now(KST)
 
     def _get_mission_date(self):
-        """한국시간 기준 현재 미션 날짜 반환 (06시 기준)"""
+        """
+        한국시간 기준 현재 미션 날짜 반환 (06시 기준)
+        - 시간 오차에 더 안정적인 방식으로 변경
+        """
         korea_time = self._get_korea_time()
-        if korea_time.hour < 6:
-            return (korea_time - timedelta(days=1)).strftime('%Y-%m-%d')
-        return korea_time.strftime('%Y-%m-%d')
+        # 미션 기준 시간(오전 6시)을 적용하기 위해 현재 시간에서 6시간을 뺍니다.
+        # 이렇게 하면 오전 0시부터 5시 59분까지는 자동으로 전날로 계산됩니다.
+        mission_time = korea_time - timedelta(hours=6)
+        return mission_time.strftime('%Y-%m-%d')
 
     def _parse_data(self, html: str) -> dict:
         """HTML을 파싱하여 핵심 데이터를 추출합니다."""
@@ -648,13 +661,14 @@ class GriderAutoSender:
                     alerts.append(f"{peak.replace('피크','')} {shortfall}건")
             peak_summary = peak_summary.strip()
 
-            # 금일 수행 내역
-            today_completed = data.get('총완료', 0)
-            today_rejected = data.get('총거절', 0) # '총거절' 키 사용
+            # 금일 수행 내역 (라이더 데이터 합산 기준)
+            all_riders = data.get('riders', [])
+            today_completed = sum(r.get('완료', 0) for r in all_riders)
+            today_rejected = sum(r.get('거절', 0) for r in all_riders)
             today_total = today_completed + today_rejected
             today_acceptance_rate = (today_completed / today_total * 100) if today_total > 0 else 100
             today_summary = (
-                "📈 금일 수행 내역\n"
+                "📈 금일 수행 내역 (라이더 합산)\n"
                 f"완료: {today_completed}  거절: {today_rejected}\n"
                 f"수락률: {today_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(today_acceptance_rate)}"
@@ -663,10 +677,10 @@ class GriderAutoSender:
             # 날씨 정보
             weather_summary = data.get('weather_info')
 
-            # 이번주 미션 예상 점수
+            # 이번주 미션 예상 점수 (대시보드 요약 기준)
             weekly_acceptance_rate = float(data.get('수락률', 0))
             weekly_summary = (
-                "📊 이번주 미션 수행 예상점수\n"
+                "📊 이번주 미션 예상점수 (대시보드 기준)\n"
                 f"총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})\n"
                 f"수락률: {weekly_acceptance_rate:.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}\n"
                 f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
