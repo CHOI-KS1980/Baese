@@ -489,50 +489,72 @@ class GriderDataCollector:
 
             data.update(peak_data)
 
-            # 3. 라이더 데이터 (rider_item) - SLA 페이지에 없을 수 있으므로 방어적으로 처리
+            # 3. 라이더 현황 데이터 파싱 (주간 데이터)
             riders = []
-            rider_list_area = soup.select_one('.rider_list')
-            if rider_list_area:
-                rider_items = rider_list_area.select('.rider_item')
+            # "라이더 현황" 제목을 찾고 그 부모 안에서 rider_container를 찾음
+            rider_status_title = None
+            all_h3s_rider = soup.find_all('h3', class_='page_sub_title')
+            for h3 in all_h3s_rider:
+                if '라이더 현황' in h3.get_text(strip=True):
+                    rider_status_title = h3
+                    logger.info("✅ '라이더 현황' 제목을 포함하는 h3 태그를 찾았습니다.")
+                    break
+
+            rider_container = None
+            if rider_status_title:
+                parent_item = rider_status_title.find_parent('div', class_='item')
+                if parent_item:
+                    rider_container = parent_item.find('div', class_='rider_container')
+
+            if rider_container:
+                logger.info("✅ '라이더 현황' 컨테이너를 정확히 찾았습니다.")
+                rider_items = rider_container.select('.rider_list .rider_item')
+                logger.info(f"✅ {len(rider_items)}명의 라이더 데이터를 찾았습니다.")
                 
-                # 헤더에서 컬럼 순서 파악
-                header_nodes = soup.select('.rider_th .rider_contents')
-                headers = [h.get_text(strip=True) for h in header_nodes]
-                
+                def get_val_from_item(item, class_name, to_float=False):
+                    node = item.select_one(f'.{class_name}')
+                    if not node:
+                        return 0.0 if to_float else 0
+                    
+                    text = node.get_text(strip=True)
+                    # '이름', '아이디' 등 불필요한 단어 제거 (정규식으로 더 안전하게)
+                    text = re.sub(r'^[가-힣A-Za-z]+', '', text).strip()
+                    return get_number(text, to_float)
+
                 for item in rider_items:
                     rider_data = {}
                     
-                    # 이름과 아이디 먼저 추출 (이름 파싱 강화)
+                    # 이름과 아이디는 특별 처리
                     name_node = item.select_one('.rider_name')
                     if name_node:
-                        # '수락률' 같은 불필요한 자식 태그가 있다면 먼저 제거
-                        for child_tag in name_node.find_all(['span', 'div']):
+                        # 자식 태그의 텍스트를 제외하고 순수 이름만 추출
+                        for child_tag in name_node.find_all(['span', 'p', 'div']):
                             child_tag.decompose()
-                        rider_data['name'] = name_node.get_text(strip=True).replace('이름', '')
+                        rider_data['name'] = name_node.get_text(strip=True)
                     else:
                         rider_data['name'] = '이름없음'
 
                     id_node = item.select_one('.user_id')
                     rider_data['id'] = id_node.get_text(strip=True).replace('아이디', '') if id_node else ''
 
-                    # 나머지 데이터는 헤더 순서에 맞춰 파싱
-                    cols = item.select('.rider_contents')
-                    col_data = {header: node.get_text(strip=True) for header, node in zip(headers, cols)}
+                    # 수락률
+                    acceptance_rate_node = item.select_one('.acceptance_rate')
+                    rider_data['수락률'] = get_number(acceptance_rate_node.get_text(), to_float=True) if acceptance_rate_node else 0.0
                     
-                    rider_data['수락률'] = get_number(item.select_one('.acceptance_rate_box').get_text(), to_float=True)
-                    rider_data['완료'] = get_number(col_data.get('완료', '').replace('완료', ''))
-                    rider_data['거절'] = get_number(col_data.get('거절', '').replace('거절', ''))
-                    rider_data['배차취소'] = get_number(col_data.get('배차취소', '').replace('배차취소', ''))
-                    rider_data['배달취소'] = get_number(col_data.get('배달취소', '').replace('배달취소', ''))
-                    rider_data['기여도'] = get_number(col_data.get('기여도', '').replace('%', ''), to_float=True)
+                    rider_data['완료'] = get_val_from_item(item, 'complete_count')
+                    rider_data['거절'] = get_val_from_item(item, 'reject_count')
+                    rider_data['배차취소'] = get_val_from_item(item, 'accept_cancel_count')
+                    rider_data['배달취소'] = get_val_from_item(item, 'accept_cancel_rider_fault_count')
                     
-                    # 피크 데이터 파싱
-                    rider_data['아침점심피크'] = get_number(col_data.get('오전', '').replace('오전', ''))
-                    rider_data['오후논피크'] = get_number(col_data.get('오후', '').replace('오후', ''))
-                    rider_data['저녁피크'] = get_number(col_data.get('저녁', '').replace('저녁', ''))
-                    rider_data['심야논피크'] = get_number(col_data.get('심야', '').replace('심야', ''))
-
+                    # 피크 데이터 파싱 (주간) 및 키 이름 맞추기
+                    rider_data['아침점심피크'] = get_val_from_item(item, 'morning_peak_count')
+                    rider_data['오후논피크'] = get_val_from_item(item, 'afternoon_peak_count')
+                    rider_data['저녁피크'] = get_val_from_item(item, 'evening_peak_count')
+                    rider_data['심야논피크'] = get_val_from_item(item, 'midnight_peak_count')
+                    
                     riders.append(rider_data)
+            else:
+                logger.warning("⚠️ '라이더 현황' 테이블을 찾지 못했습니다.")
 
             data['riders'] = riders
             
@@ -686,18 +708,18 @@ class GriderAutoSender:
             if not peak_summary:
                 peak_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다."
 
-            # [최종] 금일 수행 내역 (라이더 데이터 합산)
+            # [수정] "금일 수행 내역" -> "주간 라이더 실적 요약"으로 변경하고, 주간 데이터를 사용함을 명확히 함
             all_riders = data.get('riders', [])
-            today_completed = sum(r.get('완료', 0) for r in all_riders)
-            today_rejected_with_cancels = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
-            today_total_for_rate = today_completed + today_rejected_with_cancels
-            today_acceptance_rate = (today_completed / today_total_for_rate * 100) if today_total_for_rate > 0 else 100
+            weekly_total_completed = sum(r.get('완료', 0) for r in all_riders)
+            weekly_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
+            weekly_total_for_rate = weekly_total_completed + weekly_total_rejected
+            weekly_acceptance_rate_from_riders = (weekly_total_completed / weekly_total_for_rate * 100) if weekly_total_for_rate > 0 else 100
 
-            today_summary = (
-                "📈 금일 수행 내역\n"
-                f"완료: {today_completed}  거절(취소포함): {today_rejected_with_cancels}\n"
-                f"수락률: {today_acceptance_rate:.1f}%\n"
-                f"{get_acceptance_progress_bar(today_acceptance_rate)}"
+            weekly_rider_summary = (
+                "📈 주간 라이더 실적 요약\n"
+                f"완료: {weekly_total_completed}  거절(취소포함): {weekly_total_rejected}\n"
+                f"수락률: {weekly_acceptance_rate_from_riders:.1f}%\n"
+                f"{get_acceptance_progress_bar(weekly_acceptance_rate_from_riders)}"
             )
 
             # [최종] 이번주 미션 예상 점수 (웹사이트 요약 데이터)
@@ -747,7 +769,7 @@ class GriderAutoSender:
             
             # 메시지 조합
             message_parts = [
-                header, peak_summary, today_summary, weather_summary, 
+                header, peak_summary, weekly_rider_summary, weather_summary, 
                 weekly_summary, rider_ranking_summary, alert_summary
             ]
             return "\n\n".join(filter(None, message_parts))
