@@ -686,30 +686,31 @@ class GriderAutoSender:
             if not peak_summary:
                 peak_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다."
 
-            # 금일 수행 내역 (라이더 데이터 합산 기준)
+            # [최종 수정] 라이더 데이터를 합산하여 정확한 주간 종합 실적을 생성
             all_riders = data.get('riders', [])
-            today_completed = sum(r.get('완료', 0) for r in all_riders)
-            today_rejected = sum(r.get('거절', 0) for r in all_riders)
-            today_total = today_completed + today_rejected
-            today_acceptance_rate = (today_completed / today_total * 100) if today_total > 0 else 100
-            today_summary = (
-                "📈 금일 수행 내역 (라이더 합산)\n"
-                f"완료: {today_completed}  거절: {today_rejected}\n"
-                f"수락률: {today_acceptance_rate:.1f}%\n"
-                f"{get_acceptance_progress_bar(today_acceptance_rate)}"
+            
+            # 라이더 데이터 기반으로 완료, 거절(취소 포함) 건수 계산
+            weekly_completed = sum(r.get('완료', 0) for r in all_riders)
+            weekly_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
+            weekly_total_for_rate = weekly_completed + weekly_rejected
+            
+            # 수락률 계산
+            weekly_acceptance_rate = (weekly_completed / weekly_total_for_rate * 100) if weekly_total_for_rate > 0 else 100
+
+            # 대시보드 상단의 점수 데이터는 그대로 활용
+            total_score = data.get('총점', 0)
+            quantity_score = data.get('물량점수', 0)
+            acceptance_score = data.get('수락률점수', 0)
+            
+            weekly_summary = (
+                "📊 이번주 종합 실적 (라이더 합산)\n"
+                f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
+                f"수락률: {weekly_acceptance_rate:.1f}% | 완료: {weekly_completed} | 거절(취소포함): {weekly_rejected}\n"
+                f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
             )
 
             # 날씨 정보
             weather_summary = data.get('weather_info')
-
-            # 이번주 미션 예상 점수 (대시보드 요약 기준)
-            weekly_acceptance_rate = float(data.get('수락률', 0))
-            weekly_summary = (
-                "📊 이번주 미션 예상점수 (대시보드 기준)\n"
-                f"총점: {data.get('총점', 0)}점 (물량:{data.get('물량점수', 0)}, 수락률:{data.get('수락률점수', 0)})\n"
-                f"수락률: {weekly_acceptance_rate:.1f}% | 완료: {data.get('총완료', 0)} | 거절: {data.get('총거절', 0)}\n"
-                f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
-            )
 
             # 라이더 순위
             # 완료 건수가 1 이상인 라이더만 필터링 및 정렬
@@ -748,7 +749,7 @@ class GriderAutoSender:
             
             # 메시지 조합
             message_parts = [
-                header, peak_summary, today_summary, weather_summary, 
+                header, peak_summary, weather_summary, 
                 weekly_summary, rider_ranking_summary, alert_summary
             ]
             return "\n\n".join(filter(None, message_parts))
