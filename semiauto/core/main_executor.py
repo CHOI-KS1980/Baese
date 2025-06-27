@@ -451,13 +451,7 @@ class GriderDataCollector:
                 daily_completed = get_number(complete_element.get_text())
                 logger.info(f"✅ 완료 데이터 발견: {complete_element.get_text().strip()} -> {daily_completed}")
             else:
-                # 대체 셀렉터 시도
-                complete_element = soup.select_one('div[data-total_value="complete_count"]')
-                if complete_element:
-                    daily_completed = get_number(complete_element.get_text())
-                    logger.info(f"✅ 완료 데이터 (대체방법): {complete_element.get_text().strip()} -> {daily_completed}")
-                else:
-                    logger.warning("⚠️ 완료 데이터 HTML 요소 찾기 실패")
+                logger.warning("⚠️ 완료 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"complete_count\"])")
             
             # 거절 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="reject_count"]
             daily_rejected = 0
@@ -466,13 +460,7 @@ class GriderDataCollector:
                 daily_rejected = get_number(reject_element.get_text())
                 logger.info(f"✅ 거절 데이터 발견: {reject_element.get_text().strip()} -> {daily_rejected}")
             else:
-                # 대체 셀렉터 시도
-                reject_element = soup.select_one('div[data-total_value="reject_count"]')
-                if reject_element:
-                    daily_rejected = get_number(reject_element.get_text())
-                    logger.info(f"✅ 거절 데이터 (대체방법): {reject_element.get_text().strip()} -> {daily_rejected}")
-                else:
-                    logger.warning("⚠️ 거절 데이터 HTML 요소 찾기 실패")
+                logger.warning("⚠️ 거절 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"reject_count\"])")
             
             # 배차취소 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="accept_cancel_count"]
             daily_accept_cancel = 0
@@ -481,13 +469,7 @@ class GriderDataCollector:
                 daily_accept_cancel = get_number(accept_cancel_element.get_text())
                 logger.info(f"✅ 배차취소 데이터 발견: {accept_cancel_element.get_text().strip()} -> {daily_accept_cancel}")
             else:
-                # 대체 셀렉터 시도
-                accept_cancel_element = soup.select_one('div[data-total_value="accept_cancel_count"]')
-                if accept_cancel_element:
-                    daily_accept_cancel = get_number(accept_cancel_element.get_text())
-                    logger.info(f"✅ 배차취소 데이터 (대체방법): {accept_cancel_element.get_text().strip()} -> {daily_accept_cancel}")
-                else:
-                    logger.warning("⚠️ 배차취소 데이터 HTML 요소 찾기 실패")
+                logger.warning("⚠️ 배차취소 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"accept_cancel_count\"])")
             
             # 배달취소 갯수 - 정확한 구조: div.total_value_item.row[data-total_value="accept_cancel_rider_fault_count"]
             daily_delivery_cancel = 0
@@ -496,13 +478,7 @@ class GriderDataCollector:
                 daily_delivery_cancel = get_number(delivery_cancel_element.get_text())
                 logger.info(f"✅ 배달취소 데이터 발견: {delivery_cancel_element.get_text().strip()} -> {daily_delivery_cancel}")
             else:
-                # 대체 셀렉터 시도
-                delivery_cancel_element = soup.select_one('div[data-total_value="accept_cancel_rider_fault_count"]')
-                if delivery_cancel_element:
-                    daily_delivery_cancel = get_number(delivery_cancel_element.get_text())
-                    logger.info(f"✅ 배달취소 데이터 (대체방법): {delivery_cancel_element.get_text().strip()} -> {daily_delivery_cancel}")
-                else:
-                    logger.warning("⚠️ 배달취소 데이터 HTML 요소 찾기 실패")
+                logger.warning("⚠️ 배달취소 데이터 HTML 요소 찾기 실패 (div.total_value_item.row[data-total_value=\"accept_cancel_rider_fault_count\"])")
             
             logger.info(f"🔍 HTML에서 수집된 데이터: 완료={daily_completed}, 거절={daily_rejected}, 배차취소={daily_accept_cancel}, 배달취소={daily_delivery_cancel}")
             
