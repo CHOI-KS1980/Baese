@@ -17,7 +17,7 @@ import logging
 import os
 import re
 import pytz  # 한국시간 설정을 위해 추가
-from bs4 import BeautifulSoup  # BeautifulSoup import 추가
+from bs4 import BeautifulSoup, Tag
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 
 # Selenium 명시적 대기를 위한 모듈 추가
@@ -92,10 +92,10 @@ class KoreaHolidayChecker:
                     loc_date_node = item.find('locdate')
                     is_holiday_node = item.find('isHoliday')
                     
-                    if date_name_node is not None and loc_date_node is not None:
+                    if date_name_node is not None and loc_date_node is not None and date_name_node.text and loc_date_node.text:
                         holiday_name = date_name_node.text
                         holiday_date = loc_date_node.text
-                        holiday_status = is_holiday_node.text if is_holiday_node is not None else 'Y'
+                        holiday_status = is_holiday_node.text if is_holiday_node is not None and is_holiday_node.text else 'Y'
                         
                         if holiday_date and len(holiday_date) == 8:
                             formatted_date = f"{holiday_date[:4]}-{holiday_date[4:6]}-{holiday_date[6:8]}"
@@ -264,317 +264,230 @@ class GriderDataCollector:
         self.mission_data_cache_file = 'mission_data_cache.json'
     
     def get_grider_data(self, use_sample=False):
-        """G라이더 데이터 수집"""
+        """G라이더 주간/일간 데이터를 모두 수집"""
+        if use_sample:
+            return self._get_error_data("샘플 데이터 사용")
+
+        logger.info(" G라이더 실제 데이터 수집 시작...")
+        
+        driver = None
         try:
-            if use_sample:
-                return self._get_error_data("샘플 데이터 사용")
+            from selenium import webdriver
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.chrome.options import Options
+            
+            options = Options()
+            chrome_args = [
+                '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', 
+                '--disable-images', '--disable-web-security', '--disable-extensions',
+                '--ignore-certificate-errors', '--disable-blink-features=AutomationControlled',
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                '--window-size=1920,1080'
+            ]
+            for arg in chrome_args:
+                options.add_argument(arg)
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option('useAutomationExtension', False)
+            
+            driver = webdriver.Chrome(options=options)
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            driver.set_page_load_timeout(60)
 
-            logger.info(" G라이더 실제 데이터 수집 시작...")
+            if not self._perform_login(driver):
+                raise Exception("G라이더 로그인 실패")
             
-            html = self._crawl_jangboo()
-            if not html:
-                logger.error(" 크롤링 실패 - HTML을 가져올 수 없습니다")
-                return self._get_error_data("크롤링 실패(HTML 없음)")
+            weekly_url = "https://jangboo.grider.ai/orders/sla/list"
+            weekly_wait_xpath = "//h3[contains(text(), '물량 점수관리')]"
+            weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath)
+            if not weekly_html: return self._get_error_data("주간 데이터 페이지 크롤링 실패")
             
-            data = self._parse_data(html)
-            
-            if data.get('error'):
-                logger.error(f" 데이터 파싱 실패: {data.get('error_reason', '알 수 없는 오류')}")
-                return data
+            weekly_data = self._parse_weekly_data(weekly_html)
+            logger.info("✅ 주간 데이터 파싱 완료")
 
-            # 날씨 정보 추가
-            data['weather_info'] = self._get_weather_info_detailed()
+            daily_url = "https://jangboo.grider.ai/dashboard"
+            daily_wait_xpath = "//h3[contains(text(), '라이더 현황')]"
+            daily_html = self._crawl_page(driver, daily_url, daily_wait_xpath)
+            if not daily_html: return self._get_error_data("일간 데이터 페이지 크롤링 실패")
+            
+            daily_data = self._parse_daily_data(daily_html)
+            logger.info("✅ 일간 데이터 파싱 완료")
+            
+            final_data = {**weekly_data, **daily_data}
+            final_data['weather_info'] = self._get_weather_info_detailed()
+            final_data['timestamp'] = get_korea_time().strftime("%Y-%m-%d %H:%M:%S")
+            final_data['mission_date'] = self._get_mission_date()
+            final_data['error'] = False
             
             logger.info(" G라이더 데이터 수집 완료")
-            return data
-            
+            return final_data
+
         except Exception as e:
             logger.error(f" 크롤링 중 오류 발생: {e}", exc_info=True)
             return self._get_error_data(f"크롤링 중 예외 발생: {e}")
+        finally:
+            if driver:
+                driver.quit()
 
     def _get_error_data(self, error_reason):
-        """크롤링 실패 시 오류 메시지가 포함된 데이터"""
         return {
             '총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절': 0, '수락률': 0.0,
             '아침점심피크': {"current": 0, "target": 0}, '오후논피크': {"current": 0, "target": 0},
             '저녁피크': {"current": 0, "target": 0}, '심야논피크': {"current": 0, "target": 0},
-            'riders': [], 'error': True, 'error_reason': error_reason,
+            'daily_riders': [], 'error': True, 'error_reason': error_reason,
             'timestamp': datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def _crawl_jangboo(self, max_retries=3, retry_delay=5):
-        """최적화된 크롤링 함수"""
-        from selenium import webdriver
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.chrome.options import Options
-        
-        driver = None
+    def _perform_login(self, driver):
+        try:
+            wait = WebDriverWait(driver, 20)
+            driver.get('https://jangboo.grider.ai/login')
+            wait.until(EC.presence_of_element_located((By.ID, 'id')))
+            
+            USER_ID = os.getenv('GRIDER_ID')
+            USER_PW = os.getenv('GRIDER_PASSWORD')
+            if not USER_ID or not USER_PW: raise Exception("G라이더 로그인 정보가 없습니다.")
+            
+            driver.find_element(By.ID, 'id').send_keys(USER_ID)
+            driver.find_element(By.ID, 'password').send_keys(USER_PW)
+            driver.find_element(By.ID, 'loginBtn').click()
+            WebDriverWait(driver, 30).until(EC.url_contains('/dashboard'))
+            logger.info("✅ 로그인 성공")
+            return True
+        except Exception as e:
+            logger.error(f"로그인 과정에서 오류 발생: {e}")
+            return False
+
+    def _crawl_page(self, driver, url, wait_xpath, max_retries=3, retry_delay=5):
         for attempt in range(max_retries):
             try:
-                logger.info(f"크롤링 시도 {attempt + 1}/{max_retries}")
-                
-                options = Options()
-                chrome_args = [
-                    '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', 
-                    '--disable-images', '--disable-web-security', '--disable-extensions',
-                    '--ignore-certificate-errors', '--disable-blink-features=AutomationControlled',
-                    '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    '--window-size=1920,1080'
-                ]
-                for arg in chrome_args:
-                    options.add_argument(arg)
-                options.add_experimental_option("excludeSwitches", ["enable-automation"])
-                options.add_experimental_option('useAutomationExtension', False)
-                
-                driver = webdriver.Chrome(options=options)
-                driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-                driver.set_page_load_timeout(60)
-                
-                wait = WebDriverWait(driver, 20) # 명시적 대기 객체 생성
-
-                driver.get('https://jangboo.grider.ai/login')
-                
-                # ID 필드가 나타날 때까지 최대 20초 대기
-                wait.until(EC.presence_of_element_located((By.ID, 'id')))
-                
-                USER_ID = os.getenv('GRIDER_ID')
-                USER_PW = os.getenv('GRIDER_PASSWORD')
-                if not USER_ID or not USER_PW:
-                    raise Exception("G라이더 로그인 정보가 없습니다.")
-                
-                driver.find_element(By.ID, 'id').send_keys(USER_ID)
-                driver.find_element(By.ID, 'password').send_keys(USER_PW)
-                driver.find_element(By.ID, 'loginBtn').click()
-                
-                # 로그인 성공 후, 올바른 SLA 리스트 페이지로 직접 이동
-                logger.info("로그인 성공. 최종 데이터 페이지(SLA 리스트)로 이동합니다.")
-                sla_list_url = "https://jangboo.grider.ai/orders/sla/list"
-                driver.get(sla_list_url)
-
-                # 페이지가 완전히 로드될 때까지 명시적으로 대기 ('물량 점수관리' 제목 확인)
-                WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), '물량 점수관리')]"))
-                )
-                logger.info("✅ SLA 리스트 페이지 로드 확인 ('물량 점수관리' 제목 확인)")
-
+                logger.info(f"{url} 페이지 크롤링 시도 {attempt + 1}/{max_retries}")
+                driver.get(url)
+                WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, wait_xpath)))
+                logger.info(f"✅ 페이지 로드 확인 ({wait_xpath})")
                 html = driver.page_source
-
-                # [진단 코드] 크롤러가 보고 있는 HTML을 파일로 저장합니다.
-                try:
-                    with open('crawled_page.html', 'w', encoding='utf-8') as f:
-                        f.write(html)
-                    logger.info("✅ [진단] 크롤링된 HTML을 crawled_page.html 파일로 저장했습니다.")
-                except Exception as e:
-                    logger.error(f"❌ [진단] HTML 파일 저장 실패: {e}")
-
-                if len(html) < 1000:
-                    raise Exception("HTML 길이가 너무 짧아 로딩 실패로 간주")
-                
-                logger.info(" 크롤링 성공")
-
-                driver.quit()
-
+                if len(html) < 1000: raise Exception("HTML 길이가 너무 짧아 로딩 실패로 간주")
                 return html
-
             except Exception as e:
                 logger.error(f" 크롤링 시도 {attempt + 1} 실패: {e}")
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
                 else:
-                    logger.error(" 모든 크롤링 시도 실패")
-        
-        # 모든 시도 실패 후 driver가 살아있으면 종료
-        if driver:
-            driver.quit()
-        
-        return None
+                    logger.error(f" 모든 크롤링 시도 실패 ({url})")
+                    return None
 
     def _get_mission_date(self):
-        """
-        한국시간 기준 현재 미션 날짜 반환 (06시 기준)
-        - 시간 오차에 더 안정적인 방식으로 변경
-        """
         korea_time = get_korea_time()
-        # 미션 기준 시간(오전 6시)을 적용하기 위해 현재 시간에서 6시간을 뺍니다.
-        # 이렇게 하면 오전 0시부터 5시 59분까지는 자동으로 전날로 계산됩니다.
         mission_time = korea_time - timedelta(hours=6)
         return mission_time.strftime('%Y-%m-%d')
 
-    def _parse_data(self, html: str) -> dict:
-        """HTML을 파싱하여 핵심 데이터를 추출합니다."""
+    def _parse_weekly_data(self, html: str) -> dict:
+        soup = BeautifulSoup(html, 'html.parser')
+        data = {}
+        
+        def get_number(text, to_float=False):
+            if not text: return 0.0 if to_float else 0
+            cleaned_text = text.replace(',', '').strip()
+            match = re.search(r'(-?[\d\.]+)', cleaned_text)
+            return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
+
+        def get_text_safe(node):
+            return node.get_text(strip=True) if node and isinstance(node, Tag) else ""
+
+        summary_area = soup.select_one('.summary_score')
+        if summary_area:
+            data['총점'] = get_number(get_text_safe(summary_area.select_one('.score_total_value')))
+            data['물량점수'] = get_number(get_text_safe(summary_area.select_one('.detail_score_value[data-text="quantity"]')))
+            data['수락률점수'] = get_number(get_text_safe(summary_area.select_one('.detail_score_value[data-text="acceptance"]')))
+        
+        summary_etc = soup.select_one('.summary_etc')
+        if summary_etc:
+            data['총완료'] = get_number(get_text_safe(summary_etc.select_one('.etc_value[data-etc="complete"] span')))
+            data['총거절'] = get_number(get_text_safe(summary_etc.select_one('.etc_value[data-etc="reject"] span')))
+            data['수락률'] = get_number(get_text_safe(summary_etc.select_one('.etc_value[data-etc="acceptance"] span')), to_float=True)
+            
+        peak_data = {}
+        mission_date = self._get_mission_date()
+        title_h3 = soup.find('h3', class_='page_sub_title', string=re.compile('물량 점수관리'))
+        
+        if title_h3:
+            parent_item = title_h3.find_parent('div', class_='item')
+            if parent_item and isinstance(parent_item, Tag):
+                sla_table = parent_item.find('table', class_='sla_table')
+                if sla_table and isinstance(sla_table, Tag):
+                    found_today = False
+                    for row in sla_table.select('tbody tr'):
+                        cols = row.select('td')
+                        if len(cols) > 2 and mission_date in get_text_safe(cols[1]):
+                            found_today = True
+                            peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+                            for i, peak_name in enumerate(peak_names):
+                                peak_text = get_text_safe(cols[i + 3]) if len(cols) > i + 3 else ""
+                                numbers = re.findall(r'(\d+)', peak_text)
+                                peak_data[peak_name] = {'current': int(numbers[0]), 'target': int(numbers[1])} if len(numbers) >= 2 else {'current': 0, 'target': 0}
+                            break
+                    if not found_today: logger.warning(f"⚠️ 주간 데이터에서 오늘({mission_date})의 피크 정보를 찾지 못했습니다.")
+                else: logger.warning("⚠️ '물량 점수관리' 테이블을 찾지 못했습니다.")
+        else: logger.warning("⚠️ '물량 점수관리' 제목을 찾지 못했습니다.")
+        
+        data.update(peak_data)
+        return data
+
+    def _parse_daily_data(self, html: str) -> dict:
         soup = BeautifulSoup(html, 'html.parser')
         
-        parsed_data = self._parse_dashboard_html(soup)
-
-        if parsed_data is None:
-            return self._get_error_data("HTML 파싱 실패 (dashboard parser)")
-
-        # mission_date 추가
-        parsed_data['mission_date'] = self._get_mission_date()
-        logger.info(f"✅ 데이터 추출 성공. 총점: {parsed_data.get('총점', 0)}")
-        return parsed_data
-
-    def _parse_dashboard_html(self, soup):
-        """최신 대시보드 HTML 구조에 맞춰 데이터를 파싱하는 새로운 함수"""
-        try:
-            data = {}
-
-            # 헬퍼 함수: 텍스트에서 숫자만 추출
-            def get_number(text, to_float=False):
-                if not text:
-                    return 0.0 if to_float else 0
-                # 쉼표 제거 및 공백 제거
-                cleaned_text = text.replace(',', '').strip()
-                # 숫자 패턴 (소수점 포함)
-                match = re.search(r'(-?[\d\.]+)', cleaned_text)
-                if not match:
-                    return 0.0 if to_float else 0
-                
-                num_str = match.group(1)
-                return float(num_str) if to_float else int(num_str)
-
-            # 1. 기본 점수 정보 (summary_score) - 이 부분은 SLA 페이지에 없을 수 있으므로 방어적으로 코딩
-            summary_area = soup.select_one('.summary_score')
-            if summary_area:
-                data['총점'] = get_number(summary_area.select_one('.score_total_value').get_text())
-                data['물량점수'] = get_number(summary_area.select_one('.detail_score_value[data-text="quantity"]').get_text())
-                data['수락률점수'] = get_number(summary_area.select_one('.detail_score_value[data-text="acceptance"]').get_text())
+        def get_number(text, to_float=False):
+            if not text: return 0.0 if to_float else 0
+            cleaned_text = text.replace(',', '').strip()
+            match = re.search(r'(-?[\d\.]+)', cleaned_text)
+            return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
             
-            summary_etc = soup.select_one('.summary_etc')
-            if summary_etc:
-                data['총완료'] = get_number(summary_etc.select_one('.etc_value[data-etc="complete"] span').get_text())
-                data['총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
-                data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
-            
-            # 2. 미션 데이터 (더욱 정밀한 방식으로 테이블 탐색)
-            peak_data = {}
-            mission_date = self._get_mission_date()
-            
-            # [최종 수정] 제목 텍스트를 공백 등과 무관하게 가장 확실하게 검색합니다.
-            title_h3 = None
-            all_h3s = soup.find_all('h3', class_='page_sub_title')
-            for h3 in all_h3s:
-                if '물량 점수관리' in h3.get_text(strip=True):
-                    title_h3 = h3
-                    logger.info("✅ '물량 점수관리' 제목을 포함하는 h3 태그를 찾았습니다.")
-                    break
-            
-            sla_table = None
-            if title_h3:
-                # h3 태그의 부모('.item') 안에서 '.sla_table'을 찾는다. (가장 가까운 테이블 보장)
-                parent_item = title_h3.find_parent('div', class_='item')
-                if parent_item:
-                    sla_table = parent_item.find('table', class_='sla_table')
+        riders = []
+        rider_status_title = soup.find('h3', class_='page_sub_title', string=re.compile('라이더 현황'))
+        if rider_status_title:
+            parent_item = rider_status_title.find_parent('div', class_='item')
+            if parent_item and isinstance(parent_item, Tag):
+                rider_container = parent_item.find('div', class_='rider_container')
+                if rider_container and isinstance(rider_container, Tag):
+                    rider_items = rider_container.select('.rider_list .rider_item')
+                    logger.info(f"✅ 일간 데이터에서 {len(rider_items)}명의 라이더 데이터를 찾았습니다.")
+                    
+                    def get_val(item, cls, to_float=False):
+                        node = item.select_one(f'.{cls}')
+                        text_content = node.get_text(strip=True) if node and isinstance(node, Tag) else ""
+                        text = re.sub(r'^[가-힣A-Za-z]+', '', text_content).strip()
+                        return get_number(text, to_float)
 
-            if sla_table:
-                logger.info("✅ '물량 점수관리' 테이블을 정확히 찾았습니다.")
-                found_today = False
-                rows = sla_table.select('tbody tr')
-                for row in rows:
-                    cols = row.select('td')
-                    if len(cols) > 2 and mission_date in cols[1].get_text(strip=True):
-                        logger.info(f"✅ 오늘 날짜({mission_date})의 행을 찾았습니다.")
-                        found_today = True
+                    for item in rider_items:
+                        name_node = item.select_one('.rider_name')
+                        id_node = item.select_one('.user_id')
+                        acceptance_node = item.select_one('.acceptance_rate')
+
+                        name = '이름없음'
+                        if name_node and isinstance(name_node, Tag):
+                            for child in name_node.find_all(['span', 'p', 'div']): child.decompose()
+                            name = name_node.get_text(strip=True)
                         
-                        peak_names = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-                        # td[3] 부터 피크 데이터
-                        for i, peak_name in enumerate(peak_names):
-                            peak_text = cols[i + 3].get_text(strip=True)
-                            
-                            # 더 강력한 파싱: 텍스트에서 숫자 2개를 순서대로 추출
-                            numbers = re.findall(r'(\d+)', peak_text)
-                            
-                            if len(numbers) >= 2:
-                                current, target = int(numbers[0]), int(numbers[1])
-                                peak_data[peak_name] = {'current': current, 'target': target}
-                            else:
-                                peak_data[peak_name] = {'current': 0, 'target': 0}
-                        break # 오늘 날짜를 찾았으니 루프 종료
-                if not found_today:
-                    logger.warning(f"⚠️ 테이블에서 오늘 날짜({mission_date})의 데이터를 찾지 못했습니다.")
-            else:
-                logger.warning("⚠️ '물량 점수관리' 제목 또는 테이블을 찾지 못했습니다.")
+                        acceptance_text = acceptance_node.get_text(strip=True) if acceptance_node and isinstance(acceptance_node, Tag) else "0"
+                        id_text = id_node.get_text(strip=True).replace('아이디', '') if id_node and isinstance(id_node, Tag) else ''
 
-            data.update(peak_data)
-
-            # 3. 라이더 현황 데이터 파싱 (주간 데이터)
-            riders = []
-            # "라이더 현황" 제목을 찾고 그 부모 안에서 rider_container를 찾음
-            rider_status_title = None
-            all_h3s_rider = soup.find_all('h3', class_='page_sub_title')
-            for h3 in all_h3s_rider:
-                if '라이더 현황' in h3.get_text(strip=True):
-                    rider_status_title = h3
-                    logger.info("✅ '라이더 현황' 제목을 포함하는 h3 태그를 찾았습니다.")
-                    break
-
-            rider_container = None
-            if rider_status_title:
-                parent_item = rider_status_title.find_parent('div', class_='item')
-                if parent_item:
-                    rider_container = parent_item.find('div', class_='rider_container')
-
-            if rider_container:
-                logger.info("✅ '라이더 현황' 컨테이너를 정확히 찾았습니다.")
-                rider_items = rider_container.select('.rider_list .rider_item')
-                logger.info(f"✅ {len(rider_items)}명의 라이더 데이터를 찾았습니다.")
-                
-                def get_val_from_item(item, class_name, to_float=False):
-                    node = item.select_one(f'.{class_name}')
-                    if not node:
-                        return 0.0 if to_float else 0
-                    
-                    text = node.get_text(strip=True)
-                    # '이름', '아이디' 등 불필요한 단어 제거 (정규식으로 더 안전하게)
-                    text = re.sub(r'^[가-힣A-Za-z]+', '', text).strip()
-                    return get_number(text, to_float)
-
-                for item in rider_items:
-                    rider_data = {}
-                    
-                    # 이름과 아이디는 특별 처리
-                    name_node = item.select_one('.rider_name')
-                    if name_node:
-                        # 자식 태그의 텍스트를 제외하고 순수 이름만 추출
-                        for child_tag in name_node.find_all(['span', 'p', 'div']):
-                            child_tag.decompose()
-                        rider_data['name'] = name_node.get_text(strip=True)
-                    else:
-                        rider_data['name'] = '이름없음'
-
-                    id_node = item.select_one('.user_id')
-                    rider_data['id'] = id_node.get_text(strip=True).replace('아이디', '') if id_node else ''
-
-                    # 수락률
-                    acceptance_rate_node = item.select_one('.acceptance_rate')
-                    rider_data['수락률'] = get_number(acceptance_rate_node.get_text(), to_float=True) if acceptance_rate_node else 0.0
-                    
-                    rider_data['완료'] = get_val_from_item(item, 'complete_count')
-                    rider_data['거절'] = get_val_from_item(item, 'reject_count')
-                    rider_data['배차취소'] = get_val_from_item(item, 'accept_cancel_count')
-                    rider_data['배달취소'] = get_val_from_item(item, 'accept_cancel_rider_fault_count')
-                    
-                    # 피크 데이터 파싱 (주간) 및 키 이름 맞추기
-                    rider_data['아침점심피크'] = get_val_from_item(item, 'morning_peak_count')
-                    rider_data['오후논피크'] = get_val_from_item(item, 'afternoon_peak_count')
-                    rider_data['저녁피크'] = get_val_from_item(item, 'evening_peak_count')
-                    rider_data['심야논피크'] = get_val_from_item(item, 'midnight_peak_count')
-                    
-                    riders.append(rider_data)
-            else:
-                logger.warning("⚠️ '라이더 현황' 테이블을 찾지 못했습니다.")
-
-            data['riders'] = riders
-            
-            data['timestamp'] = datetime.now().strftime("%Y-m-d %H:%M:%S")
-            return data
-
-        except Exception as e:
-            logger.error(f"❌ HTML 파싱 중 예외 발생: {e}", exc_info=True)
-            return None
+                        riders.append({
+                            'name': name, 'id': id_text,
+                            '수락률': get_number(acceptance_text, to_float=True),
+                            '완료': get_val(item, 'complete_count'),
+                            '거절': get_val(item, 'reject_count'),
+                            '배차취소': get_val(item, 'accept_cancel_count'),
+                            '배달취소': get_val(item, 'accept_cancel_rider_fault_count'),
+                            '아침점심피크': get_val(item, 'morning_peak_count'),
+                            '오후논피크': get_val(item, 'afternoon_peak_count'),
+                            '저녁피크': get_val(item, 'evening_peak_count'),
+                            '심야논피크': get_val(item, 'midnight_peak_count'),
+                        })
+                else: logger.warning("⚠️ 일간 데이터에서 '라이더 현황' 컨테이너를 찾지 못했습니다.")
+        else: logger.warning("⚠️ 일간 데이터에서 '라이더 현황' 제목을 찾지 못했습니다.")
+        
+        return {'daily_riders': riders}
 
     def _get_weather_info_detailed(self, location="서울"):
-        """상세 날씨 정보 (오전/오후) 가져오기"""
         try:
             url = f"https://wttr.in/{location}?format=j1"
             response = requests.get(url, timeout=10)
@@ -592,7 +505,6 @@ class GriderDataCollector:
                 "Snow": "❄️", "Blizzard": "🌨️"
             }
             def get_icon(desc):
-                # 날씨 설명에 맞는 아이콘을 찾고, 없으면 기본 아이콘(☁️) 반환
                 return next((icon for key, icon in weather_icon_map.items() if key in desc), "☁️")
 
             for forecast in weather_data.get('weather', [{}])[0].get('hourly', []):
@@ -603,8 +515,8 @@ class GriderDataCollector:
                 if 6 <= hour < 12: (am_temps.append(temp), am_icons.append(icon))
                 elif 12 <= hour < 18: (pm_temps.append(temp), pm_icons.append(icon))
 
-            am_icon = max(set(am_icons), key=am_icons.count) if am_icons else ""
-            pm_icon = max(set(pm_icons), key=pm_icons.count) if pm_icons else ""
+            am_icon = max(set(am_icons), key=am_icons.count) if am_icons else "☁️"
+            pm_icon = max(set(pm_icons), key=pm_icons.count) if pm_icons else "☁️"
             
             am_line = f" 오전: {am_icon} {min(am_temps)}~{max(am_temps)}C" if am_temps else ""
             pm_line = f" 오후: {pm_icon} {min(pm_temps)}~{max(pm_temps)}C" if pm_temps else ""
@@ -627,23 +539,19 @@ class GriderAutoSender:
     def send_report(self):
         """데이터를 수집하고, 파일로 저장한 뒤, 카톡으로 리포트를 전송합니다."""
         data = self.data_collector.get_grider_data()
-        if not data:
-            logger.error("데이터 수집에 실패하여 리포트 전송을 중단합니다.")
+        if not data or data.get('error'):
+            logger.error(f"데이터 수집에 실패하여 리포트 전송을 중단합니다. 원인: {data.get('error_reason', '알 수 없음')}")
             return
 
-        # 1. 수집된 데이터를 대시보드가 읽을 수 있는 JSON 파일로 저장
         output_path = 'docs/api/latest-data.json'
         try:
-            # 디렉토리가 존재하지 않으면 생성
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             logger.info(f"✅ 크롤링 결과를 {output_path} 파일로 성공적으로 저장했습니다.")
         except Exception as e:
             logger.error(f"❌ 크롤링 결과를 파일로 저장하는 중 오류 발생: {e}", exc_info=True)
-            # 파일 저장에 실패하더라도 카톡 전송은 시도할 수 있습니다.
         
-        # 2. 카카오톡 리포트 전송
         access_token = self.token_manager.get_valid_token()
         if not access_token:
             logger.error("유효한 카카오 토큰이 없어 리포트 전송을 중단합니다.")
@@ -657,106 +565,84 @@ class GriderAutoSender:
     def format_message(self, data: dict) -> str:
         """사용자 정의 규칙에 따라 상세한 카카오톡 메시지를 생성합니다."""
         
-        # 10칸짜리 수락률용 진행률 막대 함수
         def get_acceptance_progress_bar(percentage: float) -> str:
             if not 0 <= percentage <= 100: return ""
             filled_blocks = round(percentage / 10)
             return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
-        # 5칸짜리 라이더 기여도용 진행률 막대 함수
         def get_rider_progress_bar(contribution: float) -> str:
-            if not isinstance(contribution, (int, float)) or contribution < 0:
-                contribution = 0
-            # 기여도는 100%를 넘을 수 있으므로 시각적 표현을 위해 100으로 제한
+            if not isinstance(contribution, (int, float)) or contribution < 0: contribution = 0
             contribution = min(contribution, 100)
-            filled_blocks = round(contribution / 20)  # 100 / 5칸 = 20
+            filled_blocks = round(contribution / 20)
             return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
 
         try:
-            # 헤더
             header = "심플 배민 플러스 미션 알리미"
 
-            # 시간대별 미션 현황
             peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
-            
-            # 피크별 시작 시간 정의
-            peak_start_hours = {
-                '아침점심피크': 10, # 오전 10시
-                '오후논피크': 14,   # 오후 2시
-                '저녁피크': 17,     # 오후 5시
-                '심야논피크': 21,   # 밤 9시
-            }
-            
             peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+            peak_start_hours = { '아침점심피크': 10, '오후논피크': 14, '저녁피크': 17, '심야논피크': 21 }
             
-            peak_summary = ""
-            alerts = []
+            peak_summary, alerts = "", []
             current_hour = get_korea_time().hour
 
             for peak in peak_order:
-                # 해당 피크의 시작 시간이 지났는지 확인
-                if current_hour < peak_start_hours.get(peak, 0):
-                    continue # 시작 시간이 안됐으면 건너뛰기
-                
+                if current_hour < peak_start_hours.get(peak, 0): continue
                 details = data.get(peak, {'current': 0, 'target': 0})
                 emoji = peak_emojis.get(peak, '❓')
                 
-                # Check if details exist and have target
-                if details.get('target', 0) > 0:
+                if details and details.get('target', 0) > 0:
                     is_achieved = details['current'] >= details['target']
                     shortfall = details['target'] - details['current']
                     status_icon = "✅ (달성)" if is_achieved else f"❌ ({shortfall}건 부족)"
                     peak_summary += f"{emoji} {peak}: {details['current']}/{details['target']} {status_icon}\n"
                     if not is_achieved and shortfall > 0:
                         alerts.append(f"{peak.replace('피크','')} {shortfall}건")
-                else: # target이 0이거나 데이터가 없는 경우 (오류 처리)
+                else:
                      peak_summary += f"{emoji} {peak}: 데이터 없음\n"
 
-            peak_summary = peak_summary.strip()
-            if not peak_summary:
-                peak_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다."
+            peak_summary = peak_summary.strip() or "ℹ️ 아직 시작된 당일 미션이 없습니다."
 
-            # [수정] "금일 수행 내역" -> "주간 라이더 실적 요약"으로 변경하고, 주간 데이터를 사용함을 명확히 함
-            all_riders = data.get('riders', [])
-            weekly_total_completed = sum(r.get('완료', 0) for r in all_riders)
-            weekly_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
-            weekly_total_for_rate = weekly_total_completed + weekly_total_rejected
-            weekly_acceptance_rate_from_riders = (weekly_total_completed / weekly_total_for_rate * 100) if weekly_total_for_rate > 0 else 100
+            # 일간 라이더 실적 요약
+            all_daily_riders = data.get('daily_riders', []) 
+            daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
+            daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
+            daily_total_for_rate = daily_total_completed + daily_total_rejected
+            daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100
 
-            weekly_rider_summary = (
-                "📈 주간 라이더 실적 요약\n"
-                f"완료: {weekly_total_completed}  거절(취소포함): {weekly_total_rejected}\n"
-                f"수락률: {weekly_acceptance_rate_from_riders:.1f}%\n"
-                f"{get_acceptance_progress_bar(weekly_acceptance_rate_from_riders)}"
+            daily_rider_summary = (
+                "📈 일간 라이더 실적 요약\n"
+                f"완료: {daily_total_completed}  거절: {daily_total_rejected}\n"
+                f"수락률: {daily_acceptance_rate:.1f}%\n"
+                f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
             )
 
-            # [최종] 이번주 미션 예상 점수 (웹사이트 요약 데이터)
-            total_score = data.get('총점', 0)
-            quantity_score = data.get('물량점수', 0)
-            acceptance_score = data.get('수락률점수', 0)
+            # 이번주 미션 예상 점수
+            total_score, quantity_score, acceptance_score = data.get('총점', 0), data.get('물량점수', 0), data.get('수락률점수', 0)
             weekly_acceptance_rate = float(data.get('수락률', 0))
+            weekly_completed, weekly_rejected = data.get('총완료', 0), data.get('총거절', 0)
 
             weekly_summary = (
                 "📊 이번주 미션 예상점수\n"
                 f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
+                f"완료: {weekly_completed}  거절: {weekly_rejected}\n"
                 f"수락률: {weekly_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
             )
 
-            # 날씨 정보
-            weather_summary = data.get('weather_info')
+            weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
 
-            # 라이더 순위
-            active_riders = sorted([r for r in data.get('riders', []) if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
-            total_delivery_count = sum(r.get('완료', 0) for r in active_riders)
+            # 라이더 순위 (일간)
+            active_riders = sorted([r for r in all_daily_riders if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
+            total_daily_count = sum(r.get('완료', 0) for r in active_riders)
             
             rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
             for i, rider in enumerate(active_riders[:5]):
                 rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
-                contribution = (rider.get('완료', 0) / total_delivery_count * 100) if total_delivery_count > 0 else 0
-                rider_name = rider['name'].replace('(본인)', '').strip()
+                contribution = (rider.get('완료', 0) / total_daily_count * 100) if total_daily_count > 0 else 0
+                rider_name = rider.get('name', '이름없음').replace('(본인)', '').strip()
                 
-                peak_counts_str = ' '.join([f"{peak_emojis.get(p, '❓')}{rider.get(p, 0)}" for p in peak_emojis])
+                peak_counts_str = ' '.join([f"{peak_emojis.get(p, '❓')}{rider.get(p, 0)}" for p in peak_order])
                 
                 rider_completed = rider.get('완료', 0)
                 rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
@@ -767,17 +653,13 @@ class GriderAutoSender:
                     f"    총 {rider_completed}건 ({peak_counts_str})\n"
                     f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider.get('거절',0)}, 취소:{rider.get('배차취소',0)+rider.get('배달취소',0)})"
                 )
-                if i < len(active_riders) - 1:
+                if i < len(active_riders) - 1 and i < 4:
                     rider_ranking_summary += "\n"
 
-            # 미션 부족 알림
-            alert_summary = ""
-            if alerts:
-                alert_summary = "⚠️ 미션 부족: " + ", ".join(alerts)
+            alert_summary = "⚠️ 미션 부족: " + ", ".join(alerts) if alerts else ""
             
-            # 메시지 조합
             message_parts = [
-                header, peak_summary, weekly_rider_summary, weather_summary, 
+                header, peak_summary, daily_rider_summary, weather_summary, 
                 weekly_summary, rider_ranking_summary, alert_summary
             ]
             return "\n\n".join(filter(None, message_parts))
