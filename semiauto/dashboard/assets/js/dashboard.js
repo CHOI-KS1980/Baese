@@ -162,17 +162,17 @@ async function fetchLatestData() {
 
 // 대시보드 업데이트
 function updateDashboard(data) {
-    const weeklyData = data.주간데이터 || {};
-    const riders = data.라이더목록 || [];
+    // latest-data.json의 실제 구조에 맞게 키를 직접 사용
+    const riders = data.riders || [];
 
-    // 운행 기록이 있는 라이더만 필터링
-    const activeRiders = riders.filter(rider => (rider.총완료 || 0) > 0);
+    // 운행 기록이 있는 라이더만 필터링 (키 이름: '완료')
+    const activeRiders = riders.filter(rider => (rider.완료 || 0) > 0);
 
     // 1. 통계 카드 업데이트
-    document.getElementById('total-score').textContent = weeklyData.총점 || 0;
-    document.getElementById('total-completed').textContent = weeklyData.총완료 || 0;
-    document.getElementById('acceptance-rate').textContent = `${weeklyData.수락률 || 0}%`;
-    document.getElementById('active-riders').textContent = activeRiders.length; // 실제 운행중인 라이더 수로 변경
+    document.getElementById('total-score').textContent = data.총점 || 0;
+    document.getElementById('total-completed').textContent = data.총완료 || 0;
+    document.getElementById('acceptance-rate').textContent = `${data.수락률 || 0}%`;
+    document.getElementById('active-riders').textContent = activeRiders.length;
 
     // 2. 라이더 현황 업데이트
     const riderListContainer = document.getElementById('rider-list-container');
@@ -184,13 +184,12 @@ function updateDashboard(data) {
         activeRiders.forEach(rider => {
             const riderElement = document.createElement('div');
             riderElement.className = 'rider-item';
-            // 라이더 정보 표시 (필요에 따라 상세화)
+            // 실제 키 이름('name', '완료', '수락률')을 사용하고, 기여도는 일단 제외
             riderElement.innerHTML = `
-                <div class="rider-name">${rider.이름}</div>
+                <div class="rider-name">${rider.name}</div>
                 <div class="rider-stats">
-                    <span>완료: ${rider.총완료}</span>
+                    <span>완료: ${rider.완료}</span>
                     <span>수락률: ${rider.수락률}%</span>
-                    <span>기여도: ${rider.기여도}%</span>
                 </div>
             `;
             riderListContainer.appendChild(riderElement);
