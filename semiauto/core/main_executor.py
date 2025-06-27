@@ -434,9 +434,29 @@ class GriderDataCollector:
             
             summary_etc = soup.select_one('.summary_etc')
             if summary_etc:
-                data['총완료'] = get_number(summary_etc.select_one('.etc_value[data-etc="complete"] span').get_text())
-                data['총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
+                data['주간_총완료'] = get_number(summary_etc.select_one('.etc_value[data-etc="complete"] span').get_text())
+                data['주간_총거절'] = get_number(summary_etc.select_one('.etc_value[data-etc="reject"] span').get_text())
                 data['수락률'] = get_number(summary_etc.select_one('.etc_value[data-etc="acceptance"] span').get_text(), to_float=True)
+            
+            # 1-1. 금일 수행 내역 (일일 데이터) - 새로 추가
+            # 완료 갯수
+            complete_count_element = soup.select_one('div.total_value_item[data-total_value="complete_count"]')
+            daily_completed = get_number(complete_count_element.get_text()) if complete_count_element else 0
+            
+            # 거절 갯수들 (거절 + 배차취소 + 배달취소)
+            reject_count_element = soup.select_one('div.total_value_item[data-total_value="reject_count"]')
+            accept_cancel_element = soup.select_one('div.total_value_item[data-total_value="accept_cancel_count"]')
+            delivery_cancel_element = soup.select_one('div.total_value_item[data-total_value="accept_cancel_rider_fault_count"]')
+            
+            daily_rejected = get_number(reject_count_element.get_text()) if reject_count_element else 0
+            daily_accept_cancel = get_number(accept_cancel_element.get_text()) if accept_cancel_element else 0
+            daily_delivery_cancel = get_number(delivery_cancel_element.get_text()) if delivery_cancel_element else 0
+            
+            # 일일 데이터 저장
+            data['일일_완료'] = daily_completed
+            data['일일_거절_합계'] = daily_rejected + daily_accept_cancel + daily_delivery_cancel
+            
+            logger.info(f"✅ 일일 데이터 수집: 완료={daily_completed}, 거절(합계)={data['일일_거절_합계']}")
             
             # 2. 미션 데이터 (더욱 정밀한 방식으로 테이블 탐색)
             peak_data = {}
@@ -686,29 +706,33 @@ class GriderAutoSender:
             if not peak_summary:
                 peak_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다."
 
-            # [최종] 금일 수행 내역 (라이더 데이터 합산)
-            all_riders = data.get('riders', [])
-            today_completed = sum(r.get('완료', 0) for r in all_riders)
-            today_rejected_with_cancels = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_riders)
-            today_total_for_rate = today_completed + today_rejected_with_cancels
-            today_acceptance_rate = (today_completed / today_total_for_rate * 100) if today_total_for_rate > 0 else 100
+            # [수정] 금일 수행 내역 (일일 데이터 사용)
+            daily_completed = data.get('일일_완료', 0)
+            daily_rejected_with_cancels = data.get('일일_거절_합계', 0)
+            daily_total_for_rate = daily_completed + daily_rejected_with_cancels
+            daily_acceptance_rate = (daily_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100
 
             today_summary = (
                 "📈 금일 수행 내역\n"
-                f"완료: {today_completed}  거절(취소포함): {today_rejected_with_cancels}\n"
-                f"수락률: {today_acceptance_rate:.1f}%\n"
-                f"{get_acceptance_progress_bar(today_acceptance_rate)}"
+                f"완료: {daily_completed}  거절(취소포함): {daily_rejected_with_cancels}\n"
+                f"수락률: {daily_acceptance_rate:.1f}%\n"
+                f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
             )
 
-            # [최종] 이번주 미션 예상 점수 (웹사이트 요약 데이터)
+            # [수정] 이번주 미션 예상점수 (주간 데이터 사용 + 위치 변경)
             total_score = data.get('총점', 0)
             quantity_score = data.get('물량점수', 0)
             acceptance_score = data.get('수락률점수', 0)
+            
+            # 주간 데이터를 이번주 미션 예상점수로 이동
+            weekly_completed = data.get('주간_총완료', 0)
+            weekly_rejected = data.get('주간_총거절', 0)
             weekly_acceptance_rate = float(data.get('수락률', 0))
 
             weekly_summary = (
                 "📊 이번주 미션 예상점수\n"
                 f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
+                f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected}\n"
                 f"수락률: {weekly_acceptance_rate:.1f}%\n"
                 f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
             )
