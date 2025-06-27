@@ -299,10 +299,14 @@ class GriderDataCollector:
             # 1. 로그인 후 자동으로 이동된 대시보드에서 바로 일간 데이터 수집
             logger.info("로그인 성공 후 대시보드에서 일간 데이터 수집 시도...")
             daily_wait_xpath = "//div[contains(@class, 'rider_container')]"
+            daily_sub_wait_xpath = ".//div[contains(@class, 'rider_item')]" # 첫 라이더 아이템이 로드될 때까지 대기
             try:
                 # _perform_login에서 이미 URL 이동을 확인했지만, 여기서 컨텐츠가 확실히 로드될 때까지 한번 더 기다립니다.
                 WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, daily_wait_xpath)))
                 logger.info(f"✅ 대시보드 컨텐츠 로드 확인 ({daily_wait_xpath})")
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, daily_sub_wait_xpath)))
+                logger.info(f"✅ 대시보드 하위 리스트 로드 확인 ({daily_sub_wait_xpath})")
+                
                 daily_html = driver.page_source
                 if len(daily_html) < 1000: raise Exception("대시보드 HTML 길이가 너무 짧아 로딩 실패로 간주")
             except Exception as e:
@@ -329,8 +333,8 @@ class GriderDataCollector:
             # 2. 주간 데이터 페이지로 이동하여 주간 데이터 수집
             weekly_url = "https://jangboo.grider.ai/orders/sla/list"
             weekly_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            # 점수 영역의 숫자가 실제로 로드될 때까지 추가로 기다립니다.
-            sub_wait_xpath = "//span[@data-text='total' and text()!='']"
+            # 점수 영역의 숫자가 실제로 로드될 때까지 추가로 기다립니다. (숫자가 하나라도 포함될 때까지)
+            sub_wait_xpath = "//span[@data-text='total' and string-length(text()) > 0 and number(translate(text(), '0123456789', '')) != number(text())]"
             weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath, sub_wait_xpath=sub_wait_xpath)
             if not weekly_html: return self._get_error_data("주간 데이터 페이지 크롤링 실패")
             
