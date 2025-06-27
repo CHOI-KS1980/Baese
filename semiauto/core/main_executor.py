@@ -299,16 +299,15 @@ class GriderDataCollector:
             # 1. 로그인 후 자동으로 이동된 대시보드에서 바로 일간 데이터 수집
             logger.info("로그인 성공 후 대시보드에서 일간 데이터 수집 시도...")
             daily_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            daily_sub_wait_xpath = ".//div[contains(@class, 'rider_item')]" # 첫 라이더 아이템이 로드될 때까지 대기
             try:
-                # _perform_login에서 이미 URL 이동을 확인했지만, 여기서 컨텐츠가 확실히 로드될 때까지 한번 더 기다립니다.
+                # 대시보드 컨테이너가 나타날 때까지 기다립니다.
                 WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, daily_wait_xpath)))
-                logger.info(f"✅ 대시보드 컨텐츠 로드 확인 ({daily_wait_xpath})")
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, daily_sub_wait_xpath)))
-                logger.info(f"✅ 대시보드 하위 리스트 로드 확인 ({daily_sub_wait_xpath})")
+                logger.info(f"✅ 대시보드 컨테이너 로드 확인 ({daily_wait_xpath})")
                 
-                daily_html = driver.page_source
-                if len(daily_html) < 1000: raise Exception("대시보드 HTML 길이가 너무 짧아 로딩 실패로 간주")
+                # 안정성을 위해 드라이버 객체를 직접 파싱 함수에 넘겨줍니다.
+                daily_data = self._parse_daily_data(driver)
+                logger.info("✅ 일간 데이터 파싱 완료")
+
             except Exception as e:
                 # 오류 발생 시 디버깅을 위한 스크린샷 및 페이지 소스 저장
                 timestamp = get_korea_time().strftime("%Y%m%d_%H%M%S")
@@ -327,21 +326,15 @@ class GriderDataCollector:
                 logger.error(f"대시보드에서 데이터 수집 실패: {e}", exc_info=True)
                 return self._get_error_data("일간 데이터 페이지(대시보드) 크롤링 실패")
 
-            daily_data = self._parse_daily_data(daily_html)
-            logger.info("✅ 일간 데이터 파싱 완료")
-
             # 2. 주간 데이터 페이지로 이동하여 주간 데이터 수집
             weekly_url = "https://jangboo.grider.ai/orders/sla/list"
+            driver.get(weekly_url)
             weekly_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            # 두 개의 핵심 영역(점수, 건수)에 모두 숫자가 포함될 때까지 대기
-            sub_wait_xpath = (
-                "//body[count(.//span[@data-text='total' and number(translate(., '0123456789', '')) != number(.)]) > 0 and "
-                "count(.//div[@data-total_value='midnight_peak_count' and number(translate(., '0123456789', '')) != number(.)]) > 0]"
-            )
-            weekly_html = self._crawl_page(driver, weekly_url, weekly_wait_xpath, sub_wait_xpath=sub_wait_xpath)
-            if not weekly_html: return self._get_error_data("주간 데이터 페이지 크롤링 실패")
+            WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, weekly_wait_xpath)))
             
-            weekly_data = self._parse_weekly_data(weekly_html)
+            weekly_data = self._parse_weekly_data(driver)
+            if not weekly_data: 
+                return self._get_error_data("주간 데이터 페이지 크롤링 실패")
             logger.info("✅ 주간 데이터 파싱 완료")
             
             final_data = {**weekly_data, **daily_data}
@@ -390,6 +383,7 @@ class GriderDataCollector:
             return False
 
     def _crawl_page(self, driver, url, wait_xpath, max_retries=3, retry_delay=5, sub_wait_xpath=None):
+        # 이 함수는 이제 사용되지 않지만, 다른 곳에서 호출할 경우를 대비해 남겨둡니다.
         for attempt in range(max_retries):
             try:
                 logger.info(f"{url} 페이지 크롤링 시도 {attempt + 1}/{max_retries}")
@@ -418,8 +412,7 @@ class GriderDataCollector:
         mission_time = korea_time - timedelta(hours=6)
         return mission_time.strftime('%Y-%m-%d')
 
-    def _parse_weekly_data(self, html: str) -> dict:
-        soup = BeautifulSoup(html, 'html.parser')
+    def _parse_weekly_data(self, driver) -> dict:
         data = {
             '총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절': 0, '수락률': 0.0,
             '아침점심피크': {"current": 0, "target": 0}, '오후논피크': {"current": 0, "target": 0},
@@ -428,105 +421,121 @@ class GriderDataCollector:
 
         def get_number(text, to_float=False):
             if not text: return 0.0 if to_float else 0
-            cleaned_text = text.replace(',', '').strip()
+            cleaned_text = str(text).replace(',', '').strip()
             match = re.search(r'(-?[\d\.]+)', cleaned_text)
             return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
 
-        def get_text_safe(node):
-            return node.get_text(strip=True) if node and isinstance(node, Tag) else ""
-
-        # 1. 점수 영역 파싱 (예상 총 점수, 물량/수락률 점수)
-        summary_score_area = soup.select_one('.summary_score')
-        if summary_score_area:
-            logger.info("✅ 주간 데이터의 점수 요약 (.summary_score)을 찾았습니다.")
-            data['총점'] = get_number(get_text_safe(summary_score_area.select_one('.score_total_value[data-text="total"]')))
-            data['물량점수'] = get_number(get_text_safe(summary_score_area.select_one('.detail_score_value[data-text="quantity"]')))
-            data['수락률점수'] = get_number(get_text_safe(summary_score_area.select_one('.detail_score_value[data-text="acceptance"]')))
-            logger.info(f"점수 파싱: 총점={data['총점']}, 물량={data['물량점수']}, 수락률={data['수락률점수']}")
-        else:
-            logger.warning("⚠️ 주간 데이터에서 점수 요약 영역(.summary_score)을 찾지 못했습니다.")
-
-        # 2. 건수 영역 파싱 (총 완료/거절 건수 및 수락률 재계산)
-        summary_header = soup.select_one('.rider_th.total_value_th')
-        if summary_header:
-            logger.info("✅ 주간 데이터의 라이더 요약 헤더 (.rider_th.total_value_th)를 찾았습니다.")
-
-            def get_total_val(cls, to_float=False):
-                node = summary_header.select_one(f'div[data-total_value="{cls}"]')
-                text = get_text_safe(node)
-                return get_number(text, to_float)
-
-            # 사용자 요청에 따라 이 곳의 데이터를 최종 값으로 사용
-            data['총완료'] = get_total_val('complete_count')
+        try:
+            # === 지능형 대기: 두 핵심 데이터가 모두 숫자로 채워질 때까지 기다립니다. ===
+            wait = WebDriverWait(driver, 15)
+            logger.info("주간 데이터 지능형 대기 시작: '총점'과 '총완료' 필드 확인 중...")
+            wait.until(
+                lambda d: 
+                    get_number(d.find_element(By.CSS_SELECTOR, ".score_total_value[data-text='total']").text) > 0 and
+                    get_number(d.find_element(By.CSS_SELECTOR, ".rider_th.total_value_th div[data-total_value='complete_count']").text) > 0
+            )
+            logger.info("✅ 주간 데이터의 핵심 필드(총점, 총완료)가 모두 로드되었습니다.")
             
-            base_rejects = get_total_val('reject_count')
-            accept_cancel = get_total_val('accept_cancel_count')
-            rider_fault_cancel = get_total_val('accept_cancel_rider_fault_count')
-            data['총거절'] = base_rejects + accept_cancel + rider_fault_cancel
+            # BeautifulSoup으로 최종 페이지 소스를 한 번만 파싱합니다.
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-            # 사용자 요청에 따라 수락률 재계산
-            total_for_rate = data['총완료'] + data['총거절']
-            if total_for_rate > 0:
-                data['수락률'] = (data['총완료'] / total_for_rate) * 100
+            # 1. 점수 영역 파싱
+            summary_score_area = soup.select_one('.summary_score')
+            if summary_score_area:
+                total_node = summary_score_area.select_one('.score_total_value[data-text="total"]')
+                quantity_node = summary_score_area.select_one('.detail_score_value[data-text="quantity"]')
+                acceptance_node = summary_score_area.select_one('.detail_score_value[data-text="acceptance"]')
+                
+                data['총점'] = get_number(total_node.text) if total_node else 0
+                data['물량점수'] = get_number(quantity_node.text) if quantity_node else 0
+                data['수락률점수'] = get_number(acceptance_node.text) if acceptance_node else 0
+                logger.info(f"점수 파싱: 총점={data['총점']}, 물량={data['물량점수']}, 수락률={data['수락률점수']}")
             else:
-                data['수락률'] = 0.0
-            
-            logger.info(f"주간 건수 계산: 완료={data['총완료']}, 거절(합산)={data['총거절']}, 재계산된 수락률={data['수락률']:.1f}%")
-        else:
-            logger.warning("⚠️ 주간 데이터에서 라이더 요약 헤더 (.rider_th.total_value_th)를 찾지 못했습니다.")
+                logger.warning("⚠️ 주간 데이터에서 점수 요약 영역(.summary_score)을 찾지 못했습니다.")
+
+            # 2. 건수 영역 파싱 및 수락률 재계산
+            summary_header = soup.select_one('.rider_th.total_value_th')
+            if summary_header:
+                def get_total_val(cls):
+                    node = summary_header.select_one(f"div[data-total_value='{cls}']")
+                    return get_number(node.text) if node else 0
+
+                data['총완료'] = get_total_val('complete_count')
+                data['총거절'] = get_total_val('reject_count') + get_total_val('accept_cancel_count') + get_total_val('accept_cancel_rider_fault_count')
+
+                total_for_rate = data['총완료'] + data['총거절']
+                data['수락률'] = (data['총완료'] / total_for_rate) * 100 if total_for_rate > 0 else 0.0
+                logger.info(f"주간 건수 계산: 완료={data['총완료']}, 거절(합산)={data['총거절']}, 재계산된 수락률={data['수락률']:.1f}%")
+            else:
+                logger.warning("⚠️ 주간 데이터에서 라이더 요약 헤더 (.rider_th.total_value_th)를 찾지 못했습니다.")
+
+        except Exception as e:
+            logger.error(f"❌ 주간 데이터 파싱 중 오류 발생 (타임아웃 또는 요소 찾기 실패): {e}")
+            return {} # 실패 시 빈 dict 반환
 
         return data
 
-    def _parse_daily_data(self, html: str) -> dict:
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        def get_number(text, to_float=False):
-            if not text: return 0.0 if to_float else 0
-            cleaned_text = text.replace(',', '').strip()
-            match = re.search(r'(-?[\d\.]+)', cleaned_text)
-            return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
+    def _parse_daily_data(self, driver) -> dict:
+        riders = [] # 결과를 담을 리스트 초기화
+        try:
+            # === 지능형 대기: 첫 번째 라이더 아이템이 나타날 때까지 기다립니다. ===
+            wait = WebDriverWait(driver, 15)
+            logger.info("일간 데이터 지능형 대기 시작: 라이더 목록 확인 중...")
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".rider_list .rider_item")))
+            logger.info("✅ 일간 데이터의 라이더 목록이 로드되었습니다.")
             
-        riders = []
-        rider_container = soup.select_one('div.rider_container')
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
         
-        if rider_container and isinstance(rider_container, Tag):
-            rider_items = rider_container.select('.rider_list .rider_item')
-            logger.info(f"✅ 일간 데이터에서 {len(rider_items)}명의 라이더 데이터를 찾았습니다.")
-            
-            def get_val(item, cls, to_float=False):
-                node = item.select_one(f'.{cls}')
-                text_content = node.get_text(strip=True) if node and isinstance(node, Tag) else ""
-                text = re.sub(r'^[가-힣A-Za-z]+', '', text_content).strip()
-                return get_number(text, to_float)
-
-            for item in rider_items:
-                name_node = item.select_one('.rider_name')
-                id_node = item.select_one('.user_id')
-                acceptance_node = item.select_one('.acceptance_rate')
-
-                name = '이름없음'
-                if name_node and isinstance(name_node, Tag):
-                    for child in name_node.find_all(['span', 'p', 'div']): child.decompose()
-                    name = name_node.get_text(strip=True)
+            def get_number(text, to_float=False):
+                if not text: return 0.0 if to_float else 0
+                cleaned_text = str(text).replace(',', '').strip()
+                match = re.search(r'(-?[\d\.]+)', cleaned_text)
+                return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
                 
-                acceptance_text = acceptance_node.get_text(strip=True) if acceptance_node and isinstance(acceptance_node, Tag) else "0"
-                id_text = id_node.get_text(strip=True).replace('아이디', '') if id_node and isinstance(id_node, Tag) else ''
+            rider_container = soup.select_one('div.rider_container')
+            
+            if rider_container and isinstance(rider_container, Tag):
+                rider_items = rider_container.select('.rider_list .rider_item')
+                logger.info(f"✅ 일간 데이터에서 {len(rider_items)}명의 라이더 데이터를 찾았습니다.")
+                
+                def get_val(item, cls, to_float=False):
+                    node = item.select_one(f'.{cls}')
+                    text_content = node.get_text(strip=True) if node and isinstance(node, Tag) else ""
+                    text = re.sub(r'^[가-힣A-Za-z]+', '', text_content).strip()
+                    return get_number(text, to_float)
 
-                riders.append({
-                    'name': name, 'id': id_text,
-                    '수락률': get_number(acceptance_text, to_float=True),
-                    '완료': get_val(item, 'complete_count'),
-                    '거절': get_val(item, 'reject_count'),
-                    '배차취소': get_val(item, 'accept_cancel_count'),
-                    '배달취소': get_val(item, 'accept_cancel_rider_fault_count'),
-                    '아침점심피크': get_val(item, 'morning_peak_count'),
-                    '오후논피크': get_val(item, 'afternoon_peak_count'),
-                    '저녁피크': get_val(item, 'evening_peak_count'),
-                    '심야논피크': get_val(item, 'midnight_peak_count'),
-                })
-        else:
-            logger.warning("⚠️ 일간 데이터에서 '라이더 현황' 컨테이너 (div.rider_container)를 찾지 못했습니다.")
+                for item in rider_items:
+                    name_node = item.select_one('.rider_name')
+                    id_node = item.select_one('.user_id')
+                    acceptance_node = item.select_one('.acceptance_rate')
+
+                    name = '이름없음'
+                    if name_node and isinstance(name_node, Tag):
+                        for child in name_node.find_all(['span', 'p', 'div']): child.decompose()
+                        name = name_node.get_text(strip=True)
+                    
+                    acceptance_text = acceptance_node.get_text(strip=True) if acceptance_node and isinstance(acceptance_node, Tag) else "0"
+                    id_text = id_node.get_text(strip=True).replace('아이디', '') if id_node and isinstance(id_node, Tag) else ''
+
+                    riders.append({
+                        'name': name, 'id': id_text,
+                        '수락률': get_number(acceptance_text, to_float=True),
+                        '완료': get_val(item, 'complete_count'),
+                        '거절': get_val(item, 'reject_count'),
+                        '배차취소': get_val(item, 'accept_cancel_count'),
+                        '배달취소': get_val(item, 'accept_cancel_rider_fault_count'),
+                        '아침점심피크': get_val(item, 'morning_peak_count'),
+                        '오후논피크': get_val(item, 'afternoon_peak_count'),
+                        '저녁피크': get_val(item, 'evening_peak_count'),
+                        '심야논피크': get_val(item, 'midnight_peak_count'),
+                    })
+            else:
+                logger.warning("⚠️ 일간 데이터에서 '라이더 현황' 컨테이너 (div.rider_container)를 찾지 못했습니다.")
         
+        except Exception as e:
+            logger.error(f"❌ 일간 데이터 파싱 중 오류 발생 (타임아웃 또는 요소 찾기 실패): {e}")
+            return {'daily_riders': []}
+
         return {'daily_riders': riders}
 
     def _get_weather_info_detailed(self, location="서울"):
