@@ -297,52 +297,33 @@ class GriderDataCollector:
             if not self._perform_login(driver):
                 raise Exception("G라이더 로그인 실패")
             
-            # 1. 로그인 후 자동으로 이동된 대시보드에서 바로 일간 데이터 수집
-            logger.info("로그인 성공 후 대시보드에서 일간 데이터 수집 시도...")
-            daily_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            try:
-                # 대시보드 컨테이너가 나타날 때까지 기다립니다.
-                WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, daily_wait_xpath)))
-                logger.info(f"✅ 대시보드 컨테이너 로드 확인 ({daily_wait_xpath})")
-                
-                # 안정성을 위해 드라이버 객체를 직접 파싱 함수에 넘겨줍니다.
-                daily_data = self._parse_daily_data(driver)
-                logger.info("✅ 일간 데이터 파싱 완료")
+            all_data = {'error': False}
 
-            except Exception as e:
-                # 오류 발생 시 디버깅을 위한 스크린샷 및 페이지 소스 저장
-                timestamp = get_korea_time().strftime("%Y%m%d_%H%M%S")
-                screenshot_path = f"error_screenshot_{timestamp}.png"
-                pagesource_path = f"error_page_source_{timestamp}.html"
-                
-                try:
-                    driver.save_screenshot(screenshot_path)
-                    with open(pagesource_path, "w", encoding="utf-8") as f:
-                        f.write(driver.page_source)
-                    logger.info(f"📸 오류 스크린샷 저장: {screenshot_path}")
-                    logger.info(f"📄 오류 페이지 소스 저장: {pagesource_path}")
-                except Exception as save_e:
-                    logger.error(f"디버깅 파일 저장 실패: {save_e}")
-
-                logger.error(f"대시보드에서 데이터 수집 실패: {e}", exc_info=True)
-                return self._get_error_data("일간 데이터 페이지(대시보드) 크롤링 실패")
-
-            # 2. 주간 데이터 페이지로 이동하여 주간 데이터 수집
-            weekly_url = "https://jangboo.grider.ai/orders/sla/list"
-            driver.get(weekly_url)
-            weekly_wait_xpath = "//div[contains(@class, 'rider_container')]"
-            WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, weekly_wait_xpath)))
-            
+            # A. 주간 데이터 먼저 수집
             weekly_data = self._parse_weekly_data(driver)
-            if not weekly_data: 
-                return self._get_error_data("주간 데이터 페이지 크롤링 실패")
-            logger.info("✅ 주간 데이터 파싱 완료")
+            all_data.update(weekly_data)
             
-            final_data = {**weekly_data, **daily_data}
-            final_data['weather_info'] = self._get_weather_info_detailed()
+            # B. 일간 데이터 수집 (SLA 페이지로 이동 후)
+            sla_url = "https://jangboo.grider.ai/orders/sla/list"
+            logger.info(f"일간 미션 데이터 수집을 위해 {sla_url} 페이지로 이동합니다.")
+            driver.get(sla_url)
+            
+            # 페이지가 완전히 로드될 때까지 명시적으로 대기
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), '물량 점수관리')]"))
+            )
+            logger.info("✅ 일간 미션 페이지(SLA)가 성공적으로 로드되었습니다.")
+            
+            daily_data = self._parse_daily_data(driver)
+            all_data.update(daily_data)
+
+            # C. 날씨 정보 수집 (부가 정보)
+            weather_info = self._get_weather_info_detailed()
+            all_data.update(weather_info)
+
+            final_data = {**all_data, **daily_data}
             final_data['timestamp'] = get_korea_time().strftime("%Y-%m-%d %H:%M:%S")
             final_data['mission_date'] = self._get_mission_date()
-            final_data['error'] = False
             
             logger.info(" G라이더 데이터 수집 완료")
             return final_data
