@@ -412,74 +412,68 @@ class GriderDataCollector:
     def _parse_weekly_data(self, driver):
         """SLA 페이지에서 주간 요약 점수와 라이더 실적 데이터를 파싱하고 계산합니다."""
         weekly_data = {}
-        logger.info("'주간 미션 예상 점수' 데이터 수집을 시작합니다.")
-        
         try:
-            wait = WebDriverWait(driver, 15)
-            
-            s_weekly = self.selectors.get('weekly_summary', {})
-            s_summary = s_weekly.get('summary', {})
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('container'))))
-            soup = BeautifulSoup(driver.page_source, 'lxml')
+            driver.get(self.sla_url)
+            wait = WebDriverWait(driver, 10)
 
-            summary_area = soup.select_one(s_summary.get('container'))
-            if summary_area:
-                def get_summary_score(data_text_key):
-                    selector = s_summary.get(data_text_key)
-                    node = summary_area.select_one(selector) if selector else None
-                    return node.get_text(strip=True) if node else "0"
-
-                weekly_data['예상총점수'] = get_summary_score('total_score')
-                weekly_data['물량점수'] = get_summary_score('quantity_score')
-                weekly_data['수락률점수'] = get_summary_score('acceptance_score')
-                logger.info(f"✅ 예상 점수 카드 파싱 완료: {weekly_data}")
+            # 1. 주간 요약 점수 파싱 (카드에 표시된 점수만 가져옴)
+            summary_scores = {}
+            s_summary = self.selectors.get('weekly_summary', {})
+            summary_container_selector = s_summary.get('summary', {}).get('container')
+            if summary_container_selector:
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, summary_container_selector)))
+                summary_scores['예상총점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('total_score')).text.strip()
+                summary_scores['물량점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('quantity_score')).text.strip()
+                summary_scores['수락률점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('acceptance_score')).text.strip()
+                logger.info(f"✅ 예상 점수 카드 파싱 완료: {summary_scores}")
             else:
-                logger.warning(f"예상 점수 요약 카드({s_summary.get('container')})를 찾지 못했습니다.")
+                logger.warning("주간 요약 점수 선택자를 찾을 수 없습니다.")
 
-            s_rider_list_selectors = self.selectors.get('weekly_riders', {})
-            rider_list_container = soup.select_one(s_rider_list_selectors.get('container'))
+            # 2. 주간 라이더 목록을 기반으로 실적 직접 계산
+            calculated_stats = { '총완료': 0, '총거절': 0, '수락률': 0.0 }
+            s_rider_list = self.selectors.get('weekly_riders', {})
+            rider_list_container = s_rider_list.get('container')
 
             if rider_list_container:
-                rider_items = rider_list_container.select(s_rider_list_selectors.get('item'))
-                logger.info(f"{len(rider_items)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container)))
+                riders = driver.find_elements(By.CSS_SELECTOR, f"{rider_list_container} {s_rider_list.get('item')}")
+                logger.info(f"{len(riders)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
 
-                s_daily_keys = self.selectors.get('daily_data', {})
-                total_completions = 0
-                total_rejections = 0
-                total_dispatch_cancels = 0
-                total_delivery_cancels = 0
+                if riders:
+                    total_completions = 0
+                    total_rejections = 0
+                    total_dispatch_cancels = 0
+                    total_delivery_cancels = 0
 
-                for item in rider_items:
-                    def get_stat(stat_name_key):
-                        selector = s_daily_keys.get(stat_name_key)
-                        node = item.select_one(selector) if selector else None
-                        return self._get_safe_number(node.get_text(strip=True)) if node else 0
-
-                    completed = get_stat('complete_count')
-                    rejected = get_stat('reject_count')
-                    dispatch_canceled = get_stat('accept_cancel_count')
-                    delivery_canceled = get_stat('accept_cancel_rider_fault_count')
-
-                    if completed == 0 and rejected == 0 and dispatch_canceled == 0 and delivery_canceled == 0:
-                        continue
-
-                    total_completions += completed
-                    total_rejections += rejected
-                    total_dispatch_cancels += dispatch_canceled
-                    total_delivery_cancels += delivery_canceled
-
-                calculated_total_rejections = total_rejections + total_dispatch_cancels + total_delivery_cancels
-                total_for_rate = total_completions + calculated_total_rejections
-                
-                weekly_data['총완료'] = total_completions
-                weekly_data['총거절'] = calculated_total_rejections
-                weekly_data['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
-                logger.info(f"✅ 주간 라이더 실적 계산 완료: 총완료={weekly_data['총완료']}, 총거절={weekly_data['총거절']}, 수락률={weekly_data['수락률']:.2f}%")
+                    for rider in riders:
+                        try:
+                            total_completions += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('complete_count')).text.strip())
+                            total_rejections += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('reject_count')).text.strip())
+                            total_dispatch_cancels += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('dispatch_cancel_count')).text.strip())
+                            total_delivery_cancels += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('delivery_cancel_count')).text.strip())
+                        except (NoSuchElementException, ValueError) as e:
+                            logger.warning(f"라이더 데이터 파싱 중 오류(건너뜀): {e}")
+                            continue
+                    
+                    calculated_total_rejections = total_rejections + total_dispatch_cancels + total_delivery_cancels
+                    total_for_rate = total_completions + calculated_total_rejections
+                    
+                    calculated_stats['총완료'] = total_completions
+                    calculated_stats['총거절'] = calculated_total_rejections
+                    calculated_stats['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
+                    
+                    logger.info(f"✅ 주간 라이더 실적 직접 계산 완료: 총완료={calculated_stats['총완료']}, 총거절={calculated_stats['총거절']}, 수락률={calculated_stats['수락률']:.2f}%")
+                else:
+                    logger.warning(f"주간 라이더 목록({s_rider_list.get('container')})를 찾았으나, 개별 라이더({s_rider_list.get('item')})가 없습니다.")
             else:
-                 logger.warning(f"주간 라이더 목록({s_rider_list_selectors.get('container')})를 찾지 못했습니다.")
+                 logger.warning(f"주간 라이더 목록 선택자를 찾지 못했습니다.")
+
+            # 3. 최종 데이터 조합
+            weekly_data.update(summary_scores)
+            weekly_data.update(calculated_stats)
 
         except Exception as e:
-            logger.error(f"주간 데이터 파싱 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"'주간/미션 데이터' 파싱 중 예외 발생: {e}", exc_info=True)
             
         return weekly_data
 
