@@ -550,12 +550,23 @@ class GriderDataCollector:
                         continue
                     name = name_nodes[0].text.strip()
 
+                    # 실적 데이터 파싱
+                    complete_count = get_stat('complete_count')
+                    reject_count = get_stat('reject_count')
+                    accept_cancel_count = get_stat('accept_cancel_count')
+                    accept_cancel_rider_fault_count = get_stat('accept_cancel_rider_fault_count')
+
+                    # 사용자 제안: 주요 실적이 모두 0인 라이더는 결과에서 제외
+                    if complete_count == 0 and reject_count == 0 and accept_cancel_count == 0 and accept_cancel_rider_fault_count == 0:
+                        logger.info(f"라이더 '{name}'는 실적이 없어 데이터 수집에서 제외합니다.")
+                        continue
+
                     rider_list.append({
                         'name': name,
-                        '완료': get_stat('complete_count'),
-                        '거절': get_stat('reject_count'),
-                        '배차취소': get_stat('accept_cancel_count'),
-                        '배달취소': get_stat('accept_cancel_rider_fault_count'),
+                        '완료': complete_count,
+                        '거절': reject_count,
+                        '배차취소': accept_cancel_count,
+                        '배달취소': accept_cancel_rider_fault_count,
                         '아침점심피크': get_stat('morning_count'),
                         '오후논피크': get_stat('afternoon_count'),
                         '저녁피크': get_stat('evening_count'),
