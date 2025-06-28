@@ -331,7 +331,7 @@ class GriderDataCollector:
             id_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_login.get('id_input'))))
             id_input.send_keys(self.grider_id)
             
-            pw_input = driver.find_element(By.CSS_SELECTOR, s_login.get('password_input'))
+            pw_input = driver.find_element(By.CSS_SELECTOR, s_login.get('pw_input'))
             pw_input.send_keys(self.grider_password)
             
             login_button = driver.find_element(By.CSS_SELECTOR, s_login.get('login_button'))
