@@ -492,109 +492,86 @@ class GriderDataCollector:
         return weekly_data
 
     def _parse_daily_rider_data(self, driver):
-        """대시보드에서 일간 라이더 데이터를 파싱하고, 헤더에서 일일 총계를 직접 읽어옵니다."""
+        """
+        대시보드에서 일간 라이더 데이터를 지능적으로 파싱합니다.
+        열의 순서가 아닌, '열 이름'을 직접 읽어 데이터를 매핑하여 정확성과 안정성을 확보합니다.
+        """
         daily_data = {}
         rider_list = []
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
             driver.get(self.dashboard_url)
-            time.sleep(3)
+            wait = WebDriverWait(driver, 20)
 
-            s_daily = self.selectors.get('daily_data', {})
-
-            # 1. 일일 총계 데이터 직접 파싱 (헤더에서 가져오기)
+            # 1. 안정적인 방식으로 일일 총계 데이터 파싱 (헤더에서 '이름' 기반으로)
             try:
-                header_selector = s_daily.get('total_row_header')
-                wait = WebDriverWait(driver, 10)
+                header_selector = "div.rider_th"
                 header_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, header_selector)))
-                
-                def get_total_stat(stat_name_key):
-                    selector = s_daily.get(stat_name_key)
-                    if not selector: return 0
-                    # header_element를 기준으로 검색
-                    node = header_element.find_element(By.CSS_SELECTOR, selector)
-                    return self._get_safe_number(node.text.strip())
+                header_cols = header_element.find_elements(By.CSS_SELECTOR, "div.rider_contents")
 
-                daily_data['total_completed'] = get_total_stat('daily_total_complete')
-                daily_data['total_rejected'] = get_total_stat('daily_total_reject')
-                daily_data['total_canceled'] = get_total_stat('daily_total_accept_cancel') + get_total_stat('daily_total_accept_cancel_rider_fault')
+                temp_totals = {}
+                for col in header_cols:
+                    try:
+                        title = col.find_element(By.TAG_NAME, 'p').text.strip()
+                        value_element = col.find_element(By.CSS_SELECTOR, "div.total_value_item")
+                        temp_totals[title] = self._get_safe_number(value_element.text.strip())
+                    except Exception:
+                        continue # 제목이나 값이 없는 열은 건너뜀
+                
+                daily_data['total_completed'] = temp_totals.get('완료', 0)
+                daily_data['total_rejected'] = temp_totals.get('거절', 0)
+                daily_data['total_canceled'] = temp_totals.get('배차취소', 0) + temp_totals.get('배달취소', 0)
                 logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
+
             except Exception as e:
                 logger.error(f"일일 총계 데이터 파싱 중 오류: {e}", exc_info=True)
-                # 실패 시 기본값 설정
-                daily_data['total_completed'] = 0
-                daily_data['total_rejected'] = 0
-                daily_data['total_canceled'] = 0
+                daily_data.update({'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0})
 
-            # 2. 개별 라이더 데이터 파싱
-            rider_list_container_selector = s_daily.get('container')
-            item_selector = s_daily.get('item')
-            full_item_selector = f"{rider_list_container_selector} {item_selector}"
+            # 2. 안정적인 방식으로 개별 라이더 데이터 파싱 ('이름' 기반으로)
+            rider_list_container_selector = "div.rider_list"
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container_selector)))
+            rider_elements = driver.find_elements(By.CSS_SELECTOR, f"{rider_list_container_selector} div.rider_item")
+            logger.info(f"✅ 일간 라이더 목록 아이템 {len(rider_elements)}개 로드 완료. 파싱을 시작합니다.")
 
-            for attempt in range(2):
-                try:
-                    logger.info(f"데이터 수집 시도 #{attempt + 1}")
-                    wait = WebDriverWait(driver, 20)
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container_selector)))
-                    rider_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_item_selector)))
-                    logger.info(f"✅ 일간 라이더 목록 아이템 {len(rider_elements)}개 로드 완료.")
-                    break
-                except TimeoutException:
-                    logger.warning(f"시도 #{attempt + 1}에서 타임아웃 발생.")
-                    if attempt == 0:
-                        logger.info("페이지를 새로고침하고 다시 시도합니다.")
-                        driver.refresh()
-                        time.sleep(5)
-                    else:
-                        logger.error("재시도 후에도 일간 라이더 데이터 항목을 로드하지 못했습니다.")
-                        daily_data['daily_riders'] = []
-                        return daily_data
-            
-            logger.info(f"{len(rider_elements)}명의 라이더 데이터를 파싱합니다.")
+            col_map = {
+                '완료': '완료', '거절': '거절', '배차취소': '배차취소', '배달취소': '배달취소',
+                '오전': '아침점심피크', '오후': '오후논피크', '저녁': '저녁피크', '심야': '심야논피크'
+            }
 
             for rider_element in rider_elements:
+                rider_data = {key: 0 for key in col_map.values()} # 모든 키를 0으로 초기화
+                
                 try:
-                    def get_stat(stat_name_key):
-                        selector = s_daily.get(stat_name_key)
-                        if not selector: return 0
-                        nodes = rider_element.find_elements(By.CSS_SELECTOR, selector)
-                        if nodes:
-                            return self._get_safe_number(nodes[0].text.strip())
-                        return 0
- 
-                    name_nodes = rider_element.find_elements(By.CSS_SELECTOR, s_daily.get('name'))
-                    if not name_nodes:
-                        logger.warning("라이더 이름을 찾을 수 없어 해당 항목을 건너뜁니다.")
+                    cols = rider_element.find_elements(By.CSS_SELECTOR, "div.rider_contents")
+                    rider_data['name'] = cols[2].text.strip() # 이름은 3번째 열로 고정
+                    
+                    for col in cols:
+                        try:
+                            title = col.find_element(By.TAG_NAME, 'p').text.strip()
+                            if title in col_map:
+                                key = col_map[title]
+                                value_text = col.text.replace(title, '').strip()
+                                rider_data[key] = self._get_safe_number(value_text)
+                        except Exception:
+                            continue
+
+                    # 실적 없는 라이더 제외
+                    if all(rider_data[k] == 0 for k in ['완료', '거절', '배차취소', '배달취소']):
+                        logger.info(f"라이더 '{rider_data['name']}'는 실적이 없어 데이터 수집에서 제외합니다.")
                         continue
-                    name = name_nodes[0].text.strip()
+                    
+                    rider_list.append(rider_data)
 
-                    complete_count = get_stat('complete_count')
-                    reject_count = get_stat('reject_count')
-                    accept_cancel_count = get_stat('accept_cancel_count')
-                    accept_cancel_rider_fault_count = get_stat('accept_cancel_rider_fault_count')
-
-                    if complete_count == 0 and reject_count == 0 and accept_cancel_count == 0 and accept_cancel_rider_fault_count == 0:
-                        logger.info(f"라이더 '{name}'는 실적이 없어 데이터 수집에서 제외합니다.")
-                        continue
-
-                    rider_list.append({
-                        'name': name,
-                        '완료': complete_count,
-                        '거절': reject_count,
-                        '배차취소': accept_cancel_count,
-                        '배달취소': accept_cancel_rider_fault_count,
-                        '아침점심피크': get_stat('morning_count'),
-                        '오후논피크': get_stat('afternoon_count'),
-                        '저녁피크': get_stat('evening_count'),
-                        '심야논피크': get_stat('midnight_count'),
-                    })
                 except Exception as e:
-                    logger.warning(f"라이더 데이터 한 항목을 파싱하는 중 오류: {e}")
+                    logger.warning(f"라이더 한 항목을 파싱하는 중 예외 발생: {e}", exc_info=True)
                     continue
-
+            
             daily_data['daily_riders'] = rider_list
+            logger.info(f"✅ {len(rider_list)}명의 활동 라이더 데이터 파싱 완료.")
+
         except Exception as e:
-            logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"일간 라이더 데이터 파싱 중 심각한 오류 발생: {e}", exc_info=True)
+            daily_data.setdefault('daily_riders', [])
         return daily_data
 
     def _parse_mission_string(self, text: str):
@@ -923,37 +900,41 @@ class GriderAutoSender:
         mission_summary = "\n".join(mission_details)
 
         # 금일 수행 내역
-        all_daily_riders = data.get('daily_riders', []) 
-        daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
-        daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
-        daily_total_for_rate = daily_total_completed + daily_total_rejected
-        daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100.0
-        daily_rider_summary = (
-            f"📈 금일 수행 내역\n"
-            f"완료: {daily_total_completed}  거절(취소포함): {daily_total_rejected}\n"
-            f"수락률: {daily_acceptance_rate:.1f}%\n"
-            f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
-        )
-        
+        daily_data = data.get('daily_data', {})
+        if daily_data:
+            total_completed = daily_data.get('total_completed', 0)
+            total_rejected_with_cancel = daily_data.get('total_rejected', 0) + daily_data.get('total_canceled', 0)
+            total_attempts = total_completed + total_rejected_with_cancel
+            acceptance_rate = (total_completed / total_attempts * 100) if total_attempts > 0 else 0
+            
+            daily_summary = (
+                f"📈 금일 수행 내역\n"
+                f"완료: {total_completed}  거절(취소포함): {total_rejected_with_cancel}\n"
+                f"수락률: {acceptance_rate:.1f}%\n"
+                f"{get_acceptance_progress_bar(acceptance_rate)}"
+            )
+
         # 이번주 미션 예상점수
-        total_score = data.get('예상총점수', '0')
-        quantity_score = data.get('물량점수', '0')
-        acceptance_score = data.get('수락률점수', '0')
-        weekly_acceptance_rate = float(data.get('수락률', 0))
-        weekly_completed = data.get('총완료', 0)
-        weekly_rejected = data.get('총거절', 0)
-        weekly_summary = (
-            f"📊 이번주 미션 예상점수\n"
-            f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-            f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected}\n"
-            f"수락률: {weekly_acceptance_rate:.1f}%\n"
-            f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
-        )
+        weekly_data = data.get('weekly_data', {})
+        if weekly_data:
+            total_score = weekly_data.get('예상총점수', '0')
+            quantity_score = weekly_data.get('물량점수', '0')
+            acceptance_score = weekly_data.get('수락률점수', '0')
+            weekly_acceptance_rate = float(weekly_data.get('수락률', 0))
+            weekly_completed = weekly_data.get('총완료', 0)
+            weekly_rejected = weekly_data.get('총거절', 0)
+            weekly_summary = (
+                f"📊 이번주 미션 예상점수\n"
+                f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
+                f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected}\n"
+                f"수락률: {weekly_acceptance_rate:.1f}%\n"
+                f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
+            )
 
         # 라이더 순위 (상세)
         rider_ranking_summary = ""
-        if all_daily_riders:
-            active_riders = sorted([r for r in all_daily_riders if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
+        if daily_data.get('daily_riders', []):
+            active_riders = sorted([r for r in daily_data['daily_riders'] if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
             total_daily_count = sum(r.get('완료', 0) for r in active_riders)
             
             if active_riders:
@@ -995,7 +976,7 @@ class GriderAutoSender:
         message_parts = [
             header,
             mission_summary,
-            daily_rider_summary,
+            daily_summary,
             weather_summary,
             weekly_summary,
             rider_ranking_summary,
