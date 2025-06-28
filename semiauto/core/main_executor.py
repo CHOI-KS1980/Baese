@@ -492,40 +492,59 @@ class GriderDataCollector:
         return weekly_data
 
     def _parse_daily_rider_data(self, driver):
-        """대시보드에서 일간 라이더 데이터를 파싱합니다."""
+        """대시보드에서 일간 라이더 데이터를 파싱하고, 헤더에서 일일 총계를 직접 읽어옵니다."""
         daily_data = {}
         rider_list = []
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
             driver.get(self.dashboard_url)
-            time.sleep(3) # JS 실행을 위한 최소 대기
+            time.sleep(3)
 
-            s_rider_list = self.selectors.get('daily_data', {})
-            rider_list_container_selector = s_rider_list.get('container')
-            item_selector = s_rider_list.get('item')
+            s_daily = self.selectors.get('daily_data', {})
+
+            # 1. 일일 총계 데이터 직접 파싱 (헤더에서 가져오기)
+            try:
+                header_selector = s_daily.get('total_row_header')
+                wait = WebDriverWait(driver, 10)
+                header_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, header_selector)))
+                
+                def get_total_stat(stat_name_key):
+                    selector = s_daily.get(stat_name_key)
+                    if not selector: return 0
+                    # header_element를 기준으로 검색
+                    node = header_element.find_element(By.CSS_SELECTOR, selector)
+                    return self._get_safe_number(node.text.strip())
+
+                daily_data['total_completed'] = get_total_stat('daily_total_complete')
+                daily_data['total_rejected'] = get_total_stat('daily_total_reject')
+                daily_data['total_canceled'] = get_total_stat('daily_total_accept_cancel') + get_total_stat('daily_total_accept_cancel_rider_fault')
+                logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
+            except Exception as e:
+                logger.error(f"일일 총계 데이터 파싱 중 오류: {e}", exc_info=True)
+                # 실패 시 기본값 설정
+                daily_data['total_completed'] = 0
+                daily_data['total_rejected'] = 0
+                daily_data['total_canceled'] = 0
+
+            # 2. 개별 라이더 데이터 파싱
+            rider_list_container_selector = s_daily.get('container')
+            item_selector = s_daily.get('item')
             full_item_selector = f"{rider_list_container_selector} {item_selector}"
 
-            for attempt in range(2): # 총 2번 시도
+            for attempt in range(2):
                 try:
                     logger.info(f"데이터 수집 시도 #{attempt + 1}")
                     wait = WebDriverWait(driver, 20)
-
-                    # 1단계: 컨테이너가 먼저 존재하는지 확인
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container_selector)))
-                    logger.info("✅ 라이더 목록 컨테이너 로드 완료.")
-
-                    # 2단계: 실제 데이터 항목이 나타나는지 확인
                     rider_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_item_selector)))
                     logger.info(f"✅ 일간 라이더 목록 아이템 {len(rider_elements)}개 로드 완료.")
-                    
-                    # 성공 시 루프 탈출
                     break
                 except TimeoutException:
                     logger.warning(f"시도 #{attempt + 1}에서 타임아웃 발생.")
                     if attempt == 0:
                         logger.info("페이지를 새로고침하고 다시 시도합니다.")
                         driver.refresh()
-                        time.sleep(5) # 새로고침 후 JS 실행 대기
+                        time.sleep(5)
                     else:
                         logger.error("재시도 후에도 일간 라이더 데이터 항목을 로드하지 못했습니다.")
                         daily_data['daily_riders'] = []
@@ -535,28 +554,25 @@ class GriderDataCollector:
 
             for rider_element in rider_elements:
                 try:
-                    # find_elements를 사용하여 NoSuchElementException을 방지하는 안전한 get_stat 함수
                     def get_stat(stat_name_key):
-                        selector = s_rider_list.get(stat_name_key)
+                        selector = s_daily.get(stat_name_key)
                         if not selector: return 0
                         nodes = rider_element.find_elements(By.CSS_SELECTOR, selector)
                         if nodes:
                             return self._get_safe_number(nodes[0].text.strip())
                         return 0
  
-                    name_nodes = rider_element.find_elements(By.CSS_SELECTOR, s_rider_list.get('name'))
+                    name_nodes = rider_element.find_elements(By.CSS_SELECTOR, s_daily.get('name'))
                     if not name_nodes:
                         logger.warning("라이더 이름을 찾을 수 없어 해당 항목을 건너뜁니다.")
                         continue
                     name = name_nodes[0].text.strip()
 
-                    # 실적 데이터 파싱
                     complete_count = get_stat('complete_count')
                     reject_count = get_stat('reject_count')
                     accept_cancel_count = get_stat('accept_cancel_count')
                     accept_cancel_rider_fault_count = get_stat('accept_cancel_rider_fault_count')
 
-                    # 사용자 제안: 주요 실적이 모두 0인 라이더는 결과에서 제외
                     if complete_count == 0 and reject_count == 0 and accept_cancel_count == 0 and accept_cancel_rider_fault_count == 0:
                         logger.info(f"라이더 '{name}'는 실적이 없어 데이터 수집에서 제외합니다.")
                         continue
