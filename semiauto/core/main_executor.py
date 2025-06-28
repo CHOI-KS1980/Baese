@@ -456,8 +456,8 @@ class GriderDataCollector:
                 
                 weekly_data['총완료'] = total_completions
                 weekly_data['총거절'] = calculated_total_rejections
-                weekly_data['수락률'] = f"{(total_completions / total_for_rate * 100):.2f}%" if total_for_rate > 0 else "0.00%"
-                logger.info(f"✅ 주간 라이더 실적 계산 완료: 총완료={weekly_data['총완료']}, 총거절={weekly_data['총거절']}, 수락률={weekly_data['수락률']}")
+                weekly_data['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
+                logger.info(f"✅ 주간 라이더 실적 계산 완료: 총완료={weekly_data['총완료']}, 총거절={weekly_data['총거절']}, 수락률={weekly_data['수락률']:.2f}%")
             else:
                  logger.warning(f"주간 라이더 목록({s_rider_list.get('container')})를 찾지 못했습니다.")
 
@@ -801,7 +801,7 @@ class GriderAutoSender:
             )
 
             # 이번주 미션 예상 점수
-            total_score, quantity_score, acceptance_score = data.get('총점', 0), data.get('물량점수', 0), data.get('수락률점수', 0)
+            total_score, quantity_score, acceptance_score = data.get('예상총점수', 0), data.get('물량점수', 0), data.get('수락률점수', 0)
             weekly_acceptance_rate = float(data.get('수락률', 0))
             weekly_completed, weekly_rejected = data.get('총완료', 0), data.get('총거절', 0)
 
