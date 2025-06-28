@@ -1,6 +1,10 @@
 {
-    "container": ".mission-summary-container",
-    "rows": ".mission-item",
-    "name_cell": ".mission-name",
-    "data_cell": ".mission-value"
+    "container": ".sla_table[data-type='partner']",
+    "today_row": "tr.highlight:last-of-type",
+    "peak_cells": {
+        "아침점심피크": "td:nth-child(4)",
+        "오후논피크": "td:nth-child(5)", 
+        "저녁피크": "td:nth-child(6)",
+        "심야논피크": "td:nth-child(7)"
+    }
 } 

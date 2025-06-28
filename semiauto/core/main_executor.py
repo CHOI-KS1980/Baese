@@ -367,105 +367,44 @@ class GriderDataCollector:
         s = self.selectors.get('weekly_summary', {})
         data = {}
         try:
-            # 선택자를 사용한 파싱 시도
-            total_score_elem = soup.select_one(s.get('summary', {}).get('total_score', 'non-existent'))
-            if total_score_elem:
-                data['총점'] = self._get_safe_number(total_score_elem.text)
-                data['물량점수'] = self._get_safe_number(soup.select_one(s['summary']['quantity_score']).text)
-                data['수락률점수'] = self._get_safe_number(soup.select_one(s['summary']['acceptance_score']).text)
-                data['총완료'] = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
-                
-                # 주간 총 거절/취소 합계
-                total_rejected = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
-                data['총거절및취소'] = total_rejected
-
-                rate_text = soup.select_one(s['stats']['acceptance_rate']).text
-                data['수락률'] = float(re.search(r'\d+\.?\d*', rate_text).group())
-            else:
-                # 테이블에서 직접 찾기 (fallback)
-                tables = soup.find_all('table')
-                for table in tables:
-                    rows = table.find_all('tr')
-                    for row in rows:
-                        cells = row.find_all(['td', 'th'])
-                        if len(cells) >= 2:
-                            text = cells[0].get_text().strip()
-                            value_text = cells[1].get_text().strip()
-                            if '총점' in text:
-                                data['총점'] = self._get_safe_number(value_text)
-                            elif '물량' in text:
-                                data['물량점수'] = self._get_safe_number(value_text)
-                            elif '수락률' in text and '점수' in text:
-                                data['수락률점수'] = self._get_safe_number(value_text)
-                            elif '완료' in text:
-                                data['총완료'] = self._get_safe_number(value_text)
-                            elif '거절' in text:
-                                data['총거절및취소'] = self._get_safe_number(value_text)
-                
-                # 기본값 설정
-                data.setdefault('총점', 0)
-                data.setdefault('물량점수', 0)
-                data.setdefault('수락률점수', 0)
-                data.setdefault('총완료', 0)
-                data.setdefault('총거절및취소', 0)
-                data.setdefault('수락률', 0.0)
-                
+            # 새로운 선택자로 파싱
+            data['총점'] = self._get_safe_number(soup.select_one(s['summary']['total_score']).text)
+            data['물량점수'] = self._get_safe_number(soup.select_one(s['summary']['quantity_score']).text)
+            data['수락률점수'] = self._get_safe_number(soup.select_one(s['summary']['acceptance_score']).text)
+            data['총완료'] = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
+            data['총거절및취소'] = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
+            
+            rate_text = soup.select_one(s['stats']['acceptance_rate']).text
+            data['수락률'] = float(re.search(r'\d+\.?\d*', rate_text).group())
+            
             logger.info(f"✅ 주간 요약 파싱 완료: {data}")
         except Exception as e:
             logger.error(f"주간 요약 파싱 실패: {e}")
-            # 최소한의 기본값으로 설정
+            # 기본값으로 설정
             data = {'총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절및취소': 0, '수락률': 0.0}
         return data
         
     def _parse_mission_data(self, soup):
         s = self.selectors.get('mission_table', {})
         missions = {}
-        name_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
         try:
-            # 선택자를 사용한 파싱 시도
-            rows = soup.select(s.get('rows', 'tr'))
-            mission_found = False
-            
-            for row in rows:
-                name_elem = row.select_one(s.get('name_cell', 'td:first-child'))
-                data_elem = row.select_one(s.get('data_cell', 'td:last-child'))
-                if name_elem and data_elem:
-                    mission_name_raw = name_elem.text.strip()
-                    app_name = name_map.get(mission_name_raw, mission_name_raw)  # 매핑되지 않으면 원본 사용
-                    
-                    # 숫자/숫자 패턴이나 단순 숫자 패턴 찾기
-                    data_text = data_elem.text.strip()
-                    match = re.search(r'(\d+)\s*/\s*(\d+)', data_text)
-                    if match:
-                        current_val = int(match.group(1))
-                        target_val = int(match.group(2))
-                        missions[app_name] = current_val  # 단순하게 현재값만 저장
-                        mission_found = True
-                    else:
-                        # 단순 숫자만 있는 경우
-                        numbers = re.findall(r'\d+', data_text)
-                        if numbers and any(keyword in mission_name_raw for keyword in ['피크', '미션', '건']):
-                            missions[app_name] = int(numbers[0])
-                            mission_found = True
-            
-            # 대안: 모든 테이블 검색 (피크타임 관련)
-            if not mission_found:
-                tables = soup.find_all('table')
-                for table in tables:
-                    rows = table.find_all('tr')
-                    for row in rows:
-                        cells = row.find_all(['td', 'th'])
-                        if len(cells) >= 2:
-                            text = cells[0].get_text().strip()
-                            value_text = cells[1].get_text().strip()
-                            
-                            for key, mapped_name in name_map.items():
-                                if key in text or mapped_name in text:
-                                    numbers = re.findall(r'\d+', value_text)
-                                    if numbers:
-                                        missions[mapped_name] = int(numbers[0])
-                                        mission_found = True
-                                        
+            # 새로운 구조로 파싱: 가장 최근 highlight된 행에서 피크타임 데이터 추출
+            container = soup.select_one(s['container'])
+            if container:
+                today_row = container.select_one(s['today_row'])
+                if today_row:
+                    for peak_name, cell_selector in s['peak_cells'].items():
+                        cell = today_row.select_one(cell_selector)
+                        if cell:
+                            # "47/31건" 패턴에서 첫 번째 숫자 추출
+                            match = re.search(r'(\d+)/', cell.text)
+                            if match:
+                                missions[peak_name] = int(match.group(1))
+                else:
+                    logger.warning("오늘 날짜의 highlight 행을 찾을 수 없습니다.")
+            else:
+                logger.warning("미션 테이블 컨테이너를 찾을 수 없습니다.")
+                
             logger.info(f"✅ 미션 데이터 파싱 완료: {missions}")
         except Exception as e:
             logger.error(f"미션 데이터 파싱 실패: {e}")
@@ -748,8 +687,17 @@ class GriderAutoSender:
         total_peak_deliveries = sum(missions.values())
         lines.append(f"📈 피크타임 총 {total_peak_deliveries}건 완료")
         
+        # 미션 이름을 이모지와 함께 표시
+        mission_icons = {
+            '아침점심피크': '🌅',
+            '오후논피크': '🌞', 
+            '저녁피크': '🌆',
+            '심야논피크': '🌙'
+        }
+        
         for mission_name, count in missions.items():
-            lines.append(f" - {mission_name}: {count}건")
+            icon = mission_icons.get(mission_name, '📦')
+            lines.append(f" {icon} {mission_name}: {count}건")
         return "\n".join(lines)
         
     def _format_weather_summary(self):
