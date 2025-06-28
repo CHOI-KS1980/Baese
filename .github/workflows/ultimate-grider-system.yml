@@ -34,14 +34,21 @@ jobs:
       - name: 📦 의존성 설치
         run: pip install -r requirements.txt
 
-      - name: 🚀 파이썬 스크립트 실행
-        run: python semiauto/core/main_executor.py
-        env:
-          GRIDER_ID: ${{ secrets.GRIDER_ID }}
-          GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
-          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-          KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
+      - name: G-Rider 자동화 스크립트 실행
+        id: run-script
+        run: |
+          python semiauto/core/main_executor.py
+        continue-on-error: true
+
+      - name: 디버그 아티팩트 업로드 (실패 시)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grider-debug-logs
+          path: |
+            ./debug/
+            ./semiauto/dashboard/api/
+          retention-days: 5
 
       - name: 📤 배포 아티팩트 업로드
         uses: actions/upload-pages-artifact@v3
