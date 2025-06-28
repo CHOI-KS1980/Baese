@@ -2,5 +2,6 @@
   "url_path": "/login",
   "id_input": "input#id",
   "pw_input": "input#password",
-  "login_button": "button#loginBtn"
+  "login_button": "button#loginBtn",
+  "login_success_indicator": ".dashboard-container, .main-content, body"
 } 
