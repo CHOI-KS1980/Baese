@@ -827,6 +827,12 @@ class GriderAutoSender:
             filled_blocks = round(percentage / 10)
             return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
+        def get_rider_progress_bar(contribution: float) -> str:
+            if not isinstance(contribution, (int, float)) or contribution < 0: contribution = 0
+            contribution = min(contribution, 100)
+            filled_blocks = round(contribution / 20) # 5 blocks total
+            return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
+
         def format_peak_mission(title: str, details: dict) -> str:
             if not details or not isinstance(details, dict):
                 return f"  - {title}: 정보 없음"
@@ -838,9 +844,10 @@ class GriderAutoSender:
             else:
                 return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점)"
 
+        header = f"🚀 G-Rider 리포트 ({get_korea_time().strftime('%Y-%m-%d %H:%M')})"
+        
         # 미션 요약
         mission_details = []
-        # _parse_mission_data가 반환한 키가 data 딕셔너리에 직접 포함되었는지 확인
         if '아침점심피크' in data:
             mission_details.append(format_peak_mission('아침점심피크', data.get('아침점심피크', {})))
             mission_details.append(format_peak_mission('오후논피크', data.get('오후논피크', {})))
@@ -848,7 +855,7 @@ class GriderAutoSender:
             mission_details.append(format_peak_mission('심야논피크', data.get('심야논피크', {})))
         
         mission_summary = "ℹ️  당일 미션 요약 (점수: " + data.get('일일미션점수', '0점') + ")\n" + ("\n".join(mission_details) if mission_details else "아직 시작된 미션이 없습니다.")
-
+        
         # 주간 요약
         total_score = data.get('예상총점수', '0')
         quantity_score = data.get('물량점수', '0')
@@ -875,19 +882,31 @@ class GriderAutoSender:
             f"수락률: {daily_acceptance_rate:.2f}% {get_acceptance_progress_bar(daily_acceptance_rate)}"
         )
         
-        # 라이더 순위
+        # 라이더 순위 (상세)
         rider_ranking_summary = ""
-        if data.get('daily_riders'):
-            sorted_riders = sorted([r for r in data['daily_riders'] if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)[:10]
-            if sorted_riders:
-                ranking_list = [f"🏆 오늘 운행 랭킹 Top {len(sorted_riders)}"]
-                for i, rider in enumerate(sorted_riders):
-                    ranking_list.append(f"{i+1}. {rider.get('name', '')} (완료:{rider.get('완료', 0)})")
-                rider_ranking_summary = "\n".join(ranking_list)
+        if all_daily_riders:
+            active_riders = sorted([r for r in all_daily_riders if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
+            total_daily_count = sum(r.get('완료', 0) for r in active_riders)
+            
+            if active_riders:
+                rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
+                for i, rider in enumerate(active_riders[:5]): # Top 5
+                    rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
+                    contribution = (rider.get('완료', 0) / total_daily_count * 100) if total_daily_count > 0 else 0
+                    rider_name = rider.get('name', '이름없음').replace('(본인)', '').strip()
+                    
+                    rider_completed = rider.get('완료', 0)
+                    rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
+                    rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100.0
+                    
+                    rider_ranking_summary += (
+                        f"**{rank_icon} {rider_name}** | {get_rider_progress_bar(contribution)} {contribution:.1f}%\n"
+                        f"    총 {rider_completed}건, 수락률: {rider_acceptance_rate:.1f}% (거절:{rider.get('거절',0)}, 취소:{rider.get('배차취소',0)+rider.get('배달취소',0)})"
+                    )
+                    if i < len(active_riders) - 1 and i < 4:
+                        rider_ranking_summary += "\n"
 
         weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
-        
-        header = f"🚀 G-Rider 리포트 ({get_korea_time().strftime('%Y-%m-%d %H:%M')})"
         
         message_parts = [
             header,
