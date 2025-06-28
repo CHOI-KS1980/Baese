@@ -1,5 +1,8 @@
 {
-    "error": true,
-    "error_reason": "G라이더 로그인 실패",
-    "last_updated": "2025-06-28T18:02:53.627738+09:00"
+    "daily_data": {},
+    "weekly_summary": {},
+    "mission_data": {},
+    "metadata": {
+        "error": "G라이더 로그인 실패"
+    }
 }
