@@ -535,14 +535,23 @@ class GriderDataCollector:
 
             for rider_element in rider_elements:
                 try:
+                    # find_elements를 사용하여 NoSuchElementException을 방지하는 안전한 get_stat 함수
                     def get_stat(stat_name_key):
                         selector = s_rider_list.get(stat_name_key)
                         if not selector: return 0
-                        node = rider_element.find_element(By.CSS_SELECTOR, selector)
-                        return self._get_safe_number(node.text.strip())
+                        nodes = rider_element.find_elements(By.CSS_SELECTOR, selector)
+                        if nodes:
+                            return self._get_safe_number(nodes[0].text.strip())
+                        return 0
  
+                    name_nodes = rider_element.find_elements(By.CSS_SELECTOR, s_rider_list.get('name'))
+                    if not name_nodes:
+                        logger.warning("라이더 이름을 찾을 수 없어 해당 항목을 건너뜁니다.")
+                        continue
+                    name = name_nodes[0].text.strip()
+
                     rider_list.append({
-                        'name': rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip(),
+                        'name': name,
                         '완료': get_stat('complete_count'),
                         '거절': get_stat('reject_count'),
                         '배차취소': get_stat('accept_cancel_count'),
