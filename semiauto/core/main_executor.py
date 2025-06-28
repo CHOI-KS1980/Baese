@@ -498,8 +498,10 @@ class GriderDataCollector:
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
             driver.get(self.dashboard_url)
-            time.sleep(2) # 페이지 렌더링을 위한 추가 대기
-            wait = WebDriverWait(driver, 10)
+            # 페이지가 JS를 로드하고 API 호출을 시작할 시간을 더 넉넉하게 줍니다.
+            time.sleep(5)
+            # 대기 시간을 20초로 늘려 데이터 로딩이 늦어지는 경우에 대비합니다.
+            wait = WebDriverWait(driver, 20)
             
             s_rider_list = self.selectors.get('daily_data', {})
             rider_list_container = s_rider_list.get('container')
