@@ -475,17 +475,14 @@ class GriderDataCollector:
                     
                     rider_data = {'name': name}
                     
-                    group_selector = s_daily.get('rider_data_group')
-                    data_group = rider_element.find_element(By.CSS_SELECTOR, group_selector)
-
-                    rider_data['완료'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
-                    rider_data['거절'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
-                    rider_data['배차취소'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
-                    rider_data['배달취소'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
-                    rider_data['아침점심피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
-                    rider_data['오후논피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
-                    rider_data['저녁피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
-                    rider_data['심야논피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
+                    rider_data['완료'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
+                    rider_data['거절'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
+                    rider_data['배차취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
+                    rider_data['배달취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
+                    rider_data['아침점심피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
+                    rider_data['오후논피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
+                    rider_data['저녁피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
+                    rider_data['심야논피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
 
                     total_actions = sum(v for k, v in rider_data.items() if k != 'name')
                     if total_actions > 0:
@@ -579,36 +576,53 @@ class GriderDataCollector:
     def _get_weather_info_detailed(self, location="서울"):
         """기상청 RSS 피드에서 상세 날씨 정보를 가져옵니다."""
         try:
+            # RSS 피드는 구조가 불안정할 수 있으므로, XML 전체를 가져와서 파싱합니다.
             rss_url = "https://www.kma.go.kr/weather/forecast/mid-term-rss3.jsp?stnId=109"
             response = requests.get(rss_url, timeout=10)
             response.raise_for_status()
 
-            root = ET.fromstring(response.content)
-            location_element = root.find(f".//location[city='{location}']")
+            # XML 내용에서 불필요한 공백과 줄바꿈을 제거합니다.
+            xml_content = response.content.decode('utf-8').strip()
+            
+            # XML 파싱을 시도합니다.
+            root = ET.fromstring(xml_content)
+            
+            # 'location' 태그를 직접 찾습니다. RSS 구조가 변경되어도 유연하게 대처하기 위함입니다.
+            # findall('.//location') 을 통해 전체 XML 문서에서 location 태그를 찾습니다.
+            for loc_element in root.findall('.//location'):
+                city_element = loc_element.find('city')
+                if city_element is not None and city_element.text == location:
+                    # 첫 번째 data 요소 (가장 가까운 예보)
+                    data_element = loc_element.find("./data[1]")
+                    if data_element is not None:
+                        weather_desc = data_element.find('wf').text
+                        min_temp = data_element.find('tmn').text
+                        max_temp = data_element.find('tmx').text
 
-            if location_element is not None:
-                data_element = location_element.find(".//data[1]") # 첫 번째 data 요소 (가장 가까운 예보)
-                if data_element is not None:
-                    weather_desc = data_element.find('wf').text
-                    min_temp = data_element.find('tmn').text
-                    max_temp = data_element.find('tmx').text
+                        def get_icon(desc):
+                            if "맑음" in desc: return "☀️"
+                            if "구름많" in desc: return "☁️"
+                            if "흐림" in desc: return "🌫️"
+                            if "비" in desc: return "🌧️"
+                            if "눈" in desc: return "❄️"
+                            return "❓"
 
-                    def get_icon(desc):
-                        if "맑음" in desc: return "☀️"
-                        if "구름많" in desc: return "☁️"
-                        if "흐림" in desc: return "🌫️"
-                        if "비" in desc: return "🌧️"
-                        if "눈" in desc: return "❄️"
-                        return "❓"
+                        return {
+                            "description": weather_desc,
+                            "icon": get_icon(weather_desc),
+                            "temp_min": min_temp,
+                            "temp_max": max_temp
+                        }
+            # 서울 지역을 찾지 못한 경우
+            logger.warning(f"기상청 데이터에서 '{location}' 지역을 찾을 수 없습니다.")
 
-                    return {
-                        "description": weather_desc,
-                        "icon": get_icon(weather_desc),
-                        "temp_min": min_temp,
-                        "temp_max": max_temp
-                    }
+        except ET.ParseError as e:
+            logger.error(f"날씨 정보 XML 파싱 실패: {e}", exc_info=True)
+            # 파싱 실패 시 원본 내용을 로그로 남겨 분석을 돕습니다.
+            logger.debug(f"파싱 실패한 XML 내용:\n{response.text}")
         except Exception as e:
-            logger.error(f"상세 날씨 정보 조회 실패: {e}")
+            logger.error(f"상세 날씨 정보 조회 중 알 수 없는 오류 발생: {e}", exc_info=True)
+            
         return None
 
     def _perform_login(self):
@@ -645,6 +659,7 @@ class GriderDataCollector:
                 'report_date': self._get_today_date(),
                 'error': None
             },
+            'weather_info': {},
             'daily_summary': {},
             'weekly_summary': {},
             'mission_status': {},
@@ -652,6 +667,7 @@ class GriderDataCollector:
         }
         
         try:
+            # final_data['weather_info'] = self._get_weather_info_detailed() # 날씨 조회 임시 비활성화
             driver = self._perform_login()
             if not driver:
                 raise Exception("G라이더 로그인 실패")
@@ -785,8 +801,9 @@ class GriderAutoSender:
             date_str += f" HOLIDAY! ({holiday_name})"
 
         # 날씨 정보
-        weather = self._get_weather_info_detailed()
-        weather_str = f"{weather['icon']} {weather['description']} ({weather['temp_min']}°C / {weather['temp_max']}°C)" if weather else "날씨 정보 없음"
+        weather = data.get('weather_info')
+        # weather_str = f"{weather['icon']} {weather['description']} ({weather['temp_min']}°C / {weather['temp_max']}°C)" if weather else "날씨 정보 없음"
+        weather_str = "날씨 정보 (임시 비활성화)"
 
         # 메시지 헤더
         header = f"📊 {date_str} - {weather_str}\n"
