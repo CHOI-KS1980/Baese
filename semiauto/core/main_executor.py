@@ -477,67 +477,81 @@ class GriderDataCollector:
         return data
 
     def _parse_daily_data(self, driver) -> dict:
-        riders = [] # 결과를 담을 리스트 초기화
+        """SLA 페이지에서 오늘 날짜의 피크별 미션 데이터를 파싱합니다."""
+        from bs4.element import Tag
+
+        daily_data = {}
         try:
-            # === 지능형 대기: 첫 번째 라이더 아이템이 나타날 때까지 기다립니다. ===
-            wait = WebDriverWait(driver, 15)
-            logger.info("일간 데이터 지능형 대기 시작: 라이더 목록 확인 중...")
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".rider_list .rider_item")))
-            logger.info("✅ 일간 데이터의 라이더 목록이 로드되었습니다.")
+            today_str = get_korea_time().strftime('%Y-%m-%d')
+            logger.info(f"오늘 날짜({today_str})의 일간 미션 데이터 파싱을 시작합니다.")
+
+            # 파싱을 위한 BeautifulSoup 객체 생성
+            soup = BeautifulSoup(driver.page_source, 'lxml')
+
+            # '물량 점수관리' 제목을 찾습니다.
+            quantity_title = soup.find('h3', class_='page_sub_title', string='물량 점수관리')
+            if not isinstance(quantity_title, Tag):
+                logger.warning("'물량 점수관리' 섹션을 찾을 수 없습니다.")
+                return {}
+
+            # 제목 다음의 형제 div에서 테이블을 찾습니다.
+            sla_item_div = quantity_title.find_next_sibling('div', class_='sla_item')
+            if not isinstance(sla_item_div, Tag):
+                logger.warning("'sla_item' div를 찾을 수 없습니다.")
+                return {}
+
+            sla_table = sla_item_div.find('table', class_='sla_table')
+            if not isinstance(sla_table, Tag):
+                logger.warning("'물량 점수관리' 테이블을 찾을 수 없습니다.")
+                return {}
             
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-        
-            def get_number(text, to_float=False):
-                if not text: return 0.0 if to_float else 0
-                cleaned_text = str(text).replace(',', '').strip()
-                match = re.search(r'(-?[\d\.]+)', cleaned_text)
-                return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
-                
-            rider_container = soup.select_one('div.rider_container')
+            # 테이블에서 오늘 날짜에 해당하는 행(tr)을 찾습니다.
+            target_row = None
+            table_body = sla_table.find('tbody')
+            if isinstance(table_body, Tag):
+                for row in table_body.find_all('tr'):
+                    columns = row.find_all('td')
+                    if len(columns) > 1 and columns[1].get_text(strip=True) == today_str:
+                        target_row = row
+                        break
             
-            if rider_container and isinstance(rider_container, Tag):
-                rider_items = rider_container.select('.rider_list .rider_item')
-                logger.info(f"✅ 일간 데이터에서 {len(rider_items)}명의 라이더 데이터를 찾았습니다.")
-                
-                def get_val(item, cls, to_float=False):
-                    node = item.select_one(f'.{cls}')
-                    text_content = node.get_text(strip=True) if node and isinstance(node, Tag) else ""
-                    text = re.sub(r'^[가-힣A-Za-z]+', '', text_content).strip()
-                    return get_number(text, to_float)
+            if not target_row:
+                logger.warning(f"{today_str}에 해당하는 데이터 행을 테이블에서 찾지 못했습니다.")
+                return {}
 
-                for item in rider_items:
-                    name_node = item.select_one('.rider_name')
-                    id_node = item.select_one('.user_id')
-                    acceptance_node = item.select_one('.acceptance_rate')
+            logger.info(f"{today_str} 날짜의 데이터 행을 찾았습니다. 파싱을 진행합니다.")
+            cells = target_row.find_all('td')
 
-                    name = '이름없음'
-                    if name_node and isinstance(name_node, Tag):
-                        for child in name_node.find_all(['span', 'p', 'div']): child.decompose()
-                        name = name_node.get_text(strip=True)
-                    
-                    acceptance_text = acceptance_node.get_text(strip=True) if acceptance_node and isinstance(acceptance_node, Tag) else "0"
-                    id_text = id_node.get_text(strip=True).replace('아이디', '') if id_node and isinstance(id_node, Tag) else ''
+            # 헬퍼 함수: "current/target건" 형식의 문자열을 파싱
+            def _parse_peak_data_from_cell(cell_text: str) -> dict:
+                try:
+                    # "건"과 공백 제거
+                    cleaned_text = cell_text.replace('건', '').strip()
+                    # "/" 기준으로 분리
+                    parts = cleaned_text.split('/')
+                    if len(parts) == 2:
+                        current = int(parts[0])
+                        target = int(parts[1])
+                        return {'current': current, 'target': target}
+                except (ValueError, IndexError) as e:
+                    logger.error(f"피크 데이터 파싱 중 오류: '{cell_text}' -> {e}")
+                return {'current': 0, 'target': 0}
 
-                    riders.append({
-                        'name': name, 'id': id_text,
-                        '수락률': get_number(acceptance_text, to_float=True),
-                        '완료': get_val(item, 'complete_count'),
-                        '거절': get_val(item, 'reject_count'),
-                        '배차취소': get_val(item, 'accept_cancel_count'),
-                        '배달취소': get_val(item, 'accept_cancel_rider_fault_count'),
-                        '아침점심피크': get_val(item, 'morning_peak_count'),
-                        '오후논피크': get_val(item, 'afternoon_peak_count'),
-                        '저녁피크': get_val(item, 'evening_peak_count'),
-                        '심야논피크': get_val(item, 'midnight_peak_count'),
-                    })
+            # 각 피크 타임에 해당하는 데이터를 파싱합니다 (열 인덱스 기준).
+            # thead: 0:번호, 1:날짜, 2:점수, 3:아침점심, 4:오후논, 5:저녁, 6:심야
+            if len(cells) > 6:
+                daily_data['아침점심피크'] = _parse_peak_data_from_cell(cells[3].get_text(strip=True))
+                daily_data['오후논피크'] = _parse_peak_data_from_cell(cells[4].get_text(strip=True))
+                daily_data['저녁피크'] = _parse_peak_data_from_cell(cells[5].get_text(strip=True))
+                daily_data['심야논피크'] = _parse_peak_data_from_cell(cells[6].get_text(strip=True))
+                logger.info(f"파싱된 일간 데이터: {daily_data}")
             else:
-                logger.warning("⚠️ 일간 데이터에서 '라이더 현황' 컨테이너 (div.rider_container)를 찾지 못했습니다.")
-        
-        except Exception as e:
-            logger.error(f"❌ 일간 데이터 파싱 중 오류 발생 (타임아웃 또는 요소 찾기 실패): {e}")
-            return {'daily_riders': []}
+                logger.warning("데이터 행의 열 개수가 예상보다 적습니다.")
 
-        return {'daily_riders': riders}
+        except Exception as e:
+            logger.error(f"일간 데이터 파싱 중 예외 발생: {e}", exc_info=True)
+        
+        return daily_data
 
     def _get_weather_info_detailed(self, location="서울"):
         try:
