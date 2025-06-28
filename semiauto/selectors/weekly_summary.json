@@ -10,6 +10,6 @@
     "container": ".summary_etc.column",
     "total_completed": ".etc_item .etc_value[data-etc='complete'] span",
     "total_rejected": ".etc_item .etc_value[data-etc='reject'] span",
-    "acceptance_rate": ".etc_item .etc_value[data-etc='acceptance'] span"
+    "acceptance_rate": ".etc_item .etc_value[data-etc='acceptance']"
   }
 } 

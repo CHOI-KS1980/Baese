@@ -384,7 +384,7 @@ class GriderDataCollector:
                 total_completed = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['stats']['total_completed']).text)
                 total_rejected = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['stats']['total_rejected']).text)
                 acceptance_rate_text = driver.find_element(By.CSS_SELECTOR, s_summary['stats']['acceptance_rate']).text
-                acceptance_rate = float(acceptance_rate_text.replace('%', '')) if '%' in acceptance_rate_text else 0.0
+                acceptance_rate = float(re.search(r'\d+\.?\d*', acceptance_rate_text).group()) if re.search(r'\d+\.?\d*', acceptance_rate_text) else 0.0
                 
                 weekly_data['총완료'] = total_completed
                 weekly_data['총거절'] = total_rejected # 주간 총 거절은 취소 포함된 값으로 추정
@@ -428,10 +428,10 @@ class GriderDataCollector:
                 try:
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
                     
-                    daily_data['total_completed'] = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete'))))
-                    daily_data['total_rejected'] = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject'))))
-                    cancel_dispatch = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel'))))
-                    cancel_delivery = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault'))))
+                    daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
+                    daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
+                    cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
+                    cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
                     daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
                     logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
                 except Exception as e:
