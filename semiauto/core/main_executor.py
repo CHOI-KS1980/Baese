@@ -828,8 +828,8 @@ class GriderAutoSender:
         def get_acceptance_progress_bar(percentage: float) -> str:
             if not isinstance(percentage, (int, float)) or not 0 <= percentage <= 100: 
                 return ""
-            filled_blocks = round(percentage / 10)
-            return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
+            filled_blocks = round(percentage * 8 / 100) # 10칸에서 8칸으로 조정
+            return '🟩' * filled_blocks + '⬜' * (8 - filled_blocks)
 
         def get_rider_progress_bar(contribution: float) -> str:
             if not isinstance(contribution, (int, float)) or contribution < 0: contribution = 0
@@ -885,8 +885,7 @@ class GriderAutoSender:
         daily_rider_summary = (
             f"📈 금일 수행 내역\n"
             f"완료: {daily_total_completed}  거절(취소포함): {daily_total_rejected}\n"
-            f"수락률: {daily_acceptance_rate:.1f}%\n"
-            f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
+            f"수락률: {daily_acceptance_rate:.1f}% {get_acceptance_progress_bar(daily_acceptance_rate)}"
         )
         
         # 이번주 미션 예상점수
@@ -900,8 +899,7 @@ class GriderAutoSender:
             f"📊 이번주 미션 예상점수\n"
             f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
             f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected}\n"
-            f"수락률: {weekly_acceptance_rate:.1f}%\n"
-            f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
+            f"수락률: {weekly_acceptance_rate:.1f}% {get_acceptance_progress_bar(weekly_acceptance_rate)}"
         )
 
         # 라이더 순위 (상세)
