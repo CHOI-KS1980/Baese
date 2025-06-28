@@ -265,13 +265,65 @@ class GriderDataCollector:
         self.mission_data_cache_file = 'mission_data_cache.json'
     
     def get_grider_data(self, use_sample=False):
-        """G라이더 주간/일간 데이터를 모두 수집"""
+        """G-Rider 웹사이트에서 주간 및 일간 데이터를 단계별로 수집합니다."""
         if use_sample:
-            return self._get_error_data("샘플 데이터 사용")
+            logger.info("샘플 데이터를 사용하여 실행합니다.")
+            return self._get_error_data("샘플 데이터 모드")
 
-        logger.info(" G라이더 실제 데이터 수집 시작...")
+        driver = self._perform_login()
         
-        driver = None
+        try:
+            # 1. /dashboard 에서 '일간 라이더 데이터' 수집
+            logger.info("대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
+            daily_rider_data = self._parse_daily_rider_data(driver)
+            
+            # 2. /orders/sla/list 페이지로 이동
+            sla_url = "https://jangboo.grider.ai/orders/sla/list"
+            logger.info(f"'주간/미션 데이터' 수집을 위해 {sla_url} 페이지로 이동합니다.")
+            driver.get(sla_url)
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div.sla_item"))
+            )
+            logger.info("✅ SLA 페이지가 성공적으로 로드되었습니다.")
+
+            # 3. SLA 페이지에서 '주간 데이터'와 '미션 데이터' 수집
+            weekly_data = self._parse_weekly_data(driver)
+            mission_data = self._parse_mission_data(driver)
+            
+            # 4. 부가 정보 수집
+            weather_info = self._get_weather_info_detailed()
+            
+            logger.info("✅ 모든 G라이더 데이터 수집 완료")
+
+            # 5. 성공 데이터 조합 후 반환
+            return {
+                'error': False,
+                'error_reason': '',
+                **daily_rider_data,
+                **weekly_data,
+                **mission_data,
+                **weather_info,
+                'timestamp': get_korea_time().strftime("%Y-%m-%d %H:%M:%S"),
+                'mission_date': self._get_mission_date(),
+            }
+
+        except Exception as e:
+            error_msg = f"크롤링 중 예외 발생: {e}"
+            logger.error(error_msg, exc_info=True)
+            return self._get_error_data(error_msg)
+        finally:
+            driver.quit()
+
+    def _get_error_data(self, error_reason: str):
+        return {
+            '총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절': 0, '수락률': 0.0,
+            '아침점심피크': {"current": 0, "target": 0}, '오후논피크': {"current": 0, "target": 0},
+            '저녁피크': {"current": 0, "target": 0}, '심야논피크': {"current": 0, "target": 0},
+            'daily_riders': [], 'error': True, 'error_reason': error_reason,
+            'timestamp': datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+        }
+    
+    def _perform_login(self):
         try:
             from selenium import webdriver
             from selenium.webdriver.common.by import By
@@ -294,62 +346,6 @@ class GriderDataCollector:
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
 
-            if not self._perform_login(driver):
-                raise Exception("G라이더 로그인 실패")
-            
-            all_data = {'error': False}
-
-            # A. 주간 데이터 먼저 수집
-            weekly_data = self._parse_weekly_data(driver)
-            all_data.update(weekly_data)
-            
-            # B. 일간 데이터 수집 (SLA 페이지로 이동 후)
-            sla_url = "https://jangboo.grider.ai/orders/sla/list"
-            logger.info(f"일간 미션 데이터 수집을 위해 {sla_url} 페이지로 이동합니다.")
-            driver.get(sla_url)
-            
-            # 페이지가 완전히 로드될 때까지 명시적으로 대기
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), '물량 점수관리')]"))
-            )
-            logger.info("✅ 일간 미션 페이지(SLA)가 성공적으로 로드되었습니다.")
-            
-            daily_data = self._parse_daily_data(driver)
-            all_data.update(daily_data)
-
-            # C. 날씨 정보 수집 (부가 정보)
-            weather_info = self._get_weather_info_detailed()
-            all_data.update(weather_info)
-
-            final_data = {**all_data, **daily_data}
-            final_data['timestamp'] = get_korea_time().strftime("%Y-%m-%d %H:%M:%S")
-            final_data['mission_date'] = self._get_mission_date()
-            
-            logger.info(" G라이더 데이터 수집 완료")
-            return final_data
-
-        except Exception as e:
-            logger.error(f" 크롤링 중 오류 발생: {e}", exc_info=True)
-            return self._get_error_data(f"크롤링 중 예외 발생: {e}")
-        finally:
-            if driver:
-                driver.quit()
-
-    def _get_error_data(self, error_reason):
-        return {
-            '총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절': 0, '수락률': 0.0,
-            '아침점심피크': {"current": 0, "target": 0}, '오후논피크': {"current": 0, "target": 0},
-            '저녁피크': {"current": 0, "target": 0}, '심야논피크': {"current": 0, "target": 0},
-            'daily_riders': [], 'error': True, 'error_reason': error_reason,
-            'timestamp': datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
-        }
-    
-    def _perform_login(self, driver):
-        try:
-            wait = WebDriverWait(driver, 20)
-            driver.get('https://jangboo.grider.ai/login')
-            wait.until(EC.presence_of_element_located((By.ID, 'id')))
-            
             USER_ID = os.getenv('GRIDER_ID')
             USER_PW = os.getenv('GRIDER_PASSWORD')
             if not USER_ID or not USER_PW: raise Exception("G라이더 로그인 정보가 없습니다.")
@@ -359,10 +355,11 @@ class GriderDataCollector:
             driver.find_element(By.ID, 'loginBtn').click()
             WebDriverWait(driver, 30).until(EC.url_contains('/dashboard'))
             logger.info("✅ 로그인 성공")
-            return True
+            return driver
         except Exception as e:
-            logger.error(f"로그인 과정에서 오류 발생: {e}")
-            return False
+            logger.error(f" G라이더 로그인 실패: {e}", exc_info=True)
+            driver.quit()
+            raise Exception("G라이더 로그인 실패")
 
     def _crawl_page(self, driver, url, wait_xpath, max_retries=3, retry_delay=5, sub_wait_xpath=None):
         # 이 함수는 이제 사용되지 않지만, 다른 곳에서 호출할 경우를 대비해 남겨둡니다.
@@ -395,87 +392,110 @@ class GriderDataCollector:
         return mission_time.strftime('%Y-%m-%d')
 
     def _parse_weekly_data(self, driver) -> dict:
-        data = {
-            '총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절': 0, '수락률': 0.0,
-            '아침점심피크': {"current": 0, "target": 0}, '오후논피크': {"current": 0, "target": 0},
-            '저녁피크': {"current": 0, "target": 0}, '심야논피크': {"current": 0, "target": 0},
-        }
-
-        def get_number(text, to_float=False):
-            if not text: return 0.0 if to_float else 0
-            cleaned_text = str(text).replace(',', '').strip()
-            match = re.search(r'(-?[\d\.]+)', cleaned_text)
-            return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
-
+        """SLA 페이지에서 주간 요약 데이터를 파싱합니다."""
+        weekly_data = {}
         try:
-            # === 지능형 대기: 두 핵심 데이터가 모두 숫자로 채워질 때까지 기다립니다. ===
-            wait = WebDriverWait(driver, 15)
-            logger.info("주간 데이터 지능형 대기 시작: '총점'과 '총완료' 필드 확인 중...")
-            wait.until(
-                lambda d: 
-                    get_number(d.find_element(By.CSS_SELECTOR, ".score_total_value[data-text='total']").text) > 0 and
-                    get_number(d.find_element(By.CSS_SELECTOR, ".rider_th.total_value_th div[data-total_value='complete_count']").text) > 0
-            )
-            logger.info("✅ 주간 데이터의 핵심 필드(총점, 총완료)가 모두 로드되었습니다.")
+            logger.info("주간 데이터 파싱 시작...")
+            wait = WebDriverWait(driver, 10)
+            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".sub_content_wrap .total_info_item")))
             
-            # BeautifulSoup으로 최종 페이지 소스를 한 번만 파싱합니다.
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            soup = BeautifulSoup(driver.page_source, 'lxml')
 
-            # 1. 점수 영역 파싱
-            summary_score_area = soup.select_one('.summary_score')
-            if summary_score_area:
-                total_node = summary_score_area.select_one('.score_total_value[data-text="total"]')
-                quantity_node = summary_score_area.select_one('.detail_score_value[data-text="quantity"]')
-                acceptance_node = summary_score_area.select_one('.detail_score_value[data-text="acceptance"]')
-                
-                data['총점'] = get_number(total_node.text) if total_node else 0
-                data['물량점수'] = get_number(quantity_node.text) if quantity_node else 0
-                data['수락률점수'] = get_number(acceptance_node.text) if acceptance_node else 0
-                logger.info(f"점수 파싱: 총점={data['총점']}, 물량={data['물량점수']}, 수락률={data['수락률점수']}")
-            else:
-                logger.warning("⚠️ 주간 데이터에서 점수 요약 영역(.summary_score)을 찾지 못했습니다.")
+            def get_number(text, to_float=False):
+                if not text: return 0.0 if to_float else 0
+                cleaned_text = str(text).replace(',', '').strip()
+                match = re.search(r'(-?[\d\.]+)', cleaned_text)
+                if not match: return 0.0 if to_float else 0
+                return float(match.group(1)) if to_float else int(match.group(1))
 
-            # 2. 건수 영역 파싱 및 수락률 재계산
-            summary_header = soup.select_one('.rider_th.total_value_th')
-            if summary_header:
-                def get_total_val(cls):
-                    node = summary_header.select_one(f"div[data-total_value='{cls}']")
-                    return get_number(node.text) if node else 0
+            total_info_items = soup.select(".sub_content_wrap .total_info_item")
+            if not total_info_items:
+                logger.warning("주간 데이터 요약(.total_info_item)을 찾지 못했습니다.")
+                return {}
 
-                data['총완료'] = get_total_val('complete_count')
-                data['총거절'] = get_total_val('reject_count') + get_total_val('accept_cancel_count') + get_total_val('accept_cancel_rider_fault_count')
+            score_val_node = total_info_items[0].select_one('.score_val')
+            scores = score_val_node.get_text(strip=True) if score_val_node else "0"
+            weekly_data['총점'] = get_number(scores)
+            
+            score_details = total_info_items[0].select('.score_detail_item .val')
+            if len(score_details) >= 2:
+                weekly_data['물량점수'] = get_number(score_details[0].get_text(strip=True))
+                weekly_data['수락률점수'] = get_number(score_details[1].get_text(strip=True))
 
-                total_for_rate = data['총완료'] + data['총거절']
-                data['수락률'] = (data['총완료'] / total_for_rate) * 100 if total_for_rate > 0 else 0.0
-                logger.info(f"주간 건수 계산: 완료={data['총완료']}, 거절(합산)={data['총거절']}, 재계산된 수락률={data['수락률']:.1f}%")
-            else:
-                logger.warning("⚠️ 주간 데이터에서 라이더 요약 헤더 (.rider_th.total_value_th)를 찾지 못했습니다.")
+            def get_total_val(cls):
+                node = soup.select_one(f".total_perform_item.{cls} .val")
+                return get_number(node.get_text(strip=True)) if node else 0
 
+            weekly_data['총완료'] = get_total_val('complete')
+            weekly_data['총거절'] = get_total_val('reject')
+            weekly_data['총배차취소'] = get_total_val('accept_cancel')
+            weekly_data['총배달취소'] = get_total_val('accept_cancel_rider_fault')
+            
+            total_for_rate = weekly_data['총완료'] + weekly_data['총거절'] + weekly_data['총배차취소'] + weekly_data['총배달취소']
+            weekly_data['수락률'] = (weekly_data['총완료'] / total_for_rate * 100) if total_for_rate > 0 else 100.0
+
+            logger.info(f"파싱된 주간 데이터: {weekly_data}")
         except Exception as e:
-            logger.error(f"❌ 주간 데이터 파싱 중 오류 발생 (타임아웃 또는 요소 찾기 실패): {e}")
-            return {} # 실패 시 빈 dict 반환
+            logger.error(f"주간 데이터 파싱 중 오류: {e}", exc_info=True)
+        return weekly_data
 
-        return data
+    def _parse_daily_rider_data(self, driver) -> dict:
+        """대시보드에서 일간 라이더 목록 데이터를 파싱합니다."""
+        riders = []
+        try:
+            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".rider_list .rider_item")))
+            logger.info("✅ 일간 라이더 목록이 로드되었습니다.")
+            
+            soup = BeautifulSoup(driver.page_source, 'lxml')
+            
+            rider_items = soup.select('.rider_list .rider_item')
+            logger.info(f"일간 데이터에서 {len(rider_items)}명의 라이더를 찾았습니다.")
 
-    def _parse_daily_data(self, driver) -> dict:
+            def get_number(text, to_float=False):
+                if not text: return 0.0 if to_float else 0
+                cleaned_text = str(text).replace(',', '').strip()
+                match = re.search(r'(-?[\d\.]+)', cleaned_text)
+                return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
+            
+            for item in rider_items:
+                name_node = item.select_one('.rider_name')
+                name = name_node.get_text(strip=True) if name_node else '이름없음'
+
+                peak_counts = {}
+                for peak_name, peak_class in [('아침점심피크', 'morning_peak_count'), ('오후논피크', 'afternoon_peak_count'), ('저녁피크', 'evening_peak_count'), ('심야논피크', 'midnight_peak_count')]:
+                    node = item.select_one(f'.{peak_class}')
+                    peak_counts[peak_name] = get_number(node.get_text(strip=True)) if node else 0
+
+                def get_stat(class_name: str):
+                    node = item.select_one(f'.{class_name}')
+                    return get_number(node.get_text(strip=True)) if node else 0
+
+                riders.append({
+                    'name': name,
+                    '완료': get_stat('complete_count'),
+                    '거절': get_stat('reject_count'),
+                    '배차취소': get_stat('accept_cancel_count'),
+                    '배달취소': get_stat('accept_cancel_rider_fault_count'),
+                    **peak_counts
+                })
+        except Exception as e:
+            logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
+        return {'daily_riders': riders}
+
+    def _parse_mission_data(self, driver) -> dict:
         """SLA 페이지에서 오늘 날짜의 피크별 미션 데이터를 파싱합니다."""
-        from bs4.element import Tag
-
         daily_data = {}
         try:
             today_str = get_korea_time().strftime('%Y-%m-%d')
-            logger.info(f"오늘 날짜({today_str})의 일간 미션 데이터 파싱을 시작합니다.")
+            logger.info(f"오늘 날짜({today_str})의 미션 데이터 파싱을 시작합니다.")
 
-            # 파싱을 위한 BeautifulSoup 객체 생성
             soup = BeautifulSoup(driver.page_source, 'lxml')
 
-            # '물량 점수관리' 제목을 찾습니다.
             quantity_title = soup.find('h3', class_='page_sub_title', string='물량 점수관리')
             if not isinstance(quantity_title, Tag):
                 logger.warning("'물량 점수관리' 섹션을 찾을 수 없습니다.")
                 return {}
 
-            # 제목 다음의 형제 div에서 테이블을 찾습니다.
             sla_item_div = quantity_title.find_next_sibling('div', class_='sla_item')
             if not isinstance(sla_item_div, Tag):
                 logger.warning("'sla_item' div를 찾을 수 없습니다.")
@@ -486,7 +506,6 @@ class GriderDataCollector:
                 logger.warning("'물량 점수관리' 테이블을 찾을 수 없습니다.")
                 return {}
             
-            # 테이블에서 오늘 날짜에 해당하는 행(tr)을 찾습니다.
             target_row = None
             table_body = sla_table.find('tbody')
             if isinstance(table_body, Tag):
@@ -497,40 +516,33 @@ class GriderDataCollector:
                         break
             
             if not target_row:
-                logger.warning(f"{today_str}에 해당하는 데이터 행을 테이블에서 찾지 못했습니다.")
+                logger.warning(f"{today_str}에 해당하는 미션 데이터 행을 찾지 못했습니다.")
                 return {}
 
-            logger.info(f"{today_str} 날짜의 데이터 행을 찾았습니다. 파싱을 진행합니다.")
+            logger.info("미션 데이터 행을 찾았습니다. 파싱을 진행합니다.")
             cells = target_row.find_all('td')
 
-            # 헬퍼 함수: "current/target건" 형식의 문자열을 파싱
             def _parse_peak_data_from_cell(cell_text: str) -> dict:
                 try:
-                    # "건"과 공백 제거
                     cleaned_text = cell_text.replace('건', '').strip()
-                    # "/" 기준으로 분리
                     parts = cleaned_text.split('/')
                     if len(parts) == 2:
-                        current = int(parts[0])
-                        target = int(parts[1])
-                        return {'current': current, 'target': target}
+                        return {'current': int(parts[0]), 'target': int(parts[1])}
                 except (ValueError, IndexError) as e:
                     logger.error(f"피크 데이터 파싱 중 오류: '{cell_text}' -> {e}")
                 return {'current': 0, 'target': 0}
 
-            # 각 피크 타임에 해당하는 데이터를 파싱합니다 (열 인덱스 기준).
-            # thead: 0:번호, 1:날짜, 2:점수, 3:아침점심, 4:오후논, 5:저녁, 6:심야
             if len(cells) > 6:
                 daily_data['아침점심피크'] = _parse_peak_data_from_cell(cells[3].get_text(strip=True))
                 daily_data['오후논피크'] = _parse_peak_data_from_cell(cells[4].get_text(strip=True))
                 daily_data['저녁피크'] = _parse_peak_data_from_cell(cells[5].get_text(strip=True))
                 daily_data['심야논피크'] = _parse_peak_data_from_cell(cells[6].get_text(strip=True))
-                logger.info(f"파싱된 일간 데이터: {daily_data}")
+                logger.info(f"파싱된 미션 데이터: {daily_data}")
             else:
-                logger.warning("데이터 행의 열 개수가 예상보다 적습니다.")
+                logger.warning("미션 데이터 행의 열 개수가 예상보다 적습니다.")
 
         except Exception as e:
-            logger.error(f"일간 데이터 파싱 중 예외 발생: {e}", exc_info=True)
+            logger.error(f"미션 데이터 파싱 중 예외 발생: {e}", exc_info=True)
         
         return daily_data
 
