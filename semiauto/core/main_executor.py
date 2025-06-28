@@ -425,6 +425,9 @@ class GriderDataCollector:
             weekly_data.update(summary_scores)
             weekly_data.update(calculated_stats)
 
+        except TimeoutException as e:
+            logger.error(f"'주간/미션 데이터' 파싱 타임아웃. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
+            logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
         except Exception as e:
             logger.error(f"'주간/미션 데이터' 파싱 중 예외 발생: {e}", exc_info=True)
             
@@ -471,6 +474,7 @@ class GriderDataCollector:
                     name_element = rider_element.find_element(By.CSS_SELECTOR, s_daily.get('name'))
                     name = name_element.text.strip()
                     if not name:
+                        logger.warning(f"라이더 이름이 비어있어 건너뜁니다. 해당 행 HTML: {rider_element.get_attribute('outerHTML')}")
                         continue
                     
                     rider_data = {'name': name}
@@ -491,7 +495,7 @@ class GriderDataCollector:
                         logger.info(f"라이더 '{name}'는 실적이 없어 데이터 수집에서 제외합니다.")
 
                 except NoSuchElementException:
-                    logger.warning("라이더 항목 내에서 일부 데이터(예: 이름 또는 그룹)를 찾지 못해 건너뜁니다.")
+                    logger.warning(f"라이더 항목 내에서 일부 데이터(예: 이름)를 찾지 못해 건너뜁니다. 해당 행 HTML: {rider_element.get_attribute('outerHTML')}")
                     continue
                 except Exception as e:
                     name_for_log = '알 수 없음'
@@ -505,6 +509,9 @@ class GriderDataCollector:
             daily_data['daily_riders'] = rider_list
             logger.info(f"✅ {len(rider_list)}명의 활동 라이더 데이터 파싱 완료.")
 
+        except TimeoutException:
+            logger.error("미션 데이터 테이블 로드 시간 초과. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
+            logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 심각한 오류 발생: {e}", exc_info=True)
             daily_data.setdefault('daily_riders', [])
@@ -567,7 +574,8 @@ class GriderDataCollector:
             logger.warning(f"오늘 날짜({today_str})에 해당하는 미션 데이터를 테이블에서 찾지 못했습니다.")
             
         except TimeoutException:
-            logger.error("미션 데이터 테이블 로드 시간 초과", exc_info=True)
+            logger.error("미션 데이터 테이블 로드 시간 초과. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
+            logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
         except Exception as e:
             logger.error(f"미션 데이터 파싱 중 예외 발생: {e}", exc_info=True)
             
