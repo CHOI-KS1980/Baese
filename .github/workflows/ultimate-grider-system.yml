@@ -48,11 +48,21 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: grider-debug-logs
+          name: grider-debug-logs-failure
           path: |
             ./debug/
             ./semiauto/dashboard/api/
           retention-days: 5
+
+      - name: 디버그 아티팩트 업로드 (성공 시)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grider-debug-logs-success
+          path: |
+            ./debug/
+            ./semiauto/dashboard/api/
+          retention-days: 2
 
       - name: 📤 배포 아티팩트 업로드
         uses: actions/upload-pages-artifact@v3
