@@ -389,6 +389,10 @@ class GriderDataCollector:
         mission_time = korea_time - timedelta(hours=6)
         return mission_time.strftime('%Y-%m-%d')
 
+    def _get_today_date(self):
+        """한국시간 기준 오늘 날짜를 'YYYY-MM-DD' 형식으로 반환합니다."""
+        return get_korea_time().strftime('%Y-%m-%d')
+
     def _parse_weekly_data(self, driver):
         """SLA 페이지에서 주간 요약 점수와 라이더 실적 데이터를 파싱하고 계산합니다."""
         weekly_data = {}
@@ -617,6 +621,50 @@ class GriderDataCollector:
         else:
             return 0
 
+    def collect_all_data(self):
+        """
+        모든 G-Rider 관련 데이터를 수집, 파싱하고 통합된 딕셔너리로 반환합니다.
+        오류 발생 시, 'error' 키를 포함한 딕셔너리를 반환합니다.
+        """
+        driver = None
+        collected_data = {'error': False, 'error_reason': ''}
+
+        try:
+            driver = self._get_driver()
+            
+            # 1. 일간 라이더 데이터 수집
+            driver.get(self.dashboard_url)
+            daily_data = self._parse_daily_rider_data(driver)
+            collected_data.update(daily_data)
+            
+            # 2. 주간/미션 데이터 수집
+            driver.get(self.sla_url)
+            weekly_data = self._parse_weekly_data(driver)
+            collected_data.update(weekly_data)
+            
+            mission_data = self._parse_mission_data(driver)
+            collected_data.update(mission_data)
+
+            # 3. 날씨 정보 가져오기 (오류가 발생해도 전체를 중단시키지 않음)
+            try:
+                collected_data['weather_info'] = self._get_weather_info_detailed()
+            except Exception as e:
+                logger.error(f"날씨 정보 수집 실패: {e}")
+                collected_data['weather_info'] = "날씨 정보 조회 불가"
+
+            return collected_data
+
+        except Exception as e:
+            logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
+            collected_data['error'] = True
+            collected_data['error_reason'] = str(e)
+            return collected_data
+        
+        finally:
+            if driver:
+                driver.quit()
+                logger.info("Selenium 드라이버 종료")
+
 class GriderAutoSender:
     """G-Rider 자동화 메시지 발송기"""
     
@@ -657,7 +705,7 @@ class GriderAutoSender:
         """G-Rider 운행 리포트 자동 발송"""
         
         # 1. G-Rider 데이터 수집
-        grider_data = self.data_collector.get_grider_data()
+        grider_data = self.data_collector.collect_all_data()
         
         # 2. 데이터 유효성 검사
         if grider_data['error']:
