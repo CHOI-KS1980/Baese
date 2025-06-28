@@ -360,83 +360,42 @@ class GriderDataCollector:
         return get_korea_time().strftime('%Y-%m-%d')
 
     def _parse_weekly_data(self, driver):
-        """SLA 페이지에서 주간 요약 점수와 라이더 실적 데이터를 파싱하고 계산합니다."""
+        """대시보드에서 주간 요약 점수와 통계 데이터를 파싱합니다."""
         weekly_data = {}
         try:
-            # driver.get(self.sla_url) # 대시보드에 모든 정보가 있으므로 페이지 이동 불필요
-            wait = WebDriverWait(driver, 20) # 대기시간 20초로 증가
-
-            # 1. 주간 요약 점수 파싱 (카드에 표시된 점수만 가져옴)
-            summary_scores = {}
+            wait = WebDriverWait(driver, 20)
             s_summary = self.selectors.get('weekly_summary', {})
+
+            # 1. 주간 요약 점수 파싱
             summary_container_selector = s_summary.get('summary', {}).get('container')
             if summary_container_selector:
-                # 점수 카드가 모두 나타날 때까지 대기
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('summary', {}).get('total_score'))))
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('summary', {}).get('quantity_score'))))
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('summary', {}).get('acceptance_score'))))
-                
-                summary_scores['예상총점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('total_score')).text.strip()
-                summary_scores['물량점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('quantity_score')).text.strip()
-                summary_scores['수락률점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('acceptance_score')).text.strip()
-                logger.info(f"✅ 예상 점수 카드 파싱 완료: {summary_scores}")
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, summary_container_selector)))
+                weekly_data['총점'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['summary']['total_score']).text)
+                weekly_data['물량점수'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['summary']['quantity_score']).text)
+                weekly_data['수락률점수'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['summary']['acceptance_score']).text)
+                logger.info(f"✅ 예상 점수 카드 파싱 완료: {weekly_data}")
             else:
                 logger.warning("주간 요약 점수 선택자를 찾을 수 없습니다.")
 
             # 2. 주간 통계 파싱 (총 완료, 거절, 수락률)
-            weekly_stats = {}
-            s_stats = s_summary.get('stats', {}) # 'summary_etc' -> 'stats'
-            stats_container_selector = s_stats.get('container')
+            stats_container_selector = s_summary.get('stats', {}).get('container')
             if stats_container_selector:
-                try:
-                    # 주간 라이더 목록의 첫번째 아이템이 나타날 때까지 대기
-                    item_selector = f"{stats_container_selector} {s_stats.get('item')}"
-                    wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, item_selector)))
-                    
-                    riders = driver.find_elements(By.CSS_SELECTOR, item_selector)
-                    logger.info(f"{len(riders)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
-
-                    if riders:
-                        total_completions = 0
-                        total_rejections = 0
-                        total_dispatch_cancels = 0
-                        total_delivery_cancels = 0
-
-                        for rider_element in riders:
-                            try:
-                                total_completions += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('complete_count')).text.strip())
-                                total_rejections += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('reject_count')).text.strip())
-                                total_dispatch_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('dispatch_cancel_count')).text.strip())
-                                total_delivery_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('delivery_cancel_count')).text.strip())
-                            except (NoSuchElementException, ValueError) as e:
-                                logger.warning(f"라이더 데이터 파싱 중 오류(건너뜀): {e}")
-                                continue
-                        
-                        calculated_total_rejections = total_rejections + total_dispatch_cancels + total_delivery_cancels
-                        total_for_rate = total_completions + calculated_total_rejections
-                        
-                        weekly_stats['총완료'] = total_completions
-                        weekly_stats['총거절'] = calculated_total_rejections
-                        weekly_stats['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
-                        
-                        logger.info(f"✅ 주간 라이더 실적 직접 계산 완료: 총완료={weekly_stats['총완료']}, 총거절={weekly_stats['총거절']}, 수락률={weekly_stats['수락률']:.2f}%")
-                    else:
-                        logger.warning(f"주간 라이더 목록({stats_container_selector})를 찾았으나, 개별 라이더({s_stats.get('item')})가 없습니다.")
-                except Exception as e:
-                    logger.error(f"주간 통계 파싱 중 오류: {e}")
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, stats_container_selector)))
+                total_completed = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['stats']['total_completed']).text)
+                total_rejected = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['stats']['total_rejected']).text)
+                acceptance_rate_text = driver.find_element(By.CSS_SELECTOR, s_summary['stats']['acceptance_rate']).text
+                acceptance_rate = float(acceptance_rate_text.replace('%', '')) if '%' in acceptance_rate_text else 0.0
+                
+                weekly_data['총완료'] = total_completed
+                weekly_data['총거절'] = total_rejected # 주간 총 거절은 취소 포함된 값으로 추정
+                weekly_data['수락률'] = acceptance_rate
+                logger.info(f"✅ 주간 통계 파싱 완료: {weekly_data}")
             else:
-                 logger.warning(f"주간 통계 선택자를 찾지 못했습니다.")
+                logger.warning("주간 통계 선택자를 찾을 수 없습니다.")
 
-            # 3. 최종 데이터 조합
-            weekly_data.update(summary_scores)
-            weekly_data.update(weekly_stats)
-
-        except TimeoutException as e:
-            logger.error(f"'주간/미션 데이터' 파싱 타임아웃. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
-            logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
         except Exception as e:
-            logger.error(f"'주간/미션 데이터' 파싱 중 예외 발생: {e}", exc_info=True)
-            
+            logger.error(f"주간 요약/통계 데이터 파싱 중 오류 발생: {e}", exc_info=True)
+        
         return weekly_data
 
     def _get_text_excluding_children(self, element):
@@ -663,47 +622,33 @@ class GriderDataCollector:
 
     def collect_all_data(self):
         """모든 데이터를 수집하고 종합하여 반환합니다."""
-        driver = None
-        final_data = {
-            'metadata': {
-                'report_date': self._get_today_date(),
-                'error': None
-            },
-            'weather_info': {},
-            'daily_summary': {},
-            'weekly_summary': {},
-            'mission_status': {},
-            'daily_riders': []
-        }
+        final_data = {}
+        self.driver = None # 드라이버 인스턴스를 클래스 속성으로 초기화
         
         try:
-            final_data['weather_info'] = self._get_weather_info_detailed() # 날씨 조회 기능 다시 활성화
-            driver = self._perform_login()
-            if not driver:
+            # final_data['weather_info'] = self._get_weather_info_detailed() # 날씨 조회 임시 비활성화
+            self.driver = self._perform_login()
+            if not self.driver:
                 raise Exception("G라이더 로그인 실패")
 
-            # 데이터 수집
-            daily_data = self._parse_daily_rider_data(driver)
-            weekly_and_mission_data = self._parse_weekly_data(driver) # 주간/미션 데이터는 같은 페이지에서 가져옴
-            mission_data = self._parse_mission_data(driver)
+            # 모든 데이터는 로그인 후의 대시보드에서 수집
+            daily_data = self._parse_daily_rider_data(self.driver)
+            weekly_and_mission_data = self._parse_weekly_data(self.driver)
+            mission_data = self._parse_mission_data(self.driver)
 
-            # 데이터 조합
-            final_data['daily_summary'] = {
-                'total_completed': daily_data.get('total_completed', 0),
-                'total_rejected': daily_data.get('total_rejected', 0),
-                'total_canceled': daily_data.get('total_canceled', 0),
-            }
+            # 최종 데이터 구조화
+            final_data['metadata'] = {'report_date': get_korea_time().strftime('%Y-%m-%d')}
+            final_data['daily_data'] = daily_data
             final_data['weekly_summary'] = weekly_and_mission_data
             final_data['mission_status'] = mission_data
             final_data['daily_riders'] = daily_data.get('riders', [])
             
         except Exception as e:
-            error_message = f"데이터 수집 실패: {e}"
-            logger.error(error_message, exc_info=True)
-            final_data['metadata']['error'] = error_message
+            logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
         finally:
-            if driver:
-                driver.quit()
+            if self.driver:
+                self.driver.quit()
+                logger.info("WebDriver를 종료했습니다.")
         
         return final_data
 
@@ -843,11 +788,11 @@ class GriderAutoSender:
         if weather:
             weather_str = (
                 f"🌍 오늘의 날씨 (기상청)\\n"
-                f" 오전: {weather['am_icon']} {weather['temp_min']}~{weather['temp_max']}C\\n" # 온도 범위는 하루 전체로 표시
+                f" 오전: {weather['am_icon']} {weather['temp_min']}~{weather['temp_max']}C\\n"
                 f" 오후: {weather['pm_icon']} {weather['temp_min']}~{weather['temp_max']}C"
             )
         else:
-            weather_str = "🌍 날씨 정보 없음"
+            weather_str = "🌍 날씨 정보 (임시 비활성화)"
 
 
         # 주간 요약
