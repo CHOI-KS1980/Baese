@@ -350,6 +350,7 @@ class GriderDataCollector:
             return False
 
     def _get_mission_date(self):
+        """오늘 날짜를 기반으로 미션 날짜를 계산합니다 (공휴일 등 고려)."""
         korea_time = get_korea_time()
         mission_time = korea_time - timedelta(hours=6)
         return mission_time.strftime('%Y-%m-%d')
@@ -382,51 +383,53 @@ class GriderDataCollector:
             else:
                 logger.warning("주간 요약 점수 선택자를 찾을 수 없습니다.")
 
-            # 2. 주간 라이더 목록을 기반으로 실적 직접 계산
-            calculated_stats = { '총완료': 0, '총거절': 0, '수락률': 0.0 }
-            s_rider_list = self.selectors.get('weekly_riders', {})
-            rider_list_container = s_rider_list.get('container')
-
-            if rider_list_container:
-                # 주간 라이더 목록의 첫번째 아이템이 나타날 때까지 대기
-                item_selector = f"{rider_list_container} {s_rider_list.get('item')}"
-                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, item_selector)))
-                
-                riders = driver.find_elements(By.CSS_SELECTOR, item_selector)
-                logger.info(f"{len(riders)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
-
-                if riders:
-                    total_completions = 0
-                    total_rejections = 0
-                    total_dispatch_cancels = 0
-                    total_delivery_cancels = 0
-
-                    for rider_element in riders:
-                        try:
-                            total_completions += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('complete_count')).text.strip())
-                            total_rejections += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('reject_count')).text.strip())
-                            total_dispatch_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('dispatch_cancel_count')).text.strip())
-                            total_delivery_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('delivery_cancel_count')).text.strip())
-                        except (NoSuchElementException, ValueError) as e:
-                            logger.warning(f"라이더 데이터 파싱 중 오류(건너뜀): {e}")
-                            continue
+            # 2. 주간 통계 파싱 (총 완료, 거절, 수락률)
+            weekly_stats = {}
+            s_stats = s_summary.get('stats', {}) # 'summary_etc' -> 'stats'
+            stats_container_selector = s_stats.get('container')
+            if stats_container_selector:
+                try:
+                    # 주간 라이더 목록의 첫번째 아이템이 나타날 때까지 대기
+                    item_selector = f"{stats_container_selector} {s_stats.get('item')}"
+                    wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, item_selector)))
                     
-                    calculated_total_rejections = total_rejections + total_dispatch_cancels + total_delivery_cancels
-                    total_for_rate = total_completions + calculated_total_rejections
-                    
-                    calculated_stats['총완료'] = total_completions
-                    calculated_stats['총거절'] = calculated_total_rejections
-                    calculated_stats['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
-                    
-                    logger.info(f"✅ 주간 라이더 실적 직접 계산 완료: 총완료={calculated_stats['총완료']}, 총거절={calculated_stats['총거절']}, 수락률={calculated_stats['수락률']:.2f}%")
-                else:
-                    logger.warning(f"주간 라이더 목록({rider_list_container})를 찾았으나, 개별 라이더({s_rider_list.get('item')})가 없습니다.")
+                    riders = driver.find_elements(By.CSS_SELECTOR, item_selector)
+                    logger.info(f"{len(riders)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
+
+                    if riders:
+                        total_completions = 0
+                        total_rejections = 0
+                        total_dispatch_cancels = 0
+                        total_delivery_cancels = 0
+
+                        for rider_element in riders:
+                            try:
+                                total_completions += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('complete_count')).text.strip())
+                                total_rejections += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('reject_count')).text.strip())
+                                total_dispatch_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('dispatch_cancel_count')).text.strip())
+                                total_delivery_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_stats.get('delivery_cancel_count')).text.strip())
+                            except (NoSuchElementException, ValueError) as e:
+                                logger.warning(f"라이더 데이터 파싱 중 오류(건너뜀): {e}")
+                                continue
+                        
+                        calculated_total_rejections = total_rejections + total_dispatch_cancels + total_delivery_cancels
+                        total_for_rate = total_completions + calculated_total_rejections
+                        
+                        weekly_stats['총완료'] = total_completions
+                        weekly_stats['총거절'] = calculated_total_rejections
+                        weekly_stats['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
+                        
+                        logger.info(f"✅ 주간 라이더 실적 직접 계산 완료: 총완료={weekly_stats['총완료']}, 총거절={weekly_stats['총거절']}, 수락률={weekly_stats['수락률']:.2f}%")
+                    else:
+                        logger.warning(f"주간 라이더 목록({stats_container_selector})를 찾았으나, 개별 라이더({s_stats.get('item')})가 없습니다.")
+                except Exception as e:
+                    logger.error(f"주간 통계 파싱 중 오류: {e}")
             else:
-                 logger.warning(f"주간 라이더 목록 선택자를 찾지 못했습니다.")
+                 logger.warning(f"주간 통계 선택자를 찾지 못했습니다.")
 
             # 3. 최종 데이터 조합
             weekly_data.update(summary_scores)
-            weekly_data.update(calculated_stats)
+            weekly_data.update(weekly_stats)
 
         except TimeoutException as e:
             logger.error(f"'주간/미션 데이터' 파싱 타임아웃. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
@@ -549,51 +552,18 @@ class GriderDataCollector:
         mission_data = {}
         try:
             s_mission_table = self.selectors.get('mission_table', {})
-            today_str = self._get_mission_date()
-            logger.info(f"오늘 날짜({today_str})의 미션 데이터 파싱을 시작합니다.")
             
-            wait = WebDriverWait(driver, 20) # 대기 시간 20초로 증가
-            
-            container_selector = s_mission_table.get('container')
-            if not container_selector:
-                logger.warning("미션 테이블 container 선택자가 설정 파일에 없습니다.")
-                return {}
-            
-            # 미션 테이블의 실제 데이터 행이 로드될 때까지 대기
-            row_selector = s_mission_table.get('rows')
-            full_row_selector = f"{container_selector} {row_selector}"
-            
-            # 최소 1개 이상의 행이 나타날 때까지 기다림
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, full_row_selector)))
-            
-            rows = driver.find_elements(By.CSS_SELECTOR, full_row_selector)
-            
-            for row in rows:
-                try:
-                    date_element = row.find_element(By.CSS_SELECTOR, s_mission_table.get('date_in_row'))
-                    if date_element.text.strip() == today_str:
-                        logger.info(f"✅ 오늘({today_str}) 날짜의 미션 행을 찾았습니다.")
-                        
-                        delivery_text = row.find_element(By.CSS_SELECTOR, s_mission_table.get('delivery_mission')).text
-                        safety_text = row.find_element(By.CSS_SELECTOR, s_mission_table.get('safety_mission')).text
-                        
-                        mission_data['delivery_mission'] = self._parse_mission_string(delivery_text)
-                        mission_data['safety_mission'] = self._parse_mission_string(safety_text)
-                        
-                        logger.info(f"✅ 미션 데이터 파싱 완료: {mission_data}")
-                        return mission_data
-                except Exception as e:
-                    logger.warning(f"미션 테이블의 한 행을 처리하는 중 오류 발생(건너뜀): {e}")
-                    continue
-            
-            logger.warning(f"오늘 날짜({today_str})에 해당하는 미션 데이터를 테이블에서 찾지 못했습니다.")
-            
-        except TimeoutException:
-            logger.error("미션 데이터 테이블 로드 시간 초과. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
-            logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
+            # 피크 타임 데이터는 대시보드에 이미 로드되어 있으므로, 바로 파싱 시작
+            mission_data['오전피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('morning')).text)
+            mission_data['오후피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('afternoon')).text)
+            mission_data['저녁피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('evening')).text)
+            mission_data['심야피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('midnight')).text)
+
         except Exception as e:
             logger.error(f"미션 데이터 파싱 중 예외 발생: {e}", exc_info=True)
-            
+            # 페이지 소스 로깅은 타임아웃 외의 다른 예외에서도 유용할 수 있음
+            logger.error(f"PAGE_SOURCE_START\\n{driver.page_source}\\nPAGE_SOURCE_END")
+
         return mission_data
 
     def _get_weather_info_detailed(self, location="서울"):

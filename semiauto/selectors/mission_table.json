@@ -1,11 +1,8 @@
 {
-    "url_path": "/orders/sla/list",
-    "container": "table.sla_table",
-    "rows": "tbody tr",
-    "date_cell": "td:nth-child(2)",
-    "score_cell": "td:nth-child(3)",
-    "morning_peak_cell": "td:nth-child(4)",
-    "afternoon_peak_cell": "td:nth-child(5)",
-    "evening_peak_cell": "td:nth-child(6)",
-    "midnight_peak_cell": "td:nth-child(7)"
+    "container": ".quantity_box.row",
+    "item": ".quantity_item",
+    "morning": ".quantity_item[data-index='0'] .performance_value",
+    "afternoon": ".quantity_item[data-index='1'] .performance_value",
+    "evening": ".quantity_item[data-index='2'] .performance_value",
+    "midnight": ".quantity_item[data-index='3'] .performance_value"
 } 
