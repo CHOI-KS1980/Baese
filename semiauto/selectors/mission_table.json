@@ -1,8 +1,6 @@
 {
-    "container": ".quantity_box.row",
-    "item": ".quantity_item",
-    "morning": ".quantity_item[data-index='0'] .performance_value",
-    "afternoon": ".quantity_item[data-index='1'] .performance_value",
-    "evening": ".quantity_item[data-index='2'] .performance_value",
-    "midnight": ".quantity_item[data-index='3'] .performance_value"
+    "container": "#missionSlaTable",
+    "rows": "tbody > tr",
+    "name_cell": "td:nth-of-type(1)",
+    "data_cell": "td:nth-of-type(4)"
 } 

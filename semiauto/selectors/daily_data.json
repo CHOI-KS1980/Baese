@@ -9,11 +9,5 @@
   "morning_count": ".morning_peak_count",
   "afternoon_count": ".afternoon_peak_count",
   "evening_count": ".evening_peak_count",
-  "midnight_count": ".midnight_peak_count",
-  
-  "total_container": ".rider_th.total_value_th",
-  "daily_total_complete": "div[data-total_value='complete_count']",
-  "daily_total_reject": "div[data-total_value='reject_count']",
-  "daily_total_accept_cancel": "div[data-total_value='accept_cancel_count']",
-  "daily_total_accept_cancel_rider_fault": "div[data-total_value='accept_cancel_rider_fault_count']"
+  "midnight_count": ".midnight_peak_count"
 } 

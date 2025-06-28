@@ -20,6 +20,7 @@ import pytz  # 한국시간 설정을 위해 추가
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 from dotenv import load_dotenv
 import sys
+from bs4 import BeautifulSoup
 
 # 프로젝트 루트를 Python 경로에 추가하여 weather_service 모듈 임포트 허용
 # 이 스크립트(main_executor.py)는 semiauto/core/ 안에 있으므로,
@@ -29,11 +30,11 @@ sys.path.insert(0, project_root)
 
 # 이제 weather_service를 import 할 수 있습니다.
 try:
-    from weather_service import WeatherService
+    from weather_service import KMAWeatherService
 except ImportError:
     # weather_service.py가 없는 경우를 대비한 예외 처리
-    class WeatherService:
-        def get_weather(self):
+    class KMAWeatherService:
+        def get_weather_summary(self):
             return {"error": "WeatherService 모듈을 찾을 수 없습니다."}
 
 
@@ -68,14 +69,13 @@ class KoreaHolidayChecker:
     """한국천문연구원 공휴일 체커"""
     
     def __init__(self):
-        # 한국천문연구원 특일 정보 API
         self.api_key = os.getenv('KOREA_HOLIDAY_API_KEY')
         self.base_url = "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService"
         self.holidays_cache = {}
         
         if self.api_key:
             logger.info(" 한국천문연구원 특일 정보 API 공휴일 체커 초기화")
-            self.load_year_holidays(datetime.now(KST).year)
+            self.load_year_holidays(get_korea_time().year)
         else:
             logger.info(" KOREA_HOLIDAY_API_KEY 환경변수가 설정되지 않음 - 기본 공휴일 사용")
     
@@ -144,25 +144,13 @@ class KoreaHolidayChecker:
         self.holidays_cache[year] = holidays
         logger.info(f" {year}년 전체월 공휴일 {len(holidays)}개 로드 완료")
     
-    def is_holiday_advanced(self, target_date):
-        """고급 공휴일 판정"""
-        if isinstance(target_date, str):
-            target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
-        elif isinstance(target_date, datetime):
-            target_date = target_date.date()
-        
-        year = target_date.year
+    def is_holiday(self, target_date):
+        """공휴일 여부 판정"""
+        d = target_date.date() if isinstance(target_date, datetime) else target_date
+        year = d.year
         if year not in self.holidays_cache:
             self.load_year_holidays(year)
-        
-        target_str = target_date.strftime('%Y-%m-%d')
-        
-        holidays = self.holidays_cache.get(year, [])
-        for holiday in holidays:
-            if holiday['date'] == target_str:
-                return True, holiday.get('name')
-        
-        return False, None
+        return any(h['date'] == d.strftime('%Y-%m-%d') for h in self.holidays_cache.get(year, []))
 
 # 전역 공휴일 체커 (한 번만 초기화)
 holiday_checker = KoreaHolidayChecker()
@@ -246,33 +234,25 @@ class KakaoSender:
     
     def __init__(self, access_token):
         self.access_token = access_token
-        self.base_url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+        self.url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
     
-    def send_text_message(self, text, link_url=None):
+    def send_text_message(self, text):
         """텍스트 메시지 전송"""
         headers = {
             'Authorization': f'Bearer {self.access_token}',
             'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8'
         }
         
-        template_object = {
-            "object_type": "text",
-            "text": text,
-            "link": {
-                "web_url": "https://www.google.com"
-            }
-        }
+        template = {"object_type": "text", "text": text, "link": {"web_url": "https://www.google.com"}}
         
-        data = {'template_object': json.dumps(template_object)}
+        data = {'template_object': json.dumps(template)}
         
         try:
-            response = requests.post(self.base_url, headers=headers, data=data)
-            response.raise_for_status()
+            res = requests.post(self.url, headers=headers, data=data)
+            res.raise_for_status()
             logger.info("✅ 카카오톡 메시지 전송 성공")
-            return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ 카카오톡 메시지 전송 실패: {e.response.text if e.response else e}")
-            return None
 
 class GriderDataCollector:
     """G라이더 웹사이트 데이터 수집 클래스"""
@@ -281,9 +261,8 @@ class GriderDataCollector:
         self.grider_id = os.getenv('GRIDER_ID')
         self.grider_password = os.getenv('GRIDER_PASSWORD')
         self.base_url = "https://jangboo.grider.ai"
-        self.dashboard_url = f"{self.base_url}/dashboard"
-        self.sla_url = f"{self.base_url}/dashboard/sla"
         self.selectors = self._load_all_selectors()
+        self.driver = None
         
     def _load_all_selectors(self):
         """selectors 폴더의 모든 .json 파일을 읽어 딕셔너리로 반환합니다."""
@@ -384,162 +363,84 @@ class GriderDataCollector:
         except Exception as e:
             logger.error(f"페이지 소스 저장/로깅 실패: {e}", exc_info=True)
 
-
-    def _get_today_date(self):
-        """한국시간 기준 오늘 날짜를 'YYYY-MM-DD' 형식으로 반환합니다."""
-        return get_korea_time().strftime('%Y-%m-%d')
-
-    def _parse_weekly_data(self, driver):
-        """대시보드에서 주간 요약 점수와 통계 데이터를 파싱합니다."""
-        weekly_data = {}
+    def _parse_weekly_summary(self, soup):
+        s = self.selectors.get('weekly_summary', {})
+        data = {}
         try:
-            wait = WebDriverWait(driver, 20)
-            s_summary = self.selectors.get('weekly_summary', {})
-
-            summary_container_selector = s_summary.get('summary', {}).get('container')
-            if summary_container_selector:
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, summary_container_selector)))
-                weekly_data['총점'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['summary']['total_score']).text)
-                weekly_data['물량점수'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['summary']['quantity_score']).text)
-                weekly_data['수락률점수'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['summary']['acceptance_score']).text)
-                logger.info(f"✅ 예상 점수 카드 파싱 완료: {weekly_data}")
-            else:
-                logger.warning("주간 요약 점수 선택자를 찾을 수 없습니다.")
-
-            stats_container_selector = s_summary.get('stats', {}).get('container')
-            if stats_container_selector:
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, stats_container_selector)))
-                total_completed = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['stats']['total_completed']).text)
-                total_rejected = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_summary['stats']['total_rejected']).text)
-                acceptance_rate_text = driver.find_element(By.CSS_SELECTOR, s_summary['stats']['acceptance_rate']).text
-                acceptance_rate = float(re.search(r'\d+\.?\d*', acceptance_rate_text).group()) if re.search(r'\d+\.?\d*', acceptance_rate_text) else 0.0
-                
-                weekly_data['총완료'] = total_completed
-                weekly_data['총거절'] = total_rejected
-                weekly_data['수락률'] = acceptance_rate
-                logger.info(f"✅ 주간 통계 파싱 완료: {weekly_data}")
-            else:
-                logger.warning("주간 통계 선택자를 찾을 수 없습니다.")
-
-        except Exception as e:
-            logger.error(f"주간 요약/통계 데이터 파싱 중 오류 발생: {e}", exc_info=True)
-            self._save_page_source(driver, "weekly_summary_parsing_error")
-        
-        return weekly_data
-
-    def _parse_daily_rider_data(self, driver):
-        s_daily = self.selectors['daily_data']
-        wait = WebDriverWait(driver, 20)
-        daily_data = {'riders': [], 'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0}
-
-        total_container_selector = s_daily.get('daily_total_container')
-        if total_container_selector:
-            try:
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
-                
-                daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
-                daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
-                cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
-                cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
-                daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
-                logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
-
-            except Exception as e:
-                logger.error(f"일일 총계 파싱 실패: {e}", exc_info=True)
-                self._save_page_source(driver, "daily_total_parsing_error")
-
-
-        try:
-            rider_list_container_selector = s_daily.get('container')
-            rider_item_selector = s_daily.get('item')
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container_selector)))
-            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, f"{rider_list_container_selector} {rider_item_selector}")))
-            time.sleep(1) 
-
-            rider_elements = driver.find_elements(By.CSS_SELECTOR, rider_item_selector)
-            logger.info(f"✅ 일간 라이더 목록 아이템 {len(rider_elements)}개 로드 완료. 파싱을 시작합니다.")
-
-            for rider_element in rider_elements:
-                try:
-                    name_element = rider_element.find_element(By.CSS_SELECTOR, s_daily.get('name'))
-                    full_text = name_element.text
-                    child_spans = name_element.find_elements(By.TAG_NAME, 'span')
-                    name_only = full_text
-                    for span in child_spans:
-                        name_only = name_only.replace(span.text, '')
-                    name = name_only.strip()
-
-                    if not name:
-                        logger.warning(f"라이더 이름이 비어있어 건너뜁니다.")
-                        continue
-                    
-                    rider_data = {'name': name}
-                    rider_data['완료'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
-                    rider_data['거절'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
-                    rider_data['배차취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
-                    rider_data['배달취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
-                    rider_data['오전'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
-                    rider_data['오후'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
-                    rider_data['저녁'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
-                    rider_data['심야'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
-
-                    total_actions = sum(v for k, v in rider_data.items() if k != 'name')
-
-                    if total_actions > 0:
-                        daily_data['riders'].append(rider_data)
-                    else:
-                        logger.info(f"라이더 '{name}'는 실적이 없어 데이터 수집에서 제외합니다.")
-
-                except NoSuchElementException:
-                    logger.warning(f"라이더 항목 내에서 일부 데이터를 찾지 못해 건너뜁니다.")
-                    continue
-                except Exception as e:
-                    name_for_log = '알 수 없음'
-                    try:
-                        name_for_log = rider_element.find_element(By.CSS_SELECTOR, s_daily.get('name')).text.strip()
-                    except:
-                        pass
-                    logger.warning(f"라이더 '{name_for_log}'의 데이터 파싱 중 예외 발생: {e}", exc_info=True)
-                    continue
+            data['총점'] = self._get_safe_number(soup.select_one(s['summary']['total_score']).text)
+            data['물량점수'] = self._get_safe_number(soup.select_one(s['summary']['quantity_score']).text)
+            data['수락률점수'] = self._get_safe_number(soup.select_one(s['summary']['acceptance_score']).text)
+            data['총완료'] = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
             
-            daily_data['riders'].sort(key=lambda x: x.get('완료', 0), reverse=True)
-            logger.info(f"✅ {len(daily_data['riders'])}명의 활동 라이더 데이터 파싱 완료.")
+            # 주간 총 거절/취소 합계
+            total_rejected = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
+            # 주간 데이터는 상세 취소내역이 없으므로, '총거절'을 합계로 사용
+            data['총거절및취소'] = total_rejected
 
-        except TimeoutException:
-            logger.error("일일 라이더 목록 로드 시간 초과.", exc_info=True)
-            self._save_page_source(driver, "daily_rider_timeout")
+            rate_text = soup.select_one(s['stats']['acceptance_rate']).text
+            data['수락률'] = float(re.search(r'\d+\.?\d*', rate_text).group())
+            logger.info(f"✅ 주간 요약 파싱 완료: {data}")
         except Exception as e:
-            logger.error(f"일간 라이더 데이터 파싱 중 심각한 오류 발생: {e}", exc_info=True)
-            self._save_page_source(driver, "daily_rider_parsing_error")
-            daily_data.setdefault('riders', [])
-        return daily_data
-
-    def _parse_mission_data(self, driver):
-        mission_data = {}
+            logger.error(f"주간 요약 파싱 실패: {e}")
+        return data
+        
+    def _parse_mission_data(self, soup):
+        s = self.selectors.get('mission_table', {})
+        missions = {}
+        name_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
         try:
-            s_mission_table = self.selectors.get('mission_table', {})
-            mission_data['오전피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('morning')).text)
-            mission_data['오후피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('afternoon')).text)
-            mission_data['저녁피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('evening')).text)
-            mission_data['심야피크'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_mission_table.get('midnight')).text)
-            logger.info(f"✅ 피크타임 미션 데이터 파싱 완료: {mission_data}")
+            rows = soup.select(s['rows'])
+            for row in rows:
+                name_elem = row.select_one(s['name_cell'])
+                data_elem = row.select_one(s['data_cell'])
+                if name_elem and data_elem:
+                    mission_name_raw = name_elem.text.strip()
+                    app_name = name_map.get(mission_name_raw)
+                    if app_name:
+                        match = re.search(r'(\d+)\s*/\s*(\d+)', data_elem.text)
+                        if match:
+                            missions[app_name] = {'current': int(match.group(1)), 'target': int(match.group(2))}
+            logger.info(f"✅ 미션 데이터 파싱 완료: {missions}")
         except Exception as e:
-            logger.error(f"미션 데이터 파싱 중 예외 발생: {e}", exc_info=True)
-            self._save_page_source(driver, "mission_data_parsing_error")
-        return mission_data
+            logger.error(f"미션 데이터 파싱 실패: {e}")
+        return missions
 
-    def _perform_login(self):
-        driver = None
+    def _parse_daily_data(self, soup):
+        s = self.selectors.get('daily_data', {})
+        riders = []
         try:
-            driver = self._get_driver()
-            if not self._login(driver):
-                raise Exception("로그인 함수 실패")
-            return driver
+            rider_elements = soup.select(s['item'])
+            for el in rider_elements:
+                name_el = el.select_one(s['name'])
+                if not name_el: continue
+                
+                # 이름에서 자식 태그(span)의 텍스트를 제거하여 순수 이름만 추출
+                name = ''.join(name_el.find_all(string=True, recursive=False)).strip()
+
+                rider_data = {'name': name}
+                rider_data['완료'] = self._get_safe_number(el.select_one(s['complete_count']).text)
+                rider_data['거절'] = self._get_safe_number(el.select_one(s['reject_count']).text)
+                rider_data['배차취소'] = self._get_safe_number(el.select_one(s['accept_cancel_count']).text)
+                rider_data['배달취소'] = self._get_safe_number(el.select_one(s['accept_cancel_rider_fault_count']).text)
+                
+                # 피크타임 실적
+                peak_map = {'아침점심피크': 'morning_count', '오후논피크': 'afternoon_count', '저녁피크': 'evening_count', '심야논피크': 'midnight_count'}
+                for app_peak, sel_peak in peak_map.items():
+                    rider_data[app_peak] = self._get_safe_number(el.select_one(s[sel_peak]).text)
+
+                if sum(rider_data.values(),_safe_number=0, start=0) > 0:
+                    riders.append(rider_data)
         except Exception as e:
-            logger.error(f"로그인 절차 실패: {e}", exc_info=True)
-            if driver:
-                driver.quit()
-            return None
+            logger.error(f"일일 라이더 데이터 파싱 실패: {e}")
+        
+        # 라이더 실적 합산으로 일일 총계 계산
+        daily_summary = {
+            'total_completed': sum(r.get('완료', 0) for r in riders),
+            'total_rejected': sum(r.get('거절', 0) for r in riders),
+            'total_canceled': sum(r.get('배차취소', 0) + r.get('배달취소', 0) for r in riders)
+        }
+        logger.info(f"✅ {len(riders)}명 라이더 데이터 파싱 및 일일 총계 계산 완료.")
+        return {'riders': riders, 'summary': daily_summary}
 
     def _get_safe_number(self, text):
         if not isinstance(text, str):
@@ -559,22 +460,37 @@ class GriderDataCollector:
     def collect_all_data(self):
         """모든 데이터를 수집하고 구조화합니다."""
         all_data = {
-            "daily_data": {},
             "weekly_summary": {},
             "mission_data": {},
+            "daily_data": {},
             "metadata": {}
         }
         self.driver = None
 
         try:
-            self.driver = self._perform_login()
-            if not self.driver:
-                raise Exception("G라이더 로그인 실패")
+            self.driver = self._get_driver()
+            if not self._login(self.driver):
+                raise Exception("로그인 함수 실패")
 
-            all_data['weekly_summary'] = self._parse_weekly_data(self.driver)
-            all_data['daily_data'] = self._parse_daily_rider_data(self.driver)
-            all_data['mission_data'] = self._parse_mission_data(self.driver)
+            # SLA 페이지로 이동하여 모든 데이터 수집
+            self.driver.get(self.base_url + "/dashboard/sla")
+            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['mission_table']['container'])))
+            time.sleep(2) # 데이터 로딩 대기
             
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+            
+            all_data['weekly_summary'] = self._parse_weekly_summary(soup)
+            all_data['mission_data'] = self._parse_mission_data(soup)
+            
+            # 대시보드로 다시 이동
+            self.driver.get(self.base_url + "/dashboard")
+            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['daily_data']['container'])))
+            time.sleep(2) # 데이터 로딩 대기
+            
+            soup_daily = BeautifulSoup(self.driver.page_source, 'html.parser')
+            daily_data = self._parse_daily_data(soup_daily)
+
+            all_data['daily_data'] = daily_data
             all_data['metadata'] = {
                 'report_date': get_korea_time().strftime('%Y-%m-%d'),
                 'error': None
@@ -602,6 +518,7 @@ class GriderAutoSender:
             access_token = token_manager.get_valid_token()
             if access_token:
                 self.kakao_sender = KakaoSender(access_token)
+        self.weather_service = KMAWeatherService()
 
     def save_dashboard_data(self, data: dict):
         try:
@@ -676,7 +593,7 @@ class GriderAutoSender:
             weekly_delivery_score=weekly_summary_data.get('물량점수', 0),
             weekly_acceptance_score=weekly_summary_data.get('수락률점수', 0),
             weekly_completed=weekly_summary_data.get('총완료', 0),
-            weekly_rejected_and_canceled=weekly_summary_data.get('총거절', 0),
+            weekly_rejected_and_canceled=weekly_summary_data.get('총거절및취소', 0),
             weekly_acceptance_rate=f"{weekly_summary_data.get('수락률', 0.0):.1f}",
             weekly_acceptance_bar=weekly_acceptance_bar,
             active_rider_count=active_rider_count,
@@ -703,17 +620,24 @@ class GriderAutoSender:
         
     def _format_weather_summary(self):
         try:
-            weather_service = WeatherService()
-            weather_info = weather_service.get_weather()
-            if weather_info and 'error' not in weather_info:
-                return (f"🌍 오늘의 날씨 ({weather_info['source']})\n"
-                        f" 🌅 오전: {weather_info['am_temp_min']}~{weather_info['am_temp_max']}°C, 강수확률 {weather_info['am_rain_prob']}%\n"
-                        f" 🌇 오후: {weather_info['pm_temp_min']}~{weather_info['pm_temp_max']}°C, 강수확률 {weather_info['pm_rain_prob']}%")
-        except NameError:
-             logger.warning("WeatherService를 찾을 수 없어 날씨 정보를 표시할 수 없습니다.")
+            summary = self.weather_service.get_weather_summary()
+            if "error" in summary: return "🌍 날씨 정보 (조회 실패)"
+
+            am_forecasts = [f for f in summary['forecast'] if 6 <= int(f['time'][:2]) < 12]
+            pm_forecasts = [f for f in summary['forecast'] if 12 <= int(f['time'][:2]) < 18]
+            
+            am_temps = [int(f['temp']) for f in am_forecasts if f['temp'].isdigit()]
+            pm_temps = [int(f['temp']) for f in pm_forecasts if f['temp'].isdigit()]
+
+            am_icon = am_forecasts[0]['icon'] if am_forecasts else '☀️'
+            pm_icon = pm_forecasts[0]['icon'] if pm_forecasts else '☀️'
+
+            return (f"🌍 오늘의 날씨 ({summary.get('source', '기상청')})\n"
+                    f" 🌅 오전: {am_icon} {min(am_temps) if am_temps else 'N/A'}~{max(am_temps) if am_temps else 'N/A'}C\n"
+                    f" 🌇 오후: {pm_icon} {min(pm_temps) if pm_temps else 'N/A'}~{max(pm_temps) if pm_temps else 'N/A'}C")
         except Exception as e:
-            logger.warning(f"날씨 정보 조회 실패: {e}")
-        return "🌍 날씨 정보 (조회 실패)"
+            logger.warning(f"날씨 요약 생성 실패: {e}")
+            return "🌍 날씨 정보 (조회 실패)"
 
     def _format_rider_rankings(self, riders):
         if not riders:
@@ -737,14 +661,10 @@ class GriderAutoSender:
             
             rejected = rider.get('거절', 0)
             canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
-            total_decisions = completed + rejected + canceled
-            acceptance_rate = (completed / total_decisions * 100) if total_decisions > 0 else 100
+            acceptance_rate = (completed * 100) / (completed + rejected + canceled) if (completed + rejected + canceled) > 0 else 100
 
-            lines.append(
-                f"{rank_str} | {progress_bar} {progress_percent:.1f}%\n"
-                f"    총 {completed}건 (🌅{rider.get('오전', 0)} 🌇{rider.get('오후', 0)} 🌃{rider.get('저녁', 0)} 🌙{rider.get('심야', 0)})\n"
-                f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
-            )
+            peak_counts = f"🌅{rider.get('아침점심피크',0)} 🌇{rider.get('오후논피크',0)} 🌃{rider.get('저녁피크',0)} 🌙{rider.get('심야논피크',0)}"
+            lines.append(f"{rank_str} | {progress_bar} {completed}건\n    ({peak_counts})\n    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})")
         return "\n\n".join(lines), active_rider_count
 
     def _format_mission_shortage_summary(self, missions):
