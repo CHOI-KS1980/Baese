@@ -1,15 +1,15 @@
 {
   "url_path": "/orders/sla/list",
   "summary": {
-    "container": ".summary_score.column",
-    "total_score": ".score_total_value",
-    "quantity_score": ".detail_score_text .summary_score_text[data-text='quantity']",
-    "acceptance_score": ".detail_score_text .summary_score_text[data-text='acceptance']"
+    "container": ".weekly-summary",
+    "total_score": ".total-score",
+    "quantity_score": ".delivery-score",
+    "acceptance_score": ".acceptance-score"
   },
   "stats": {
-    "container": ".summary_etc.column",
-    "total_completed": ".etc_item .etc_value[data-etc='complete'] span",
-    "total_rejected": ".etc_item .etc_value[data-etc='reject'] span",
-    "acceptance_rate": ".etc_item .etc_value[data-etc='acceptance']"
+    "container": ".weekly-stats",
+    "total_completed": ".total-completed",
+    "total_rejected": ".total-rejected",
+    "acceptance_rate": ".acceptance-rate"
   }
 } 
