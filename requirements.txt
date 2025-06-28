@@ -10,3 +10,4 @@ psutil
 
 # 시간 처리
 pytz
+python-dotenv
