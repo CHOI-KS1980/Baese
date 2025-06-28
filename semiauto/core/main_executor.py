@@ -580,6 +580,19 @@ class GriderDataCollector:
             time.sleep(3) # 데이터 로딩을 위한 추가 대기
             
             soup_sla = BeautifulSoup(self.driver.page_source, 'html.parser')
+            
+            # 디버깅용: SLA 페이지 소스 저장
+            try:
+                debug_dir = os.path.join(os.getcwd(), 'debug')
+                os.makedirs(debug_dir, exist_ok=True)
+                sla_debug_filename = f"sla_page_success_{get_korea_time().strftime('%Y%m%d_%H%M%S')}.html"
+                sla_debug_filepath = os.path.join(debug_dir, sla_debug_filename)
+                with open(sla_debug_filepath, 'w', encoding='utf-8') as f:
+                    f.write(self.driver.page_source)
+                logger.info(f"📄 SLA 페이지 소스 저장: {sla_debug_filepath}")
+            except Exception as save_e:
+                logger.error(f"❌ SLA 페이지 소스 저장 실패: {save_e}")
+            
             weekly_summary = self._parse_weekly_summary(soup_sla)
             mission_data = self._parse_mission_data(soup_sla)
             
