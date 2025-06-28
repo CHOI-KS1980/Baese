@@ -849,8 +849,10 @@ class GriderAutoSender:
 
         # 미션 정보 (현재 시간에 따라 동적 표시)
         mission_details = []
+        mission_alerts = [] # 미션 부족 알림 저장용
         mission_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
         mission_emojis_for_summary = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
+        mission_short_names = {'아침점심피크': '아침점심', '오후논피크': '오후논', '저녁피크': '저녁', '심야논피크': '심야'}
         
         for mission_name in mission_order:
             start_hour = MISSION_START_TIMES.get(mission_name)
@@ -860,7 +862,17 @@ class GriderAutoSender:
                     current = details.get('current', 0)
                     target = details.get('target', 0)
                     emoji = mission_emojis_for_summary.get(mission_name, '')
-                    status = " ✅ (달성)" if target > 0 and current >= target else ""
+                    
+                    status = ""
+                    if target > 0:
+                        if current >= target:
+                            status = " ✅ (달성)"
+                        else:
+                            shortage = target - current
+                            status = f" ❌ ({shortage}건 부족)"
+                            short_name = mission_short_names.get(mission_name, mission_name)
+                            mission_alerts.append(f"{short_name} {shortage}건")
+                            
                     mission_details.append(f"{emoji} {mission_name}: {current}/{target}{status}")
         mission_summary = "\n".join(mission_details)
 
@@ -929,6 +941,11 @@ class GriderAutoSender:
 
         weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
         
+        # 특이사항 (미션 부족 알림)
+        alert_summary = ""
+        if mission_alerts:
+            alert_summary = "⚠️ 미션 부족: " + ", ".join(mission_alerts)
+        
         message_parts = [
             header,
             mission_summary,
@@ -936,6 +953,7 @@ class GriderAutoSender:
             weather_summary,
             weekly_summary,
             rider_ranking_summary,
+            alert_summary,
         ]
         return "\n\n".join(filter(None, message_parts))
 
