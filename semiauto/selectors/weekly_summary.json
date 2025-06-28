@@ -1,0 +1,14 @@
+{
+  "url_path": "/orders/sla/list",
+  "summary": {
+    "container": "div.summary_area",
+    "total_score": ".summary_total_score span.summary_score_text[data-text='total']",
+    "quantity_score": ".detail_score_item span.summary_score_text[data-text='quantity']",
+    "acceptance_score": ".detail_score_item span.summary_score_text[data-text='acceptance']"
+  },
+  "summary_etc": {
+    "total_complete": ".etc_item .etc_value[data-etc='complete'] span",
+    "total_reject": ".etc_item .etc_value[data-etc='reject'] span",
+    "acceptance_rate": ".etc_item .etc_value[data-etc='acceptance'] span"
+  }
+} 

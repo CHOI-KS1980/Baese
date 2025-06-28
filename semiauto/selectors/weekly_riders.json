@@ -1,0 +1,11 @@
+{
+    "url_path": "/orders/sla/list",
+    "container": "div.rider_container div.rider_list",
+    "item": "div.rider_item",
+    "name": "div.rider_name",
+    "user_id": "div.user_id",
+    "complete_count": "div.complete_count",
+    "reject_count": "div.reject_count",
+    "dispatch_cancel_count": "div.accept_cancel_count",
+    "delivery_cancel_count": "div.accept_cancel_rider_fault_count"
+} 

@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # selenium 등 동적으로 import 되는 모듈에 대한 Linter 경고 무시
 # pyright: reportMissingImports=false
@@ -265,12 +265,12 @@ class GriderDataCollector:
         self.driver_path = os.getenv('CHROME_DRIVER_PATH', '/usr/bin/chromedriver')
         
         # 설정 파일에서 선택자 및 URL 로드
-        self.selectors = self._load_selectors()
+        self.selectors = self._load_all_selectors()
         
-        self.base_url = self.selectors.get('base_url', '')
+        self.base_url = "https://jangboo.grider.ai"
         self.login_url = f"{self.base_url}{self.selectors.get('login', {}).get('url_path', '/login')}"
         self.dashboard_url = f"{self.base_url}{self.selectors.get('daily_data', {}).get('url_path', '/dashboard')}"
-        self.sla_url = f"{self.base_url}{self.selectors.get('weekly_mission_data', {}).get('url_path', '/orders/sla/list')}"
+        self.sla_url = f"{self.base_url}{self.selectors.get('weekly_summary', {}).get('url_path', '/orders/sla/list')}"
 
         self.driver = None
         self.grider_id = os.getenv('GRIDER_ID')
@@ -278,18 +278,30 @@ class GriderDataCollector:
         self.weather_api_key = os.getenv('WEATHER_API_KEY')
         self.holidays = []
 
-    def _load_selectors(self):
-        """selectors.json 파일에서 CSS 선택자를 로드합니다."""
-        # 스크립트 파일의 위치를 기준으로 경로 설정
+    def _load_all_selectors(self):
+        """'semiauto/selectors' 디렉토리의 모든 .json 파일을 로드하여 병합합니다."""
+        all_selectors = {}
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        selectors_path = os.path.join(current_dir, '..', 'selectors.json')
-        try:
-            with open(selectors_path, 'r', encoding='utf-8') as f:
-                logger.info(f"CSS 선택자 설정 파일 로드: {selectors_path}")
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"선택자 파일({selectors_path}) 로드 실패: {e}")
+        selectors_dir = os.path.join(current_dir, '..', 'selectors')
+        
+        if not os.path.isdir(selectors_dir):
+            logger.error(f"선택자 디렉토리가 존재하지 않습니다: {selectors_dir}")
             return {}
+
+        for filename in os.listdir(selectors_dir):
+            if filename.endswith('.json'):
+                file_path = os.path.join(selectors_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        # 파일 이름(확장자 제외)을 key로 사용하여 데이터를 저장합니다.
+                        key_name = os.path.splitext(filename)[0]
+                        all_selectors[key_name] = data
+                        logger.info(f"선택자 파일 로드 완료: {filename}")
+                except (FileNotFoundError, json.JSONDecodeError) as e:
+                    logger.error(f"선택자 파일({filename}) 로드 실패: {e}")
+        
+        return all_selectors
 
     def _get_driver(self):
         """Headless Chrome 드라이버를 설정하고 반환합니다."""
@@ -316,17 +328,21 @@ class GriderDataCollector:
 
             if not self.grider_id or not self.grider_password: raise Exception("G라이더 로그인 정보가 없습니다.")
 
-            login_url = f"{self.base_url}/login"
+            login_selectors = self.selectors.get('login', {})
+            login_url = f"{self.base_url}{login_selectors.get('url_path', '/login')}"
+
             logger.info(f"로그인 페이지로 이동: {login_url}")
             driver.get(login_url)
 
             # ID/PW 입력 필드가 나타날 때까지 명시적으로 대기
-            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'id')))
+            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, login_selectors.get('id_input'))))
             
-            driver.find_element(By.ID, 'id').send_keys(self.grider_id)
-            driver.find_element(By.ID, 'password').send_keys(self.grider_password)
-            driver.find_element(By.ID, 'loginBtn').click()
-            WebDriverWait(driver, 30).until(EC.url_contains('/dashboard'))
+            driver.find_element(By.CSS_SELECTOR, login_selectors.get('id_input')).send_keys(self.grider_id)
+            driver.find_element(By.CSS_SELECTOR, login_selectors.get('pw_input')).send_keys(self.grider_password)
+            driver.find_element(By.CSS_SELECTOR, login_selectors.get('login_button')).click()
+            
+            dashboard_url_path = self.selectors.get('daily_data', {}).get('url_path', '/dashboard')
+            WebDriverWait(driver, 30).until(EC.url_contains(dashboard_url_path))
             logger.info("✅ 로그인 성공")
             return driver
         except Exception as e:
@@ -401,7 +417,7 @@ class GriderDataCollector:
         try:
             wait = WebDriverWait(driver, 15)
             
-            s_weekly = self.selectors.get('weekly_mission_data', {})
+            s_weekly = self.selectors.get('weekly_summary', {})
             s_summary = s_weekly.get('summary', {})
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('container'))))
             soup = BeautifulSoup(driver.page_source, 'lxml')
@@ -420,10 +436,11 @@ class GriderDataCollector:
             else:
                 logger.warning(f"예상 점수 요약 카드({s_summary.get('container')})를 찾지 못했습니다.")
 
-            s_rider_list = s_weekly.get('weekly_rider_list', {})
-            rider_list_container = soup.select_one(s_rider_list.get('container'))
+            s_rider_list_selectors = self.selectors.get('weekly_riders', {})
+            rider_list_container = soup.select_one(s_rider_list_selectors.get('container'))
+
             if rider_list_container:
-                rider_items = rider_list_container.select(s_rider_list.get('item'))
+                rider_items = rider_list_container.select(s_rider_list_selectors.get('item'))
                 logger.info(f"{len(rider_items)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
 
                 s_daily_keys = self.selectors.get('daily_data', {})
@@ -459,7 +476,7 @@ class GriderDataCollector:
                 weekly_data['수락률'] = (total_completions / total_for_rate * 100) if total_for_rate > 0 else 0.0
                 logger.info(f"✅ 주간 라이더 실적 계산 완료: 총완료={weekly_data['총완료']}, 총거절={weekly_data['총거절']}, 수락률={weekly_data['수락률']:.2f}%")
             else:
-                 logger.warning(f"주간 라이더 목록({s_rider_list.get('container')})를 찾지 못했습니다.")
+                 logger.warning(f"주간 라이더 목록({s_rider_list_selectors.get('container')})를 찾지 못했습니다.")
 
         except Exception as e:
             logger.error(f"주간 데이터 파싱 중 오류 발생: {e}", exc_info=True)
@@ -504,58 +521,67 @@ class GriderDataCollector:
             logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
         return {'daily_riders': rider_list}
 
-    def _parse_mission_data(self, driver) -> dict:
-        """SLA 페이지에서 오늘 날짜의 미션 데이터를 파싱합니다."""
+    def _parse_mission_data(self, driver):
+        """SLA 페이지에서 오늘 날짜에 해당하는 미션 데이터를 파싱합니다."""
         mission_data = {}
         try:
-            logger.info(f"오늘 날짜({self._get_today_date()})의 미션 데이터 파싱을 시작합니다.")
+            s_mission_table = self.selectors.get('mission_table', {})
+            today_str = self._get_mission_date()
+            logger.info(f"오늘 날짜({today_str})의 미션 데이터 파싱을 시작합니다.")
+            
             wait = WebDriverWait(driver, 10)
             
-            s_mission = self.selectors.get('weekly_mission_data', {}).get('mission_table', {})
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_mission.get('container'))))
-            soup = BeautifulSoup(driver.page_source, 'lxml')
+            container_selector = s_mission_table.get('container')
+            if not container_selector:
+                logger.warning("미션 테이블 container 선택자가 설정 파일에 없습니다.")
+                return {}
             
-            sla_table = soup.select_one(s_mission.get('container'))
-            if not sla_table:
-                logger.warning(f"'물량 점수관리' 테이블({s_mission.get('container')})을 찾을 수 없습니다.")
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, container_selector)))
+            
+            # 선택자 로드
+            row_selector = s_mission_table.get('rows')
+            s_date_cell = s_mission_table.get('date_cell')
+            s_score_cell = s_mission_table.get('score_cell')
+            s_morning_peak = s_mission_table.get('morning_peak_cell')
+            s_afternoon_peak = s_mission_table.get('afternoon_peak_cell')
+            s_evening_peak = s_mission_table.get('evening_peak_cell')
+            s_midnight_peak = s_mission_table.get('midnight_peak_cell')
+
+            if not all([row_selector, s_date_cell, s_score_cell, s_morning_peak, s_afternoon_peak, s_evening_peak, s_midnight_peak]):
+                logger.error("미션 테이블에 필요한 선택자가 설정 파일에 모두 정의되지 않았습니다.")
                 return {}
 
-            target_row = None
-            today_str = self._get_today_date()
-            all_rows = sla_table.select(s_mission.get('row', 'tbody tr'))
-            for row in all_rows:
-                date_cell = row.find_all('td')
-                if len(date_cell) > 1 and today_str in date_cell[1].get_text():
-                    target_row = row
-                    break
+            mission_table_rows = driver.find_elements(By.CSS_SELECTOR, f"{container_selector} {row_selector}")
             
-            if not target_row:
+            found = False
+            for row in mission_table_rows:
+                try:
+                    date_cell = row.find_element(By.CSS_SELECTOR, s_date_cell)
+                    if date_cell.text.strip() == today_str:
+                        mission_data['일일미션점수'] = row.find_element(By.CSS_SELECTOR, s_score_cell).text.strip()
+                        mission_data['아침점심피크'] = row.find_element(By.CSS_SELECTOR, s_morning_peak).text.strip().replace('\\n', ' ')
+                        mission_data['오후논피크'] = row.find_element(By.CSS_SELECTOR, s_afternoon_peak).text.strip().replace('\\n', ' ')
+                        mission_data['저녁피크'] = row.find_element(By.CSS_SELECTOR, s_evening_peak).text.strip().replace('\\n', ' ')
+                        mission_data['심야논피크'] = row.find_element(By.CSS_SELECTOR, s_midnight_peak).text.strip().replace('\\n', ' ')
+                        found = True
+                        logger.info(f"✅ {today_str} 미션 데이터 파싱 완료: {mission_data}")
+                        break
+                except NoSuchElementException:
+                    # 행에 특정 셀이 없는 경우가 있을 수 있으므로 경고만 남기고 계속 진행
+                    logger.warning("미션 테이블의 한 행에서 특정 셀을 찾지 못했습니다. 건너뜁니다.")
+                    continue
+                except Exception as e:
+                    logger.warning(f"미션 테이블의 한 행을 파싱하는 중 오류 발생: {e}")
+                    continue
+
+            if not found:
                 logger.warning(f"{today_str}에 해당하는 미션 데이터를 테이블에서 찾을 수 없습니다.")
-                return {}
 
-            cols = target_row.find_all('td')
-            if len(cols) < 7:
-                logger.warning("미션 데이터 테이블의 컬럼 수가 예상과 다릅니다.")
-                return {}
-
-            def parse_col(index):
-                text = cols[index].get_text(strip=True)
-                match = re.search(r'(\d+/\d+)', text)
-                return match.group(1) if match else text
-
-            mission_data = {
-                'date': cols[1].get_text(strip=True),
-                'total_score': cols[2].get_text(strip=True),
-                'morning_peak': parse_col(3),
-                'afternoon_offpeak': parse_col(4),
-                'evening_peak': parse_col(5),
-                'night_offpeak': parse_col(6),
-            }
-            logger.info(f"✅ 미션 데이터 파싱 완료: {mission_data}")
-
+        except TimeoutException:
+            logger.error(f"'{container_selector}' 미션 테이블을 시간 안에 찾지 못했습니다.")
         except Exception as e:
-            logger.error(f"미션 데이터 파싱 중 오류 발생: {e}", exc_info=True)
-
+            logger.error(f"'미션 테이블' 파싱 중 예외 발생: {e}", exc_info=True)
+        
         return mission_data
 
     def _get_weather_info_detailed(self, location="서울"):

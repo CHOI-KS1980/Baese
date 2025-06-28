@@ -1,0 +1,12 @@
+{
+  "url_path": "/dashboard",
+  "container": "div.acceptance_box div.rider_list",
+  "item": "div.rider_item",
+  "name": "div.rider_name",
+  "user_id": "div.user_id",
+  "status": "span.rider_info_text",
+  "complete_count": ".rider_group .complete_count",
+  "reject_count": ".rider_group .reject_count",
+  "accept_cancel_count": ".rider_group .accept_cancel_count",
+  "accept_cancel_rider_fault_count": ".rider_group .accept_cancel_rider_fault_count"
+} 
