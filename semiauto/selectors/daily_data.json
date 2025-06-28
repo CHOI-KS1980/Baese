@@ -1,12 +1,16 @@
 {
   "url_path": "/dashboard",
-  "container": "div.acceptance_box div.rider_list",
+  "container": "div.rider_list_body",
   "item": "div.rider_item",
-  "name": "div.rider_name",
+  "name": "div.rider_name > span",
   "user_id": "div.user_id",
   "status": "span.rider_info_text",
-  "complete_count": ".rider_group .complete_count",
-  "reject_count": ".rider_group .reject_count",
-  "accept_cancel_count": ".rider_group .accept_cancel_count",
-  "accept_cancel_rider_fault_count": ".rider_group .accept_cancel_rider_fault_count"
+  "complete_count": "div.rider_data_box:nth-child(2) > div.rider_data",
+  "reject_count": "div.rider_data_box:nth-child(3) > div.rider_data",
+  "accept_cancel_count": "div.rider_data_box:nth-child(4) > div.rider_data",
+  "accept_cancel_rider_fault_count": "div.rider_data_box:nth-child(5) > div.rider_data",
+  "morning_count": "div.rider_data_box:nth-child(6) > div.rider_data",
+  "afternoon_count": "div.rider_data_box:nth-child(7) > div.rider_data",
+  "evening_count": "div.rider_data_box:nth-child(8) > div.rider_data",
+  "midnight_count": "div.rider_data_box:nth-child(9) > div.rider_data"
 } 
