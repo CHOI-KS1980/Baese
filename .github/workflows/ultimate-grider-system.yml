@@ -38,6 +38,13 @@ jobs:
         id: run-script
         run: |
           python semiauto/core/main_executor.py
+        env:
+          GRIDER_ID: ${{ secrets.GRIDER_ID }}
+          GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
+          KMA_API_KEY: ${{ secrets.KMA_API_KEY }}
 
       - name: 디버그 아티팩트 업로드 (실패 시)
         if: failure()
