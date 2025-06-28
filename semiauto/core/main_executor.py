@@ -11,7 +11,7 @@
 import requests
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 # pyperclip은 조건부 import (GitHub Actions 환경에서는 사용 불가)
 import logging
 import os
@@ -341,10 +341,15 @@ class GriderDataCollector:
             driver.find_element(By.CSS_SELECTOR, login_selectors.get('pw_input')).send_keys(self.grider_password)
             driver.find_element(By.CSS_SELECTOR, login_selectors.get('login_button')).click()
             
-            dashboard_url_path = self.selectors.get('daily_data', {}).get('url_path', '/dashboard')
-            WebDriverWait(driver, 30).until(EC.url_contains(dashboard_url_path))
-            logger.info("✅ 로그인 성공")
-            return driver
+            # 페이지 전환을 위한 충분한 대기 시간
+            time.sleep(2) # 로그인 후 페이지가 완전히 로드될 때까지 잠시 대기
+            
+            if "dashboard" in driver.current_url:
+                logger.info("✅ 로그인 성공")
+                return driver
+            else:
+                logger.error("로그인 실패: 로그인 후 대시보드로 이동하지 않음")
+                return None
         except Exception as e:
             logger.error(f" G라이더 로그인 실패: {e}", exc_info=True)
             if 'driver' in locals() and driver:
@@ -389,10 +394,15 @@ class GriderDataCollector:
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s.get('pw_input')))).send_keys(self.grider_password)
             driver.find_element(By.CSS_SELECTOR, s.get('login_button')).click()
             
-            # 로그인 성공 확인 (대시보드 URL로 이동했는지 또는 특정 요소가 보이는지)
-            wait.until(EC.url_to_be(self.dashboard_url))
-            logger.info("✅ 로그인 성공")
-            return True
+            # 페이지 전환을 위한 충분한 대기 시간
+            time.sleep(2) # 로그인 후 페이지가 완전히 로드될 때까지 잠시 대기
+            
+            if "dashboard" in driver.current_url:
+                logger.info("✅ 로그인 성공")
+                return True
+            else:
+                logger.error("로그인 실패: 로그인 후 대시보드로 이동하지 않음")
+                return False
         except TimeoutException:
             logger.error("G라이더 로그인 실패: 타임아웃", exc_info=True)
             return False
@@ -414,6 +424,7 @@ class GriderDataCollector:
         weekly_data = {}
         try:
             driver.get(self.sla_url)
+            time.sleep(2) # 페이지 전환을 위한 대기
             wait = WebDriverWait(driver, 10)
 
             # 1. 주간 요약 점수 파싱 (카드에 표시된 점수만 가져옴)
@@ -435,8 +446,11 @@ class GriderDataCollector:
             rider_list_container = s_rider_list.get('container')
 
             if rider_list_container:
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container)))
-                riders = driver.find_elements(By.CSS_SELECTOR, f"{rider_list_container} {s_rider_list.get('item')}")
+                # 주간 라이더 목록의 첫번째 아이템이 나타날 때까지 대기
+                item_selector = f"{rider_list_container} {s_rider_list.get('item')}"
+                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, item_selector)))
+                
+                riders = driver.find_elements(By.CSS_SELECTOR, item_selector)
                 logger.info(f"{len(riders)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
 
                 if riders:
@@ -445,12 +459,12 @@ class GriderDataCollector:
                     total_dispatch_cancels = 0
                     total_delivery_cancels = 0
 
-                    for rider in riders:
+                    for rider_element in riders:
                         try:
-                            total_completions += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('complete_count')).text.strip())
-                            total_rejections += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('reject_count')).text.strip())
-                            total_dispatch_cancels += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('dispatch_cancel_count')).text.strip())
-                            total_delivery_cancels += int(rider.find_element(By.CSS_SELECTOR, s_rider_list.get('delivery_cancel_count')).text.strip())
+                            total_completions += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('complete_count')).text.strip())
+                            total_rejections += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('reject_count')).text.strip())
+                            total_dispatch_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('dispatch_cancel_count')).text.strip())
+                            total_delivery_cancels += int(rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('delivery_cancel_count')).text.strip())
                         except (NoSuchElementException, ValueError) as e:
                             logger.warning(f"라이더 데이터 파싱 중 오류(건너뜀): {e}")
                             continue
@@ -464,7 +478,7 @@ class GriderDataCollector:
                     
                     logger.info(f"✅ 주간 라이더 실적 직접 계산 완료: 총완료={calculated_stats['총완료']}, 총거절={calculated_stats['총거절']}, 수락률={calculated_stats['수락률']:.2f}%")
                 else:
-                    logger.warning(f"주간 라이더 목록({s_rider_list.get('container')})를 찾았으나, 개별 라이더({s_rider_list.get('item')})가 없습니다.")
+                    logger.warning(f"주간 라이더 목록({rider_list_container})를 찾았으나, 개별 라이더({s_rider_list.get('item')})가 없습니다.")
             else:
                  logger.warning(f"주간 라이더 목록 선택자를 찾지 못했습니다.")
 
@@ -530,10 +544,10 @@ class GriderDataCollector:
                 logger.warning("미션 테이블 container 선택자가 설정 파일에 없습니다.")
                 return {}
             
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, container_selector)))
-            
-            # 선택자 로드
-            row_selector = s_mission_table.get('rows')
+            # 미션 테이블의 실제 데이터 행이 로드될 때까지 대기
+            full_row_selector = f"{container_selector} {s_mission_table.get('rows')}"
+            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_row_selector)))
+
             s_date_cell = s_mission_table.get('date_cell')
             s_score_cell = s_mission_table.get('score_cell')
             s_morning_peak = s_mission_table.get('morning_peak_cell')
@@ -545,7 +559,7 @@ class GriderDataCollector:
                 logger.error("미션 테이블에 필요한 선택자가 설정 파일에 모두 정의되지 않았습니다.")
                 return {}
 
-            mission_table_rows = driver.find_elements(By.CSS_SELECTOR, f"{container_selector} {row_selector}")
+            mission_table_rows = driver.find_elements(By.CSS_SELECTOR, full_row_selector)
             
             found = False
             for row in mission_table_rows:
