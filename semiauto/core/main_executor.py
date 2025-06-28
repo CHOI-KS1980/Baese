@@ -461,21 +461,34 @@ class GriderDataCollector:
         try:
             self.driver = self._get_driver()
             self._login(self.driver)
-            wait = WebDriverWait(self.driver, 20)
+            wait = WebDriverWait(self.driver, 30) # 대기 시간 30초로 연장
 
             # 1. 주간/미션 데이터 수집 from /orders/sla/list
-            self.driver.get(self.base_url + "/orders/sla/list")
+            sla_url = self.base_url + "/orders/sla/list"
+            self.driver.get(sla_url)
+            logger.info(f"SLA 페이지로 이동 완료. 현재 URL: {self.driver.current_url}")
+
+            # 페이지 이동 후에도 로그인 상태가 유지되었는지 재확인
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['login']['login_success_indicator'])))
+            logger.info("SLA 페이지에서 로그인 상태 재확인 완료.")
+            
+            # 미션 테이블이 나타날 때까지 대기
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['mission_table']['container'])))
-            time.sleep(2) # 데이터 로딩 대기
+            logger.info("SLA 페이지에서 미션 테이블 확인 완료.")
+            time.sleep(3) # 데이터 로딩을 위한 추가 대기
             
             soup_sla = BeautifulSoup(self.driver.page_source, 'html.parser')
             weekly_summary = self._parse_weekly_summary(soup_sla)
             mission_data = self._parse_mission_data(soup_sla)
             
             # 2. 일일 라이더 데이터 수집 from /dashboard
-            self.driver.get(self.base_url + "/dashboard")
+            dashboard_url = self.base_url + "/dashboard"
+            self.driver.get(dashboard_url)
+            logger.info(f"대시보드 페이지로 이동 완료. 현재 URL: {self.driver.current_url}")
+            
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['daily_data']['container'])))
-            time.sleep(2) # 데이터 로딩 대기
+            logger.info("대시보드 페이지에서 라이더 데이터 컨테이너 확인 완료.")
+            time.sleep(3) # 데이터 로딩을 위한 추가 대기
             
             soup_daily = BeautifulSoup(self.driver.page_source, 'html.parser')
             daily_data = self._parse_daily_data(soup_daily)
