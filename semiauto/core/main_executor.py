@@ -367,21 +367,54 @@ class GriderDataCollector:
         s = self.selectors.get('weekly_summary', {})
         data = {}
         try:
-            data['총점'] = self._get_safe_number(soup.select_one(s['summary']['total_score']).text)
-            data['물량점수'] = self._get_safe_number(soup.select_one(s['summary']['quantity_score']).text)
-            data['수락률점수'] = self._get_safe_number(soup.select_one(s['summary']['acceptance_score']).text)
-            data['총완료'] = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
-            
-            # 주간 총 거절/취소 합계
-            total_rejected = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
-            # 주간 데이터는 상세 취소내역이 없으므로, '총거절'을 합계로 사용
-            data['총거절및취소'] = total_rejected
+            # 선택자를 사용한 파싱 시도
+            total_score_elem = soup.select_one(s.get('summary', {}).get('total_score', 'non-existent'))
+            if total_score_elem:
+                data['총점'] = self._get_safe_number(total_score_elem.text)
+                data['물량점수'] = self._get_safe_number(soup.select_one(s['summary']['quantity_score']).text)
+                data['수락률점수'] = self._get_safe_number(soup.select_one(s['summary']['acceptance_score']).text)
+                data['총완료'] = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
+                
+                # 주간 총 거절/취소 합계
+                total_rejected = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
+                data['총거절및취소'] = total_rejected
 
-            rate_text = soup.select_one(s['stats']['acceptance_rate']).text
-            data['수락률'] = float(re.search(r'\d+\.?\d*', rate_text).group())
+                rate_text = soup.select_one(s['stats']['acceptance_rate']).text
+                data['수락률'] = float(re.search(r'\d+\.?\d*', rate_text).group())
+            else:
+                # 테이블에서 직접 찾기 (fallback)
+                tables = soup.find_all('table')
+                for table in tables:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) >= 2:
+                            text = cells[0].get_text().strip()
+                            value_text = cells[1].get_text().strip()
+                            if '총점' in text:
+                                data['총점'] = self._get_safe_number(value_text)
+                            elif '물량' in text:
+                                data['물량점수'] = self._get_safe_number(value_text)
+                            elif '수락률' in text and '점수' in text:
+                                data['수락률점수'] = self._get_safe_number(value_text)
+                            elif '완료' in text:
+                                data['총완료'] = self._get_safe_number(value_text)
+                            elif '거절' in text:
+                                data['총거절및취소'] = self._get_safe_number(value_text)
+                
+                # 기본값 설정
+                data.setdefault('총점', 0)
+                data.setdefault('물량점수', 0)
+                data.setdefault('수락률점수', 0)
+                data.setdefault('총완료', 0)
+                data.setdefault('총거절및취소', 0)
+                data.setdefault('수락률', 0.0)
+                
             logger.info(f"✅ 주간 요약 파싱 완료: {data}")
         except Exception as e:
             logger.error(f"주간 요약 파싱 실패: {e}")
+            # 최소한의 기본값으로 설정
+            data = {'총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절및취소': 0, '수락률': 0.0}
         return data
         
     def _parse_mission_data(self, soup):
@@ -389,17 +422,50 @@ class GriderDataCollector:
         missions = {}
         name_map = {'오전피크': '아침점심피크', '오후피크': '오후논피크', '저녁피크': '저녁피크', '심야피크': '심야논피크'}
         try:
-            rows = soup.select(s['rows'])
+            # 선택자를 사용한 파싱 시도
+            rows = soup.select(s.get('rows', 'tr'))
+            mission_found = False
+            
             for row in rows:
-                name_elem = row.select_one(s['name_cell'])
-                data_elem = row.select_one(s['data_cell'])
+                name_elem = row.select_one(s.get('name_cell', 'td:first-child'))
+                data_elem = row.select_one(s.get('data_cell', 'td:last-child'))
                 if name_elem and data_elem:
                     mission_name_raw = name_elem.text.strip()
-                    app_name = name_map.get(mission_name_raw)
-                    if app_name:
-                        match = re.search(r'(\d+)\s*/\s*(\d+)', data_elem.text)
-                        if match:
-                            missions[app_name] = {'current': int(match.group(1)), 'target': int(match.group(2))}
+                    app_name = name_map.get(mission_name_raw, mission_name_raw)  # 매핑되지 않으면 원본 사용
+                    
+                    # 숫자/숫자 패턴이나 단순 숫자 패턴 찾기
+                    data_text = data_elem.text.strip()
+                    match = re.search(r'(\d+)\s*/\s*(\d+)', data_text)
+                    if match:
+                        current_val = int(match.group(1))
+                        target_val = int(match.group(2))
+                        missions[app_name] = current_val  # 단순하게 현재값만 저장
+                        mission_found = True
+                    else:
+                        # 단순 숫자만 있는 경우
+                        numbers = re.findall(r'\d+', data_text)
+                        if numbers and any(keyword in mission_name_raw for keyword in ['피크', '미션', '건']):
+                            missions[app_name] = int(numbers[0])
+                            mission_found = True
+            
+            # 대안: 모든 테이블 검색 (피크타임 관련)
+            if not mission_found:
+                tables = soup.find_all('table')
+                for table in tables:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) >= 2:
+                            text = cells[0].get_text().strip()
+                            value_text = cells[1].get_text().strip()
+                            
+                            for key, mapped_name in name_map.items():
+                                if key in text or mapped_name in text:
+                                    numbers = re.findall(r'\d+', value_text)
+                                    if numbers:
+                                        missions[mapped_name] = int(numbers[0])
+                                        mission_found = True
+                                        
             logger.info(f"✅ 미션 데이터 파싱 완료: {missions}")
         except Exception as e:
             logger.error(f"미션 데이터 파싱 실패: {e}")
@@ -428,7 +494,7 @@ class GriderDataCollector:
                 for app_peak, sel_peak in peak_map.items():
                     rider_data[app_peak] = self._get_safe_number(el.select_one(s[sel_peak]).text)
 
-                if sum(rider_data.values(),_safe_number=0, start=0) > 0:
+                if sum(rider_data[k] for k in rider_data if isinstance(rider_data[k], (int, float))) > 0:
                     riders.append(rider_data)
         except Exception as e:
             logger.error(f"일일 라이더 데이터 파싱 실패: {e}")
@@ -676,16 +742,24 @@ class GriderAutoSender:
     def _format_weather_summary(self):
         try:
             summary = self.weather_service.get_weather_summary()
-            if "error" in summary: return "🌍 날씨 정보 (조회 실패)"
-
-            am_forecasts = [f for f in summary['forecast'] if 6 <= int(f['time'][:2]) < 12]
-            pm_forecasts = [f for f in summary['forecast'] if 12 <= int(f['time'][:2]) < 18]
             
-            am_temps = [int(f['temp']) for f in am_forecasts if f['temp'].isdigit()]
-            pm_temps = [int(f['temp']) for f in pm_forecasts if f['temp'].isdigit()]
+            # 에러 처리 - dictionary 확인
+            if not isinstance(summary, dict) or "error" in summary: 
+                return "🌍 날씨 정보 (조회 실패)"
 
-            am_icon = am_forecasts[0]['icon'] if am_forecasts else '☀️'
-            pm_icon = pm_forecasts[0]['icon'] if pm_forecasts else '☀️'
+            # forecast 키가 있고 리스트인지 확인
+            forecast = summary.get('forecast', [])
+            if not isinstance(forecast, list) or not forecast:
+                return "🌍 날씨 정보 (예보 데이터 없음)"
+
+            am_forecasts = [f for f in forecast if isinstance(f, dict) and 'time' in f and f['time'] and 6 <= int(f['time'][:2]) < 12]
+            pm_forecasts = [f for f in forecast if isinstance(f, dict) and 'time' in f and f['time'] and 12 <= int(f['time'][:2]) < 18]
+            
+            am_temps = [int(f['temp']) for f in am_forecasts if 'temp' in f and isinstance(f['temp'], str) and f['temp'].isdigit()]
+            pm_temps = [int(f['temp']) for f in pm_forecasts if 'temp' in f and isinstance(f['temp'], str) and f['temp'].isdigit()]
+
+            am_icon = am_forecasts[0].get('icon', '☀️') if am_forecasts else '☀️'
+            pm_icon = pm_forecasts[0].get('icon', '☀️') if pm_forecasts else '☀️'
 
             return (f"🌍 오늘의 날씨 ({summary.get('source', '기상청')})\n"
                     f" 🌅 오전: {am_icon} {min(am_temps) if am_temps else 'N/A'}~{max(am_temps) if am_temps else 'N/A'}C\n"
@@ -744,4 +818,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    main() 
