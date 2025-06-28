@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 
 # selenium 등 동적으로 import 되는 모듈에 대한 Linter 경고 무시
 # pyright: reportMissingImports=false
@@ -261,81 +262,38 @@ class GriderDataCollector:
     """G라이더 데이터 수집기"""
     
     def __init__(self):
-        # 웹 드라이버 경로 (GitHub Actions에서는 자동 설정)
         self.driver_path = os.getenv('CHROME_DRIVER_PATH', '/usr/bin/chromedriver')
-        self.base_url = "https://jangboo.grider.ai"
-        self.login_url = f"{self.base_url}/login"
-        self.dashboard_url = f"{self.base_url}/dashboard"  # 일간 데이터 페이지
-        self.sla_url = f"{self.base_url}/orders/sla/list"  # 주간/미션 데이터 페이지
+        
+        # 설정 파일에서 선택자 및 URL 로드
+        self.selectors = self._load_selectors()
+        
+        self.base_url = self.selectors.get('base_url', '')
+        self.login_url = f"{self.base_url}{self.selectors.get('login', {}).get('url_path', '/login')}"
+        self.dashboard_url = f"{self.base_url}{self.selectors.get('daily_data', {}).get('url_path', '/dashboard')}"
+        self.sla_url = f"{self.base_url}{self.selectors.get('weekly_mission_data', {}).get('url_path', '/orders/sla/list')}"
 
         self.driver = None
         self.token_manager = TokenManager()
-    
-    def get_grider_data(self, use_sample=False):
-        """G-Rider 웹사이트에서 주간 및 일간 데이터를 단계별로 수집합니다."""
-        if use_sample:
-            logger.info("샘플 데이터를 사용하여 실행합니다.")
-            return self._get_error_data("샘플 데이터 모드")
+        self.weather_api_key = os.getenv('WEATHER_API_KEY')
+        self.holidays = []
 
-        driver = self._perform_login()
-        
+    def _load_selectors(self):
+        """selectors.json 파일에서 CSS 선택자를 로드합니다."""
+        # 스크립트 파일의 위치를 기준으로 경로 설정
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        selectors_path = os.path.join(current_dir, '..', 'selectors.json')
         try:
-            # 1. /dashboard 에서 '일간 라이더 데이터' 수집
-            logger.info("대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
-            daily_rider_data = self._parse_daily_rider_data(driver)
-            
-            # 2. /orders/sla/list 페이지로 이동
-            sla_url = "https://jangboo.grider.ai/orders/sla/list"
-            logger.info(f"'주간/미션 데이터' 수집을 위해 {sla_url} 페이지로 이동합니다.")
-            driver.get(sla_url)
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div.sla_item"))
-            )
-            logger.info("✅ SLA 페이지가 성공적으로 로드되었습니다.")
+            with open(selectors_path, 'r', encoding='utf-8') as f:
+                logger.info(f"CSS 선택자 설정 파일 로드: {selectors_path}")
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"선택자 파일({selectors_path}) 로드 실패: {e}")
+            return {}
 
-            # 3. SLA 페이지에서 '주간 데이터'와 '미션 데이터' 수집
-            weekly_data = self._parse_weekly_data(driver)
-            mission_data = self._parse_mission_data(driver)
-            
-            # 4. 부가 정보 수집
-            weather_info = self._get_weather_info_detailed()
-            
-            logger.info("✅ 모든 G라이더 데이터 수집 완료")
-
-            # 5. 성공 데이터 조합 후 반환
-            return {
-                'error': False,
-                'error_reason': '',
-                **daily_rider_data,
-                **weekly_data,
-                **mission_data,
-                **weather_info,
-                'timestamp': get_korea_time().strftime("%Y-%m-%d %H:%M:%S"),
-                'mission_date': self._get_mission_date(),
-                'crawl_time': (get_korea_time() - start_time).total_seconds()
-            }
-
-        except Exception as e:
-            logger.error(f"크롤링 중 예외 발생: {e}")
-            return self._get_error_data(f"크롤링 중 예외 발생: {e}")
-        finally:
-            if driver:
-                driver.quit()
-
-    def _get_error_data(self, error_reason: str):
-        return {
-            '총점': 0, '물량점수': 0, '수락률점수': 0, '총완료': 0, '총거절': 0, '수락률': 0.0,
-            '아침점심피크': {"current": 0, "target": 0}, '오후논피크': {"current": 0, "target": 0},
-            '저녁피크': {"current": 0, "target": 0}, '심야논피크': {"current": 0, "target": 0},
-            'daily_riders': [], 'error': True, 'error_reason': error_reason,
-            'timestamp': datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S"),
-            'crawl_time': (get_korea_time() - start_time).total_seconds()
-        }
-    
-    def _perform_login(self):
+    def _get_driver(self):
+        """Headless Chrome 드라이버를 설정하고 반환합니다."""
         try:
             from selenium import webdriver
-            from selenium.webdriver.common.by import By
             from selenium.webdriver.chrome.options import Options
             
             options = Options()
@@ -403,6 +361,30 @@ class GriderDataCollector:
                     logger.error(f" 모든 크롤링 시도 실패 ({url})")
                     return None
 
+    def _login(self, driver):
+        """G라이더에 로그인합니다."""
+        logger.info(f"로그인 페이지로 이동: {self.login_url}")
+        try:
+            driver.get(self.login_url)
+            wait = WebDriverWait(driver, 15)
+            
+            # 선택자 파일에서 로그인 정보 가져오기
+            s = self.selectors.get('login', {})
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s.get('id_input')))).send_keys(self.grider_id)
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s.get('pw_input')))).send_keys(self.grider_password)
+            driver.find_element(By.CSS_SELECTOR, s.get('login_button')).click()
+            
+            # 로그인 성공 확인 (대시보드 URL로 이동했는지 또는 특정 요소가 보이는지)
+            wait.until(EC.url_to_be(self.dashboard_url))
+            logger.info("✅ 로그인 성공")
+            return True
+        except TimeoutException:
+            logger.error("G라이더 로그인 실패: 타임아웃", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error(f"G라이더 로그인 실패: {e}", exc_info=True)
+            return False
+
     def _get_mission_date(self):
         korea_time = get_korea_time()
         mission_time = korea_time - timedelta(hours=6)
@@ -414,40 +396,43 @@ class GriderDataCollector:
         logger.info("'주간 미션 예상 점수' 데이터 수집을 시작합니다.")
         
         try:
-            # 페이지가 완전히 로드될 때까지 대기
             wait = WebDriverWait(driver, 15)
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.summary_area")))
+            
+            s_weekly = self.selectors.get('weekly_mission_data', {})
+            s_summary = s_weekly.get('summary', {})
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('container'))))
             soup = BeautifulSoup(driver.page_source, 'lxml')
 
-            # 1. 예상 점수 카드에서 데이터 추출
-            summary_area = soup.select_one("div.summary_area")
+            summary_area = soup.select_one(s_summary.get('container'))
             if summary_area:
-                def get_summary_score(data_text):
-                    node = summary_area.select_one(f"span.summary_score_text[data-text='{data_text}']")
+                def get_summary_score(data_text_key):
+                    selector = s_summary.get(data_text_key)
+                    node = summary_area.select_one(selector) if selector else None
                     return node.get_text(strip=True) if node else "0"
 
-                weekly_data['예상총점수'] = get_summary_score('total')
-                weekly_data['물량점수'] = get_summary_score('quantity')
-                weekly_data['수락률점수'] = get_summary_score('acceptance')
+                weekly_data['예상총점수'] = get_summary_score('total_score')
+                weekly_data['물량점수'] = get_summary_score('quantity_score')
+                weekly_data['수락률점수'] = get_summary_score('acceptance_score')
                 logger.info(f"✅ 예상 점수 카드 파싱 완료: {weekly_data}")
             else:
-                logger.warning("예상 점수 요약 카드(div.summary_area)를 찾지 못했습니다.")
+                logger.warning(f"예상 점수 요약 카드({s_summary.get('container')})를 찾지 못했습니다.")
 
-            # 2. 주간 라이더 목록에서 데이터 계산
-            total_completions = 0
-            total_rejections = 0
-            total_dispatch_cancels = 0
-            total_delivery_cancels = 0
-            
-            rider_list_container = soup.select_one("div.rider_list")
+            s_rider_list = s_weekly.get('weekly_rider_list', {})
+            rider_list_container = soup.select_one(s_rider_list.get('container'))
             if rider_list_container:
-                rider_items = rider_list_container.select(".rider_item")
+                rider_items = rider_list_container.select(s_rider_list.get('item'))
                 logger.info(f"{len(rider_items)}명의 주간 라이더 데이터를 기반으로 실적 계산을 시작합니다.")
 
+                s_daily_keys = self.selectors.get('daily_data', {})
+                total_completions = 0
+                total_rejections = 0
+                total_dispatch_cancels = 0
+                total_delivery_cancels = 0
+
                 for item in rider_items:
-                    def get_stat(stat_name):
-                        node = item.select_one(f".{stat_name}")
-                        # '완료', '거절' 등 클래스 이름 안에 있는 숫자 텍스트를 직접 가져옴
+                    def get_stat(stat_name_key):
+                        selector = s_daily_keys.get(stat_name_key)
+                        node = item.select_one(selector) if selector else None
                         return self._get_safe_number(node.get_text(strip=True)) if node else 0
 
                     completed = get_stat('complete_count')
@@ -455,7 +440,6 @@ class GriderDataCollector:
                     dispatch_canceled = get_stat('accept_cancel_count')
                     delivery_canceled = get_stat('accept_cancel_rider_fault_count')
 
-                    # 모든 실적이 0인 라이더는 건너뜀
                     if completed == 0 and rejected == 0 and dispatch_canceled == 0 and delivery_canceled == 0:
                         continue
 
@@ -472,7 +456,7 @@ class GriderDataCollector:
                 weekly_data['수락률'] = f"{(total_completions / total_for_rate * 100):.2f}%" if total_for_rate > 0 else "0.00%"
                 logger.info(f"✅ 주간 라이더 실적 계산 완료: 총완료={weekly_data['총완료']}, 총거절={weekly_data['총거절']}, 수락률={weekly_data['수락률']}")
             else:
-                 logger.warning("주간 라이더 목록(div.rider_list)을 찾지 못했습니다.")
+                 logger.warning(f"주간 라이더 목록({s_rider_list.get('container')})를 찾지 못했습니다.")
 
         except Exception as e:
             logger.error(f"주간 데이터 파싱 중 오류 발생: {e}", exc_info=True)
@@ -484,45 +468,34 @@ class GriderDataCollector:
         rider_list = []
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
-            # 로그인 후 바로 대시보드에 있으므로 별도 페이지 이동 불필요
             wait = WebDriverWait(driver, 10)
             
-            # 페이지 로드 확인
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.rider_list")))
+            s_daily = self.selectors.get('daily_data', {})
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_daily.get('container'))))
             logger.info("✅ 일간 라이더 목록이 로드되었습니다.")
 
-            # 라이더 데이터 파싱
             soup = BeautifulSoup(driver.page_source, 'lxml')
             
-            rider_items = soup.select('.rider_list .rider_item')
-            logger.info(f"일간 데이터에서 {len(rider_items)}명의 라이더를 찾았습니다.")
+            rider_list_container = soup.select_one(s_daily.get('container'))
+            if not rider_list_container:
+                logger.warning(f"일간 라이더 목록 컨테이너({s_daily.get('container')})를 찾을 수 없습니다.")
+                return {'daily_riders': []}
+                
+            rider_items = rider_list_container.select(s_daily.get('item', '.rider_item'))
+            logger.info(f"{len(rider_items)}명의 라이더 데이터를 파싱합니다.")
 
-            def get_number(text, to_float=False):
-                if not text: return 0.0 if to_float else 0
-                cleaned_text = str(text).replace(',', '').strip()
-                match = re.search(r'(-?[\d\.]+)', cleaned_text)
-                return float(match.group(1)) if match and to_float else int(match.group(1)) if match else 0
-            
             for item in rider_items:
-                name_node = item.select_one('.rider_name')
-                name = name_node.get_text(strip=True) if name_node else '이름없음'
-
-                peak_counts = {}
-                for peak_name, peak_class in [('아침점심피크', 'morning_peak_count'), ('오후논피크', 'afternoon_peak_count'), ('저녁피크', 'evening_peak_count'), ('심야논피크', 'midnight_peak_count')]:
-                    node = item.select_one(f'.{peak_class}')
-                    peak_counts[peak_name] = get_number(node.get_text(strip=True)) if node else 0
-
-                def get_stat(class_name: str):
-                    node = item.select_one(f'.{class_name}')
-                    return get_number(node.get_text(strip=True)) if node else 0
+                def get_stat(stat_name_key):
+                    selector = s_daily.get(stat_name_key)
+                    node = item.select_one(selector) if selector else None
+                    return self._get_safe_number(node.get_text(strip=True)) if node else 0
 
                 rider_list.append({
-                    'name': name,
+                    'name': (item.select_one(s_daily.get('name')) or Tag(name='span')).get_text(strip=True),
                     '완료': get_stat('complete_count'),
                     '거절': get_stat('reject_count'),
                     '배차취소': get_stat('accept_cancel_count'),
                     '배달취소': get_stat('accept_cancel_rider_fault_count'),
-                    **peak_counts
                 })
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
@@ -535,22 +508,19 @@ class GriderDataCollector:
             logger.info(f"오늘 날짜({self._get_today_date()})의 미션 데이터 파싱을 시작합니다.")
             wait = WebDriverWait(driver, 10)
             
-            # '물량 점수관리' 테이블이 로드될 때까지 대기
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.sla_table")))
+            s_mission = self.selectors.get('weekly_mission_data', {}).get('mission_table', {})
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_mission.get('container'))))
             soup = BeautifulSoup(driver.page_source, 'lxml')
             
-            # 테이블 찾기
-            sla_table = soup.select_one("table.sla_table")
+            sla_table = soup.select_one(s_mission.get('container'))
             if not sla_table:
-                logger.warning("'물량 점수관리' 테이블(table.sla_table)을 찾을 수 없습니다.")
+                logger.warning(f"'물량 점수관리' 테이블({s_mission.get('container')})을 찾을 수 없습니다.")
                 return {}
 
-            # 테이블에서 오늘 날짜에 해당하는 행 찾기
             target_row = None
-            today_str = self._get_today_date() # ex: 2025-06-28
-            all_rows = sla_table.find('tbody').find_all('tr')
+            today_str = self._get_today_date()
+            all_rows = sla_table.select(s_mission.get('row', 'tbody tr'))
             for row in all_rows:
-                # 두 번째 'td'에 날짜가 있는지 확인
                 date_cell = row.find_all('td')
                 if len(date_cell) > 1 and today_str in date_cell[1].get_text():
                     target_row = row
@@ -560,17 +530,14 @@ class GriderDataCollector:
                 logger.warning(f"{today_str}에 해당하는 미션 데이터를 테이블에서 찾을 수 없습니다.")
                 return {}
 
-            # 데이터 추출
             cols = target_row.find_all('td')
             if len(cols) < 7:
                 logger.warning("미션 데이터 테이블의 컬럼 수가 예상과 다릅니다.")
                 return {}
 
             def parse_col(index):
-                # "47/31건 (+3점)" -> "47/31"
                 text = cols[index].get_text(strip=True)
-                # 정규 표현식을 사용하여 "숫자/숫자" 형식만 추출
-                match = re.search(r'(\\d+/\\d+)', text)
+                match = re.search(r'(\d+/\d+)', text)
                 return match.group(1) if match else text
 
             mission_data = {
