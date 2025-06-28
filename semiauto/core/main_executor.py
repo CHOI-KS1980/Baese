@@ -629,15 +629,22 @@ class GriderDataCollector:
             if not self.driver:
                 raise Exception("G라이더 로그인 실패")
 
-            # 모든 데이터는 로그인 후의 대시보드에서 수집
             daily_data = self._parse_daily_rider_data(self.driver)
-            weekly_and_mission_data = self._parse_weekly_data(self.driver)
+            self.temp_daily_riders = daily_data.get('riders', [])
+            
+            # 데이터 수집 순서 변경: weekly_summary가 mission 데이터를 먼저 사용할 수 있도록
             mission_data = self._parse_mission_data(self.driver)
+            weekly_summary_data = self._parse_weekly_data(self.driver)
 
+            total_completed = daily_data.get('total_completed', 0)
+            total_rejected_canceled = daily_data.get('total_rejected', 0) + daily_data.get('total_canceled', 0)
+            total_daily_for_rate = total_completed + total_rejected_canceled
+            daily_acceptance_rate = (total_completed / total_daily_for_rate * 100) if total_daily_for_rate > 0 else 0.0
+            
             # 최종 데이터 구조화
             final_data['metadata'] = {'report_date': get_korea_time().strftime('%Y-%m-%d')}
             final_data['daily_data'] = daily_data
-            final_data['weekly_summary'] = weekly_and_mission_data
+            final_data['weekly_summary'] = weekly_summary_data
             final_data['mission_status'] = mission_data
             final_data['daily_riders'] = daily_data.get('riders', [])
             final_data['metadata']['error'] = None # 성공 시 에러 없음을 명시적으로 기록
@@ -860,15 +867,22 @@ class GriderAutoSender:
             if not self.driver:
                 raise Exception("G라이더 로그인 실패")
 
-            # 모든 데이터는 로그인 후의 대시보드에서 수집
             daily_data = self._parse_daily_rider_data(self.driver)
-            weekly_and_mission_data = self._parse_weekly_data(self.driver)
+            self.temp_daily_riders = daily_data.get('riders', [])
+            
+            # 데이터 수집 순서 변경: weekly_summary가 mission 데이터를 먼저 사용할 수 있도록
             mission_data = self._parse_mission_data(self.driver)
+            weekly_summary_data = self._parse_weekly_data(self.driver)
 
+            total_completed = daily_data.get('total_completed', 0)
+            total_rejected_canceled = daily_data.get('total_rejected', 0) + daily_data.get('total_canceled', 0)
+            total_daily_for_rate = total_completed + total_rejected_canceled
+            daily_acceptance_rate = (total_completed / total_daily_for_rate * 100) if total_daily_for_rate > 0 else 0.0
+            
             # 최종 데이터 구조화
             final_data['metadata'] = {'report_date': get_korea_time().strftime('%Y-%m-%d')}
             final_data['daily_data'] = daily_data
-            final_data['weekly_summary'] = weekly_and_mission_data
+            final_data['weekly_summary'] = weekly_summary_data
             final_data['mission_status'] = mission_data
             final_data['daily_riders'] = daily_data.get('riders', [])
             final_data['metadata']['error'] = None # 성공 시 에러 없음을 명시적으로 기록
