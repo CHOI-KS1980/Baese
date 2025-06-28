@@ -20,6 +20,10 @@ import pytz  # 한국시간 설정을 위해 추가
 from bs4 import BeautifulSoup, Tag
 from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 from dotenv import load_dotenv
+import sys
+
+# 프로젝트 루트를 Python 경로에 추가하여 weather_service 모듈 임포트 허용
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Selenium 명시적 대기를 위한 모듈 추가
 from selenium.webdriver.support.ui import WebDriverWait
@@ -881,51 +885,29 @@ class GriderAutoSender:
         
         return final_data
 
-class G_Rider_Executor:
-    def __init__(self):
-        # ... existing code ...
-        self.kakao_manager = KakaoMessageManager()
-        # self.weather_service = WeatherService() # Moved to where it's used
-        self.dashboard_url = os.getenv('G_RIDER_DASHBOARD_URL')
-
-    def send_report(self):
-        # ... existing code ...
-
-def load_config():
-    """환경변수를 .env 파일에서 로드합니다."""
-    # .env 파일이 현재 작업 디렉토리에 있는지 확인
-    if os.path.exists('.env'):
-        load_dotenv()
-        logger.info(".env 파일에서 환경변수를 로드했습니다.")
-    # GitHub Actions 환경인지 확인
-    elif 'GITHUB_ACTIONS' in os.environ:
-        logger.info("GitHub Actions 환경으로 감지되었습니다. 환경변수는 Secrets를 통해 주입됩니다.")
-    else:
-        logger.warning(".env 파일이 없으며, GitHub Actions 환경이 아닙니다. 필요한 환경변수가 설정되지 않았을 수 있습니다.")
-
 def main():
-    """메인 실행 함수"""
-    logger.info("==================================================")
-    logger.info(" G-Rider 자동화 스크립트 시작")
-    logger.info("==================================================")
+    """스크립트의 메인 실행 함수입니다."""
+    load_dotenv()
     
-    load_config()
-    
-    # 환경변수 로드 확인
-    required_vars = ['GRIDER_ID', 'GRIDER_PASSWORD', 'KAKAO_REST_API_KEY', 'KAKAO_REFRESH_TOKEN']
-    if not all(os.getenv(var) for var in required_vars):
-        logger.warning("필수 환경변수가 모두 설정되지 않았습니다.")
+    holiday_api_key = os.getenv("HOLIDAY_API_KEY")
+    if holiday_api_key:
+        holiday_checker = KoreaHolidayChecker()
+    else:
+        logging.warning("HOLIDAY_API_KEY가 설정되지 않아 공휴일 정보를 로드할 수 없습니다.")
 
-    sender = GriderAutoSender(
+    logging.info("==================================================")
+    logging.info(" G-Rider 자동화 스크립트 시작")
+    logging.info("==================================================")
+    
+    executor = GriderAutoSender(
         rest_api_key=os.getenv("KAKAO_REST_API_KEY"),
         refresh_token=os.getenv("KAKAO_REFRESH_TOKEN")
     )
-    sender.send_report()
+    executor.send_report()
     
-    logger.info("==================================================")
-    logger.info(" G-Rider 자동화 스크립트 종료")
-    logger.info("==================================================")
+    logging.info("==================================================")
+    logging.info(" G-Rider 자동화 스크립트 종료")
+    logging.info("==================================================")
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
