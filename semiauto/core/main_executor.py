@@ -498,56 +498,65 @@ class GriderDataCollector:
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
             driver.get(self.dashboard_url)
-            # 페이지가 JS를 로드하고 API 호출을 시작할 시간을 더 넉넉하게 줍니다.
-            time.sleep(5)
-            # 대기 시간을 20초로 늘려 데이터 로딩이 늦어지는 경우에 대비합니다.
-            wait = WebDriverWait(driver, 20)
-            
+            time.sleep(3) # JS 실행을 위한 최소 대기
+
             s_rider_list = self.selectors.get('daily_data', {})
-            rider_list_container = s_rider_list.get('container')
+            rider_list_container_selector = s_rider_list.get('container')
+            item_selector = s_rider_list.get('item')
+            full_item_selector = f"{rider_list_container_selector} {item_selector}"
 
-            if rider_list_container:
-                item_selector = s_rider_list.get('item')
-                full_item_selector = f"{rider_list_container} {item_selector}"
-                
+            for attempt in range(2): # 총 2번 시도
                 try:
-                    # 실제 데이터 항목이 로드될 때까지 기다리고, 그 결과를 직접 변수에 할당
+                    logger.info(f"데이터 수집 시도 #{attempt + 1}")
+                    wait = WebDriverWait(driver, 20)
+
+                    # 1단계: 컨테이너가 먼저 존재하는지 확인
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container_selector)))
+                    logger.info("✅ 라이더 목록 컨테이너 로드 완료.")
+
+                    # 2단계: 실제 데이터 항목이 나타나는지 확인
                     rider_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_item_selector)))
-                    logger.info("✅ 일간 라이더 목록 아이템 로드 완료.")
+                    logger.info(f"✅ 일간 라이더 목록 아이템 {len(rider_elements)}개 로드 완료.")
+                    
+                    # 성공 시 루프 탈출
+                    break
                 except TimeoutException:
-                    logger.warning("일간 라이더 데이터 항목을 기다렸지만 로드되지 않았습니다.")
-                    daily_data['daily_riders'] = []
-                    return daily_data
+                    logger.warning(f"시도 #{attempt + 1}에서 타임아웃 발생.")
+                    if attempt == 0:
+                        logger.info("페이지를 새로고침하고 다시 시도합니다.")
+                        driver.refresh()
+                        time.sleep(5) # 새로고침 후 JS 실행 대기
+                    else:
+                        logger.error("재시도 후에도 일간 라이더 데이터 항목을 로드하지 못했습니다.")
+                        daily_data['daily_riders'] = []
+                        return daily_data
+            
+            logger.info(f"{len(rider_elements)}명의 라이더 데이터를 파싱합니다.")
 
-                logger.info(f"{len(rider_elements)}명의 라이더 데이터를 파싱합니다.")
-
-                for rider_element in rider_elements:
-                    try:
-                        def get_stat(stat_name_key):
-                            selector = s_rider_list.get(stat_name_key)
-                            if not selector: return 0
-                            node = rider_element.find_element(By.CSS_SELECTOR, selector)
-                            return self._get_safe_number(node.text.strip())
+            for rider_element in rider_elements:
+                try:
+                    def get_stat(stat_name_key):
+                        selector = s_rider_list.get(stat_name_key)
+                        if not selector: return 0
+                        node = rider_element.find_element(By.CSS_SELECTOR, selector)
+                        return self._get_safe_number(node.text.strip())
  
-                        rider_list.append({
-                            'name': rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip(),
-                            '완료': get_stat('complete_count'),
-                            '거절': get_stat('reject_count'),
-                            '배차취소': get_stat('accept_cancel_count'),
-                            '배달취소': get_stat('accept_cancel_rider_fault_count'),
-                            '아침점심피크': get_stat('morning_count'),
-                            '오후논피크': get_stat('afternoon_count'),
-                            '저녁피크': get_stat('evening_count'),
-                            '심야논피크': get_stat('midnight_count'),
-                        })
-                    except Exception as e:
-                        logger.warning(f"라이더 데이터 한 항목을 파싱하는 중 오류: {e}")
-                        continue
+                    rider_list.append({
+                        'name': rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip(),
+                        '완료': get_stat('complete_count'),
+                        '거절': get_stat('reject_count'),
+                        '배차취소': get_stat('accept_cancel_count'),
+                        '배달취소': get_stat('accept_cancel_rider_fault_count'),
+                        '아침점심피크': get_stat('morning_count'),
+                        '오후논피크': get_stat('afternoon_count'),
+                        '저녁피크': get_stat('evening_count'),
+                        '심야논피크': get_stat('midnight_count'),
+                    })
+                except Exception as e:
+                    logger.warning(f"라이더 데이터 한 항목을 파싱하는 중 오류: {e}")
+                    continue
 
-                daily_data['daily_riders'] = rider_list
-            else:
-                logger.warning(f"일간 라이더 목록 컨테이너({s_rider_list.get('container')})를 찾을 수 없습니다.")
-                daily_data['daily_riders'] = []
+            daily_data['daily_riders'] = rider_list
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
         return daily_data
@@ -712,7 +721,6 @@ class GriderDataCollector:
             driver = self._get_driver()
             
             # 1. 일간 라이더 데이터 수집
-            driver.get(self.dashboard_url)
             daily_data = self._parse_daily_rider_data(driver)
             collected_data.update(daily_data)
             
