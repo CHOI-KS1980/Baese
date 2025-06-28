@@ -521,21 +521,21 @@ class GriderDataCollector:
 
                 for rider_element in rider_elements:
                     try:
-                        name = rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip()
                         def get_stat(stat_name_key):
                             selector = s_rider_list.get(stat_name_key)
-                            node = rider_element.select_one(selector) if selector else None
-                            return self._get_safe_number(node.get_text(strip=True)) if node else 0
-
+                            if not selector: return 0
+                            node = rider_element.find_element(By.CSS_SELECTOR, selector)
+                            return self._get_safe_number(node.text.strip())
+ 
                         rider_list.append({
-                            'name': name,
+                            'name': rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip(),
                             '완료': get_stat('complete_count'),
                             '거절': get_stat('reject_count'),
                             '배차취소': get_stat('accept_cancel_count'),
                             '배달취소': get_stat('accept_cancel_rider_fault_count'),
                         })
                     except Exception as e:
-                        logger.warning(f"라이더 데이터 파싱 중 오류 발생: {e}")
+                        logger.warning(f"라이더 데이터 한 항목을 파싱하는 중 오류: {e}")
                         continue
 
                 daily_data['daily_riders'] = rider_list
@@ -545,6 +545,20 @@ class GriderDataCollector:
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
         return daily_data
+
+    def _parse_mission_string(self, text: str):
+        """'47/31건 (+3점)' 형태의 문자열을 딕셔너리로 파싱합니다."""
+        if not text:
+            return {'current': 0, 'target': 0, 'score': '0'}
+        
+        counts_match = re.search(r'(\d+)/(\d+)건', text)
+        score_match = re.search(r'\\((.+?)\\)', text)
+        
+        current = int(counts_match.group(1)) if counts_match else 0
+        target = int(counts_match.group(2)) if counts_match else 0
+        score = score_match.group(1).replace('점', '') if score_match else '0'
+        
+        return {'current': current, 'target': target, 'score': score}
 
     def _parse_mission_data(self, driver):
         """SLA 페이지에서 오늘 날짜에 해당하는 미션 데이터를 파싱합니다."""
@@ -585,10 +599,17 @@ class GriderDataCollector:
                     date_cell = row.find_element(By.CSS_SELECTOR, s_date_cell)
                     if date_cell.text.strip() == today_str:
                         mission_data['일일미션점수'] = row.find_element(By.CSS_SELECTOR, s_score_cell).text.strip()
-                        mission_data['아침점심피크'] = row.find_element(By.CSS_SELECTOR, s_morning_peak).text.strip().replace('\\n', ' ')
-                        mission_data['오후논피크'] = row.find_element(By.CSS_SELECTOR, s_afternoon_peak).text.strip().replace('\\n', ' ')
-                        mission_data['저녁피크'] = row.find_element(By.CSS_SELECTOR, s_evening_peak).text.strip().replace('\\n', ' ')
-                        mission_data['심야논피크'] = row.find_element(By.CSS_SELECTOR, s_midnight_peak).text.strip().replace('\\n', ' ')
+                        
+                        raw_morning = row.find_element(By.CSS_SELECTOR, s_morning_peak).text.strip().replace('\\n', ' ')
+                        raw_afternoon = row.find_element(By.CSS_SELECTOR, s_afternoon_peak).text.strip().replace('\\n', ' ')
+                        raw_evening = row.find_element(By.CSS_SELECTOR, s_evening_peak).text.strip().replace('\\n', ' ')
+                        raw_midnight = row.find_element(By.CSS_SELECTOR, s_midnight_peak).text.strip().replace('\\n', ' ')
+
+                        mission_data['아침점심피크'] = self._parse_mission_string(raw_morning)
+                        mission_data['오후논피크'] = self._parse_mission_string(raw_afternoon)
+                        mission_data['저녁피크'] = self._parse_mission_string(raw_evening)
+                        mission_data['심야논피크'] = self._parse_mission_string(raw_midnight)
+                        
                         found = True
                         logger.info(f"✅ {today_str} 미션 데이터 파싱 완료: {mission_data}")
                         break
@@ -811,97 +832,87 @@ class GriderAutoSender:
             filled_blocks = round(contribution / 20)
             return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
 
-        try:
-            header = "심플 배민 플러스 미션 알리미"
-
-            peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
-            peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-            peak_start_hours = { '아침점심피크': 10, '오후논피크': 14, '저녁피크': 17, '심야논피크': 21 }
+        def format_peak_mission(title: str, details: dict) -> str:
+            if not details:
+                return f"  - {title}: 정보 없음"
             
-            peak_summary, alerts = "", []
-            current_hour = get_korea_time().hour
+            if details and details.get('target', 0) > 0:
+                progress = (details.get('current', 0) / details.get('target', 0)) * 100
+                bar = get_acceptance_progress_bar(progress)
+                return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점) {bar}"
+            else:
+                return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점)"
 
-            for peak in peak_order:
-                if current_hour < peak_start_hours.get(peak, 0): continue
-                details = data.get(peak, {'current': 0, 'target': 0})
-                emoji = peak_emojis.get(peak, '❓')
-                
-                if details and details.get('target', 0) > 0:
-                    is_achieved = details['current'] >= details['target']
-                    shortfall = details['target'] - details['current']
-                    status_icon = "✅ (달성)" if is_achieved else f"❌ ({shortfall}건 부족)"
-                    peak_summary += f"{emoji} {peak}: {details['current']}/{details['target']} {status_icon}\n"
-                    if not is_achieved and shortfall > 0:
-                        alerts.append(f"{peak.replace('피크','')} {shortfall}건")
-                else:
-                     peak_summary += f"{emoji} {peak}: 데이터 없음\n"
+        mission_details = []
+        if data.get('mission_data'):
+            mission = data['mission_data']
+            mission_details.append(format_peak_mission('아침점심피크', mission.get('아침점심피크', {})))
+            mission_details.append(format_peak_mission('오후논피크', mission.get('오후논피크', {})))
+            mission_details.append(format_peak_mission('저녁피크', mission.get('저녁피크', {})))
+            mission_details.append(format_peak_mission('심야논피크', mission.get('심야논피크', {})))
 
-            peak_summary = peak_summary.strip() or "ℹ️ 아직 시작된 당일 미션이 없습니다."
+        mission_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다." if not mission_details else "\n".join(mission_details)
 
-            # 일간 라이더 실적 요약
-            all_daily_riders = data.get('daily_riders', []) 
-            daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
-            daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
-            daily_total_for_rate = daily_total_completed + daily_total_rejected
-            daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100
+        # 일간 라이더 실적 요약
+        all_daily_riders = data.get('daily_riders', []) 
+        daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
+        daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
+        daily_total_for_rate = daily_total_completed + daily_total_rejected
+        daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100
 
-            daily_rider_summary = (
-                "📈 일간 라이더 실적 요약\n"
-                f"완료: {daily_total_completed}  거절: {daily_total_rejected}\n"
-                f"수락률: {daily_acceptance_rate:.1f}%\n"
-                f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
+        daily_rider_summary = (
+            "📈 일간 라이더 실적 요약\n"
+            f"완료: {daily_total_completed}  거절: {daily_total_rejected}\n"
+            f"수락률: {daily_acceptance_rate:.1f}%\n"
+            f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
+        )
+
+        # 이번주 미션 예상 점수
+        total_score, quantity_score, acceptance_score = data.get('예상총점수', 0), data.get('물량점수', 0), data.get('수락률점수', 0)
+        weekly_acceptance_rate = float(data.get('수락률', 0))
+        weekly_completed, weekly_rejected = data.get('총완료', 0), data.get('총거절', 0)
+
+        weekly_summary = (
+            "📊 이번주 미션 예상점수\n"
+            f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
+            f"완료: {weekly_completed}  거절: {weekly_rejected}\n"
+            f"수락률: {weekly_acceptance_rate:.1f}%\n"
+            f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
+        )
+
+        weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
+
+        # 라이더 순위 (일간)
+        active_riders = sorted([r for r in all_daily_riders if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
+        total_daily_count = sum(r.get('완료', 0) for r in active_riders)
+        
+        rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
+        for i, rider in enumerate(active_riders[:5]):
+            rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
+            contribution = (rider.get('완료', 0) / total_daily_count * 100) if total_daily_count > 0 else 0
+            rider_name = rider.get('name', '이름없음').replace('(본인)', '').strip()
+            
+            peak_counts_str = ' '.join([f"{peak_emojis.get(p, '❓')}{rider.get(p, 0)}" for p in peak_order])
+            
+            rider_completed = rider.get('완료', 0)
+            rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
+            rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100
+            
+            rider_ranking_summary += (
+                f"**{rank_icon} {rider_name}** | {get_rider_progress_bar(contribution)} {contribution:.1f}%\n"
+                f"    총 {rider_completed}건 ({peak_counts_str})\n"
+                f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider.get('거절',0)}, 취소:{rider.get('배차취소',0)+rider.get('배달취소',0)})"
             )
+            if i < len(active_riders) - 1 and i < 4:
+                rider_ranking_summary += "\n"
 
-            # 이번주 미션 예상 점수
-            total_score, quantity_score, acceptance_score = data.get('예상총점수', 0), data.get('물량점수', 0), data.get('수락률점수', 0)
-            weekly_acceptance_rate = float(data.get('수락률', 0))
-            weekly_completed, weekly_rejected = data.get('총완료', 0), data.get('총거절', 0)
-
-            weekly_summary = (
-                "📊 이번주 미션 예상점수\n"
-                f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-                f"완료: {weekly_completed}  거절: {weekly_rejected}\n"
-                f"수락률: {weekly_acceptance_rate:.1f}%\n"
-                f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
-            )
-
-            weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
-
-            # 라이더 순위 (일간)
-            active_riders = sorted([r for r in all_daily_riders if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
-            total_daily_count = sum(r.get('완료', 0) for r in active_riders)
-            
-            rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
-            for i, rider in enumerate(active_riders[:5]):
-                rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
-                contribution = (rider.get('완료', 0) / total_daily_count * 100) if total_daily_count > 0 else 0
-                rider_name = rider.get('name', '이름없음').replace('(본인)', '').strip()
-                
-                peak_counts_str = ' '.join([f"{peak_emojis.get(p, '❓')}{rider.get(p, 0)}" for p in peak_order])
-                
-                rider_completed = rider.get('완료', 0)
-                rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
-                rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100
-                
-                rider_ranking_summary += (
-                    f"**{rank_icon} {rider_name}** | {get_rider_progress_bar(contribution)} {contribution:.1f}%\n"
-                    f"    총 {rider_completed}건 ({peak_counts_str})\n"
-                    f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider.get('거절',0)}, 취소:{rider.get('배차취소',0)+rider.get('배달취소',0)})"
-                )
-                if i < len(active_riders) - 1 and i < 4:
-                    rider_ranking_summary += "\n"
-
-            alert_summary = "⚠️ 미션 부족: " + ", ".join(alerts) if alerts else ""
-            
-            message_parts = [
-                header, peak_summary, daily_rider_summary, weather_summary, 
-                weekly_summary, rider_ranking_summary, alert_summary
-            ]
-            return "\n\n".join(filter(None, message_parts))
-
-        except Exception as e:
-            logger.error(f" 메시지 포맷팅 실패: {e}", exc_info=True)
-            return "리포트 생성 중 오류가 발생했습니다."
+        alert_summary = "⚠️ 미션 부족: " + ", ".join(alerts) if alerts else ""
+        
+        message_parts = [
+            header, mission_summary, daily_rider_summary, weather_summary, 
+            weekly_summary, rider_ranking_summary, alert_summary
+        ]
+        return "\n\n".join(filter(None, message_parts))
 
 def load_config():
     """환경변수 또는 .env 파일에서 설정 로드"""
