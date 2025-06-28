@@ -482,8 +482,34 @@ class GriderDataCollector:
                 logger.info("iframe을 찾을 수 없음. 메인 문서에서 테이블 검색 계속.")
                 pass
             
-            # 미션 테이블이 나타날 때까지 대기
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['mission_table']['container'])))
+            # 미션 테이블이 나타날 때까지 대기 - 여러 선택자 시도
+            mission_container_found = False
+            possible_containers = [
+                ".mission-summary-container",
+                "table",
+                ".table",
+                "#missionSlaTable",
+                ".content",
+                "body"  # 최후의 수단
+            ]
+            
+            for container_selector in possible_containers:
+                try:
+                    # 각 선택자를 5초씩만 시도
+                    short_wait = WebDriverWait(self.driver, 5)
+                    short_wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, container_selector)))
+                    logger.info(f"✅ 컨테이너 발견: {container_selector}")
+                    # 선택자를 실제로 찾은 것으로 업데이트
+                    self.selectors['mission_table']['container'] = container_selector
+                    mission_container_found = True
+                    break
+                except TimeoutException:
+                    logger.info(f"❌ 컨테이너 없음: {container_selector}")
+                    continue
+            
+            if not mission_container_found:
+                raise Exception("어떤 미션 컨테이너도 찾을 수 없습니다.")
+                
             logger.info("SLA 페이지에서 미션 테이블 확인 완료.")
             time.sleep(3) # 데이터 로딩을 위한 추가 대기
             
