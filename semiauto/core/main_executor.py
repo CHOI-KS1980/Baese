@@ -535,10 +535,9 @@ class GriderAutoSender:
         self.collector = GriderDataCollector()
         self.kakao_sender = None
         if rest_api_key and refresh_token:
-            token_manager = TokenManager(rest_api_key, refresh_token)
-            access_token = token_manager.get_valid_token()
-            if access_token:
-                self.kakao_sender = KakaoSender(access_token)
+            tm = TokenManager(rest_api_key, refresh_token)
+            token = tm.get_valid_token()
+            if token: self.kakao_sender = KakaoSender(token)
         self.weather_service = KMAWeatherService()
 
     def save_dashboard_data(self, data: dict):
@@ -565,17 +564,17 @@ class GriderAutoSender:
 
     def send_report(self):
         data = self.collector.collect_all_data()
-        self.save_dashboard_data(data)
-        
         if data.get('metadata', {}).get('error'):
-            logger.error(f"데이터 수집 중 오류가 발생하여 리포트를 전송하지 않습니다: {data['metadata']['error']}")
-            return
+            logger.error(f"데이터 수집 실패로 리포트 전송 안함: {data['metadata']['error']}")
+            return False
         
         message = self.format_message(data)
         if self.kakao_sender:
             self.kakao_sender.send_text_message(message)
+            return True
         else:
-            logger.error("카카오톡 발신기가 초기화되지 않아 메시지를 보낼 수 없습니다.")
+            logger.error("카카오 발신기가 초기화되지 않아 메시지를 보낼 수 없습니다.")
+            return False
 
     def format_message(self, data):
         try:
@@ -695,27 +694,19 @@ class GriderAutoSender:
 
 def main():
     load_dotenv()
-    
-    holiday_api_key = os.getenv("HOLIDAY_API_KEY")
-    if holiday_api_key:
-        # 이 변수는 전역 holiday_checker 인스턴스에 의해 사용됩니다.
-        pass
-    else:
-        logging.warning("HOLIDAY_API_KEY가 설정되지 않아 공휴일 정보를 로드할 수 없습니다.")
-
-    logging.info("==================================================")
-    logging.info(" G-Rider 자동화 스크립트 시작")
-    logging.info("==================================================")
+    logging.info("="*50 + "\n G-Rider 자동화 스크립트 시작\n" + "="*50)
     
     executor = GriderAutoSender(
         rest_api_key=os.getenv("KAKAO_REST_API_KEY"),
         refresh_token=os.getenv("KAKAO_REFRESH_TOKEN")
     )
-    executor.send_report()
+    success = executor.send_report()
     
-    logging.info("==================================================")
-    logging.info(" G-Rider 자동화 스크립트 종료")
-    logging.info("==================================================")
+    logging.info("="*50 + "\n G-Rider 자동화 스크립트 종료\n" + "="*50)
+
+    if not success:
+        logging.error("스크립트 실행 중 오류가 발생하여 실패로 종료합니다.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

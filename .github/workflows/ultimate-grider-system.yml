@@ -38,7 +38,6 @@ jobs:
         id: run-script
         run: |
           python semiauto/core/main_executor.py
-        continue-on-error: true
 
       - name: 디버그 아티팩트 업로드 (실패 시)
         if: failure()
