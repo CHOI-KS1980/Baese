@@ -832,31 +832,48 @@ class GriderAutoSender:
             contribution = min(contribution, 100)
             filled_blocks = round(contribution / 20) # 5 blocks total
             return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
-
-        def format_peak_mission(title: str, details: dict) -> str:
-            if not details or not isinstance(details, dict):
-                return f"  - {title}: 정보 없음"
-            
-            if details.get('target', 0) > 0:
-                progress = (details.get('current', 0) / details.get('target', 0)) * 100
-                bar = get_acceptance_progress_bar(progress)
-                return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점) {bar}"
-            else:
-                return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점)"
-
-        header = f"🚀 G-Rider 리포트 ({get_korea_time().strftime('%Y-%m-%d %H:%M')})"
         
-        # 미션 요약
+        # 미션 시간 정의
+        MISSION_START_TIMES = {
+            '아침점심피크': 10,
+            '오후논피크': 14,
+            '저녁피크': 17,
+            '심야논피크': 21
+        }
+        korea_now = get_korea_time()
+        header = "심플 배민 플러스 미션 알리미"
+
+        # 미션 정보 (현재 시간에 따라 동적 표시)
         mission_details = []
-        if '아침점심피크' in data:
-            mission_details.append(format_peak_mission('아침점심피크', data.get('아침점심피크', {})))
-            mission_details.append(format_peak_mission('오후논피크', data.get('오후논피크', {})))
-            mission_details.append(format_peak_mission('저녁피크', data.get('저녁피크', {})))
-            mission_details.append(format_peak_mission('심야논피크', data.get('심야논피크', {})))
+        mission_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
+        mission_emojis_for_summary = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
         
-        mission_summary = "ℹ️  당일 미션 요약 (점수: " + data.get('일일미션점수', '0점') + ")\n" + ("\n".join(mission_details) if mission_details else "아직 시작된 미션이 없습니다.")
+        for mission_name in mission_order:
+            start_hour = MISSION_START_TIMES.get(mission_name)
+            if start_hour is not None and korea_now.hour >= start_hour:
+                details = data.get(mission_name)
+                if details and isinstance(details, dict):
+                    current = details.get('current', 0)
+                    target = details.get('target', 0)
+                    emoji = mission_emojis_for_summary.get(mission_name, '')
+                    status = " ✅ (달성)" if target > 0 and current >= target else ""
+                    mission_details.append(f"{emoji} {mission_name}: {current}/{target}{status}")
+        mission_summary = "\n".join(mission_details)
+
+        # 금일 수행 내역
+        all_daily_riders = data.get('daily_riders', []) 
+        daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
+        daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
+        daily_total_for_rate = daily_total_completed + daily_total_rejected
+        daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100.0
+        daily_rider_summary = (
+            f"📈 금일 수행 내역\n"
+            f"완료: {daily_total_completed}  거절(취소포함): {daily_total_rejected}\n"
+            f"수락률: {daily_acceptance_rate:.1f}%\n"
+            f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
+        )
         
-        # 주간 요약
+        # 이번주 미션 예상점수
         total_score = data.get('예상총점수', '0')
         quantity_score = data.get('물량점수', '0')
         acceptance_score = data.get('수락률점수', '0')
@@ -864,24 +881,13 @@ class GriderAutoSender:
         weekly_completed = data.get('총완료', 0)
         weekly_rejected = data.get('총거절', 0)
         weekly_summary = (
-            f"📊 이번주 미션 예상\n"
+            f"📊 이번주 미션 예상점수\n"
             f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-            f"실적: 완료 {weekly_completed} / 거절 {weekly_rejected}\n"
-            f"수락률: {weekly_acceptance_rate:.2f}% {get_acceptance_progress_bar(weekly_acceptance_rate)}"
+            f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected}\n"
+            f"수락률: {weekly_acceptance_rate:.1f}%\n"
+            f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
         )
 
-        # 일간 라이더 실적 요약
-        all_daily_riders = data.get('daily_riders', []) 
-        daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
-        daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
-        daily_total_for_rate = daily_total_completed + daily_total_rejected
-        daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100.0
-        daily_rider_summary = (
-            f"📈 오늘 라이더 실적 ({len(all_daily_riders)}명 운행)\n"
-            f"실적: 완료 {daily_total_completed} / 거절 {daily_total_rejected}\n"
-            f"수락률: {daily_acceptance_rate:.2f}% {get_acceptance_progress_bar(daily_acceptance_rate)}"
-        )
-        
         # 라이더 순위 (상세)
         rider_ranking_summary = ""
         if all_daily_riders:
@@ -889,22 +895,25 @@ class GriderAutoSender:
             total_daily_count = sum(r.get('완료', 0) for r in active_riders)
             
             if active_riders:
-                rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
+                ranking_list = [f"🏆 라이더 순위 (운행: {len(active_riders)}명)"]
                 for i, rider in enumerate(active_riders[:5]): # Top 5
                     rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
                     contribution = (rider.get('완료', 0) / total_daily_count * 100) if total_daily_count > 0 else 0
                     rider_name = rider.get('name', '이름없음').replace('(본인)', '').strip()
                     
                     rider_completed = rider.get('완료', 0)
-                    rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
+                    rider_rejected = rider.get('거절', 0)
+                    rider_canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
+                    rider_fail = rider_rejected + rider_canceled
                     rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100.0
                     
-                    rider_ranking_summary += (
+                    rider_details = (
                         f"**{rank_icon} {rider_name}** | {get_rider_progress_bar(contribution)} {contribution:.1f}%\n"
-                        f"    총 {rider_completed}건, 수락률: {rider_acceptance_rate:.1f}% (거절:{rider.get('거절',0)}, 취소:{rider.get('배차취소',0)+rider.get('배달취소',0)})"
+                        f"    총 {rider_completed}건\n"
+                        f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider_rejected}, 취소:{rider_canceled})"
                     )
-                    if i < len(active_riders) - 1 and i < 4:
-                        rider_ranking_summary += "\n"
+                    ranking_list.append(rider_details)
+                rider_ranking_summary = "\n".join(ranking_list)
 
         weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
         
@@ -912,9 +921,9 @@ class GriderAutoSender:
             header,
             mission_summary,
             daily_rider_summary,
+            weather_summary,
             weekly_summary,
             rider_ranking_summary,
-            weather_summary,
         ]
         return "\n\n".join(filter(None, message_parts))
 
