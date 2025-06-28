@@ -362,7 +362,7 @@ class GriderDataCollector:
         """SLA 페이지에서 주간 요약 점수와 라이더 실적 데이터를 파싱하고 계산합니다."""
         weekly_data = {}
         try:
-            driver.get(self.sla_url)
+            # driver.get(self.sla_url) # 대시보드에 모든 정보가 있으므로 페이지 이동 불필요
             wait = WebDriverWait(driver, 20) # 대기시간 20초로 증가
 
             # 1. 주간 요약 점수 파싱 (카드에 표시된 점수만 가져옴)
@@ -447,19 +447,22 @@ class GriderDataCollector:
             wait = WebDriverWait(driver, 20)
 
             # 1. 일일 총계 데이터 파싱
-            try:
-                total_container_selector = s_daily.get('total_row_header')
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
-                
-                daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
-                daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
-                cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
-                cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
-                daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
-                logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
-            except Exception as e:
-                logger.error(f"일일 총계 데이터 파싱 중 오류: {e}", exc_info=True)
-                daily_data.update({'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0})
+            total_container_selector = s_daily.get('total_container')
+            if total_container_selector:
+                try:
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
+                    
+                    daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
+                    daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
+                    cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
+                    cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
+                    daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
+                    logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
+                except Exception as e:
+                    logger.error(f"일일 총계 데이터 파싱 중 오류: {e}", exc_info=True)
+                    daily_data.update({'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0})
+            else:
+                logger.warning("일일 총계 컨테이너 선택자를 찾을 수 없습니다.")
 
             # 2. 개별 라이더 데이터 파싱
             rider_list_container_selector = s_daily.get('container')

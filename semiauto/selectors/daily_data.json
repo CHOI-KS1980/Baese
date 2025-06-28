@@ -1,5 +1,5 @@
 {
-  "container": ".rider_list_area.row",
+  "container": ".rider_container.column",
   "item": ".rider_item",
   "name": ".rider_name",
   "complete_count": ".complete_count",
@@ -10,9 +10,10 @@
   "afternoon_count": ".afternoon_peak_count",
   "evening_count": ".evening_peak_count",
   "midnight_count": ".midnight_peak_count",
-  "total_row_header": ".total_info_area .total_info_title",
-  "daily_total_complete": ".total_info_contents .complete_count",
-  "daily_total_reject": ".total_info_contents .reject_count",
-  "daily_total_accept_cancel": ".total_info_contents .accept_cancel_count",
-  "daily_total_accept_cancel_rider_fault": ".total_info_contents .accept_cancel_rider_fault_count"
+  
+  "total_container": ".rider_th.total_value_th",
+  "daily_total_complete": "div[data-total_value='complete_count']",
+  "daily_total_reject": "div[data-total_value='reject_count']",
+  "daily_total_accept_cancel": "div[data-total_value='accept_cancel_count']",
+  "daily_total_accept_cancel_rider_fault": "div[data-total_value='accept_cancel_rider_fault_count']"
 } 
