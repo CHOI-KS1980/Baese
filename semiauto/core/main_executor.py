@@ -363,15 +363,18 @@ class GriderDataCollector:
         weekly_data = {}
         try:
             driver.get(self.sla_url)
-            time.sleep(2) # 페이지 전환을 위한 대기
-            wait = WebDriverWait(driver, 10)
+            wait = WebDriverWait(driver, 20) # 대기시간 20초로 증가
 
             # 1. 주간 요약 점수 파싱 (카드에 표시된 점수만 가져옴)
             summary_scores = {}
             s_summary = self.selectors.get('weekly_summary', {})
             summary_container_selector = s_summary.get('summary', {}).get('container')
             if summary_container_selector:
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, summary_container_selector)))
+                # 점수 카드가 모두 나타날 때까지 대기
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('summary', {}).get('total_score'))))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('summary', {}).get('quantity_score'))))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_summary.get('summary', {}).get('acceptance_score'))))
+                
                 summary_scores['예상총점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('total_score')).text.strip()
                 summary_scores['물량점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('quantity_score')).text.strip()
                 summary_scores['수락률점수'] = driver.find_element(By.CSS_SELECTOR, s_summary.get('summary', {}).get('acceptance_score')).text.strip()
@@ -472,7 +475,14 @@ class GriderDataCollector:
             for rider_element in rider_elements:
                 try:
                     name_element = rider_element.find_element(By.CSS_SELECTOR, s_daily.get('name'))
-                    name = name_element.text.strip()
+                    # 이름 추출 로직 수정: 자식 요소의 텍스트를 제거하여 순수 텍스트 노드만 남김
+                    full_text = name_element.text
+                    child_spans = name_element.find_elements(By.TAG_NAME, 'span')
+                    name_only = full_text
+                    for span in child_spans:
+                        name_only = name_only.replace(span.text, '')
+                    name = name_only.strip()
+
                     if not name:
                         logger.warning(f"라이더 이름이 비어있어 건너뜁니다. 해당 행 HTML: {rider_element.get_attribute('outerHTML')}")
                         continue
@@ -539,7 +549,7 @@ class GriderDataCollector:
             today_str = self._get_mission_date()
             logger.info(f"오늘 날짜({today_str})의 미션 데이터 파싱을 시작합니다.")
             
-            wait = WebDriverWait(driver, 10)
+            wait = WebDriverWait(driver, 20) # 대기 시간 20초로 증가
             
             container_selector = s_mission_table.get('container')
             if not container_selector:
@@ -549,7 +559,9 @@ class GriderDataCollector:
             # 미션 테이블의 실제 데이터 행이 로드될 때까지 대기
             row_selector = s_mission_table.get('rows')
             full_row_selector = f"{container_selector} {row_selector}"
-            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_row_selector)))
+            
+            # 최소 1개 이상의 행이 나타날 때까지 기다림
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, full_row_selector)))
             
             rows = driver.find_elements(By.CSS_SELECTOR, full_row_selector)
             
