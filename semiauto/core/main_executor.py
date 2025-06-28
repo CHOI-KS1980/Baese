@@ -552,7 +552,7 @@ class GriderDataCollector:
             return {'current': 0, 'target': 0, 'score': '0'}
         
         counts_match = re.search(r'(\d+)/(\d+)건', text)
-        score_match = re.search(r'\\((.+?)\\)', text)
+        score_match = re.search(r'\((.+?)\)', text)
         
         current = int(counts_match.group(1)) if counts_match else 0
         target = int(counts_match.group(2)) if counts_match else 0
@@ -822,95 +822,80 @@ class GriderAutoSender:
         """카카오톡 전송을 위한 메시지 포맷팅"""
         
         def get_acceptance_progress_bar(percentage: float) -> str:
-            if not 0 <= percentage <= 100: return ""
+            if not isinstance(percentage, (int, float)) or not 0 <= percentage <= 100: 
+                return ""
             filled_blocks = round(percentage / 10)
             return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
-        def get_rider_progress_bar(contribution: float) -> str:
-            if not isinstance(contribution, (int, float)) or contribution < 0: contribution = 0
-            contribution = min(contribution, 100)
-            filled_blocks = round(contribution / 20)
-            return '🟩' * filled_blocks + '⬜' * (5 - filled_blocks)
-
         def format_peak_mission(title: str, details: dict) -> str:
-            if not details:
+            if not details or not isinstance(details, dict):
                 return f"  - {title}: 정보 없음"
             
-            if details and details.get('target', 0) > 0:
+            if details.get('target', 0) > 0:
                 progress = (details.get('current', 0) / details.get('target', 0)) * 100
                 bar = get_acceptance_progress_bar(progress)
                 return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점) {bar}"
             else:
                 return f"  - {title}: {details.get('current', 0)}/{details.get('target', 0)}건 ({details.get('score')}점)"
 
+        # 미션 요약
         mission_details = []
-        if data.get('mission_data'):
-            mission = data['mission_data']
-            mission_details.append(format_peak_mission('아침점심피크', mission.get('아침점심피크', {})))
-            mission_details.append(format_peak_mission('오후논피크', mission.get('오후논피크', {})))
-            mission_details.append(format_peak_mission('저녁피크', mission.get('저녁피크', {})))
-            mission_details.append(format_peak_mission('심야논피크', mission.get('심야논피크', {})))
+        # _parse_mission_data가 반환한 키가 data 딕셔너리에 직접 포함되었는지 확인
+        if '아침점심피크' in data:
+            mission_details.append(format_peak_mission('아침점심피크', data.get('아침점심피크', {})))
+            mission_details.append(format_peak_mission('오후논피크', data.get('오후논피크', {})))
+            mission_details.append(format_peak_mission('저녁피크', data.get('저녁피크', {})))
+            mission_details.append(format_peak_mission('심야논피크', data.get('심야논피크', {})))
+        
+        mission_summary = "ℹ️  당일 미션 요약 (점수: " + data.get('일일미션점수', '0점') + ")\n" + ("\n".join(mission_details) if mission_details else "아직 시작된 미션이 없습니다.")
 
-        mission_summary = "ℹ️ 아직 시작된 당일 미션이 없습니다." if not mission_details else "\n".join(mission_details)
+        # 주간 요약
+        total_score = data.get('예상총점수', '0')
+        quantity_score = data.get('물량점수', '0')
+        acceptance_score = data.get('수락률점수', '0')
+        weekly_acceptance_rate = float(data.get('수락률', 0))
+        weekly_completed = data.get('총완료', 0)
+        weekly_rejected = data.get('총거절', 0)
+        weekly_summary = (
+            f"📊 이번주 미션 예상\n"
+            f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
+            f"실적: 완료 {weekly_completed} / 거절 {weekly_rejected}\n"
+            f"수락률: {weekly_acceptance_rate:.2f}% {get_acceptance_progress_bar(weekly_acceptance_rate)}"
+        )
 
         # 일간 라이더 실적 요약
         all_daily_riders = data.get('daily_riders', []) 
         daily_total_completed = sum(r.get('완료', 0) for r in all_daily_riders)
         daily_total_rejected = sum(r.get('거절', 0) + r.get('배차취소', 0) + r.get('배달취소', 0) for r in all_daily_riders)
         daily_total_for_rate = daily_total_completed + daily_total_rejected
-        daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100
-
+        daily_acceptance_rate = (daily_total_completed / daily_total_for_rate * 100) if daily_total_for_rate > 0 else 100.0
         daily_rider_summary = (
-            "📈 일간 라이더 실적 요약\n"
-            f"완료: {daily_total_completed}  거절: {daily_total_rejected}\n"
-            f"수락률: {daily_acceptance_rate:.1f}%\n"
-            f"{get_acceptance_progress_bar(daily_acceptance_rate)}"
+            f"📈 오늘 라이더 실적 ({len(all_daily_riders)}명 운행)\n"
+            f"실적: 완료 {daily_total_completed} / 거절 {daily_total_rejected}\n"
+            f"수락률: {daily_acceptance_rate:.2f}% {get_acceptance_progress_bar(daily_acceptance_rate)}"
         )
-
-        # 이번주 미션 예상 점수
-        total_score, quantity_score, acceptance_score = data.get('예상총점수', 0), data.get('물량점수', 0), data.get('수락률점수', 0)
-        weekly_acceptance_rate = float(data.get('수락률', 0))
-        weekly_completed, weekly_rejected = data.get('총완료', 0), data.get('총거절', 0)
-
-        weekly_summary = (
-            "📊 이번주 미션 예상점수\n"
-            f"총점: {total_score}점 (물량:{quantity_score}, 수락률:{acceptance_score})\n"
-            f"완료: {weekly_completed}  거절: {weekly_rejected}\n"
-            f"수락률: {weekly_acceptance_rate:.1f}%\n"
-            f"{get_acceptance_progress_bar(weekly_acceptance_rate)}"
-        )
+        
+        # 라이더 순위
+        rider_ranking_summary = ""
+        if data.get('daily_riders'):
+            sorted_riders = sorted([r for r in data['daily_riders'] if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)[:10]
+            if sorted_riders:
+                ranking_list = [f"🏆 오늘 운행 랭킹 Top {len(sorted_riders)}"]
+                for i, rider in enumerate(sorted_riders):
+                    ranking_list.append(f"{i+1}. {rider.get('name', '')} (완료:{rider.get('완료', 0)})")
+                rider_ranking_summary = "\n".join(ranking_list)
 
         weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
-
-        # 라이더 순위 (일간)
-        active_riders = sorted([r for r in all_daily_riders if r.get('완료', 0) > 0], key=lambda x: x.get('완료', 0), reverse=True)
-        total_daily_count = sum(r.get('완료', 0) for r in active_riders)
         
-        rider_ranking_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)\n"
-        for i, rider in enumerate(active_riders[:5]):
-            rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else f"  {i+1}."
-            contribution = (rider.get('완료', 0) / total_daily_count * 100) if total_daily_count > 0 else 0
-            rider_name = rider.get('name', '이름없음').replace('(본인)', '').strip()
-            
-            peak_counts_str = ' '.join([f"{peak_emojis.get(p, '❓')}{rider.get(p, 0)}" for p in peak_order])
-            
-            rider_completed = rider.get('완료', 0)
-            rider_fail = rider.get('거절', 0) + rider.get('배차취소', 0) + rider.get('배달취소', 0)
-            rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100
-            
-            rider_ranking_summary += (
-                f"**{rank_icon} {rider_name}** | {get_rider_progress_bar(contribution)} {contribution:.1f}%\n"
-                f"    총 {rider_completed}건 ({peak_counts_str})\n"
-                f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider.get('거절',0)}, 취소:{rider.get('배차취소',0)+rider.get('배달취소',0)})"
-            )
-            if i < len(active_riders) - 1 and i < 4:
-                rider_ranking_summary += "\n"
-
-        alert_summary = "⚠️ 미션 부족: " + ", ".join(alerts) if alerts else ""
+        header = f"🚀 G-Rider 리포트 ({get_korea_time().strftime('%Y-%m-%d %H:%M')})"
         
         message_parts = [
-            header, mission_summary, daily_rider_summary, weather_summary, 
-            weekly_summary, rider_ranking_summary, alert_summary
+            header,
+            mission_summary,
+            daily_rider_summary,
+            weekly_summary,
+            rider_ranking_summary,
+            weather_summary,
         ]
         return "\n\n".join(filter(None, message_parts))
 
