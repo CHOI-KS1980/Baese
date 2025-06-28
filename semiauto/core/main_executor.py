@@ -458,54 +458,49 @@ class GriderDataCollector:
         return 0
 
     def collect_all_data(self):
-        """모든 데이터를 수집하고 구조화합니다."""
-        all_data = {
-            "weekly_summary": {},
-            "mission_data": {},
-            "daily_data": {},
-            "metadata": {}
-        }
-        self.driver = None
-
         try:
             self.driver = self._get_driver()
-            if not self._login(self.driver):
-                raise Exception("로그인 함수 실패")
+            self._login(self.driver)
+            wait = WebDriverWait(self.driver, 20)
 
-            # SLA 페이지로 이동하여 모든 데이터 수집
-            self.driver.get(self.base_url + "/dashboard/sla")
-            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['mission_table']['container'])))
+            # 1. 주간/미션 데이터 수집 from /orders/sla/list
+            self.driver.get(self.base_url + "/orders/sla/list")
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['mission_table']['container'])))
             time.sleep(2) # 데이터 로딩 대기
             
-            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+            soup_sla = BeautifulSoup(self.driver.page_source, 'html.parser')
+            weekly_summary = self._parse_weekly_summary(soup_sla)
+            mission_data = self._parse_mission_data(soup_sla)
             
-            all_data['weekly_summary'] = self._parse_weekly_summary(soup)
-            all_data['mission_data'] = self._parse_mission_data(soup)
-            
-            # 대시보드로 다시 이동
+            # 2. 일일 라이더 데이터 수집 from /dashboard
             self.driver.get(self.base_url + "/dashboard")
-            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['daily_data']['container'])))
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['daily_data']['container'])))
             time.sleep(2) # 데이터 로딩 대기
             
             soup_daily = BeautifulSoup(self.driver.page_source, 'html.parser')
             daily_data = self._parse_daily_data(soup_daily)
 
-            all_data['daily_data'] = daily_data
-            all_data['metadata'] = {
-                'report_date': get_korea_time().strftime('%Y-%m-%d'),
-                'error': None
+            return {
+                "weekly_summary": weekly_summary,
+                "mission_data": mission_data,
+                "daily_data": daily_data,
+                "metadata": {'report_date': get_korea_time().strftime('%Y-%m-%d')}
             }
         except Exception as e:
             logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
             if self.driver:
-                self._save_page_source(self.driver, "collect_all_data_exception")
-            all_data['metadata']['error'] = str(e)
+                # 디버깅을 위해 에러 발생 시의 페이지 소스를 저장
+                debug_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'debug')
+                os.makedirs(debug_dir, exist_ok=True)
+                filename = f"collect_data_error_{get_korea_time().strftime('%Y%m%d_%H%M%S')}.html"
+                filepath = os.path.join(debug_dir, filename)
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(self.driver.page_source)
+                logger.info(f"📄 디버깅을 위해 페이지 소스를 저장했습니다: {filepath}")
+            return {"metadata": {'error': str(e)}}
         finally:
             if self.driver:
                 self.driver.quit()
-                logger.info("WebDriver를 종료했습니다.")
-        
-        return all_data
 
 class GriderAutoSender:
     """G라이더 자동화 실행 및 카카오톡 전송 클래스"""
