@@ -273,7 +273,8 @@ class GriderDataCollector:
         self.sla_url = f"{self.base_url}{self.selectors.get('weekly_mission_data', {}).get('url_path', '/orders/sla/list')}"
 
         self.driver = None
-        self.token_manager = TokenManager()
+        self.grider_id = os.getenv('GRIDER_ID')
+        self.grider_password = os.getenv('GRIDER_PASSWORD')
         self.weather_api_key = os.getenv('WEATHER_API_KEY')
         self.holidays = []
 
@@ -313,9 +314,7 @@ class GriderDataCollector:
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
 
-            USER_ID = os.getenv('GRIDER_ID')
-            USER_PW = os.getenv('GRIDER_PASSWORD')
-            if not USER_ID or not USER_PW: raise Exception("G라이더 로그인 정보가 없습니다.")
+            if not self.grider_id or not self.grider_password: raise Exception("G라이더 로그인 정보가 없습니다.")
 
             login_url = f"{self.base_url}/login"
             logger.info(f"로그인 페이지로 이동: {login_url}")
@@ -324,8 +323,8 @@ class GriderDataCollector:
             # ID/PW 입력 필드가 나타날 때까지 명시적으로 대기
             WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'id')))
             
-            driver.find_element(By.ID, 'id').send_keys(USER_ID)
-            driver.find_element(By.ID, 'password').send_keys(USER_PW)
+            driver.find_element(By.ID, 'id').send_keys(self.grider_id)
+            driver.find_element(By.ID, 'password').send_keys(self.grider_password)
             driver.find_element(By.ID, 'loginBtn').click()
             WebDriverWait(driver, 30).until(EC.url_contains('/dashboard'))
             logger.info("✅ 로그인 성공")
@@ -592,6 +591,31 @@ class GriderDataCollector:
             return f"🌍 오늘의 날씨 (기상청)\n{am_line}\n{pm_line}".strip()
         except Exception:
             return "🌍 오늘의 날씨 (기상청)\n날씨 정보 조회 불가"
+
+    def _perform_login(self):
+        """G라이더 웹사이트에 로그인하고 드라이버 객체를 반환합니다."""
+        driver = self._get_driver()
+        if not driver:
+            raise Exception("웹 드라이버를 초기화할 수 없습니다.")
+        
+        if not self.grider_id or not self.grider_password:
+            raise Exception("G라이더 ID 또는 비밀번호 환경 변수가 설정되지 않았습니다.")
+
+        self._login(driver)
+        return driver
+    
+    def _get_safe_number(self, text, to_float=False):
+        """문자열에서 숫자만 안전하게 추출합니다. 숫자가 없으면 0을 반환합니다."""
+        if text:
+            try:
+                if to_float:
+                    return float(text)
+                else:
+                    return int(text)
+            except ValueError:
+                return 0
+        else:
+            return 0
 
 class GriderAutoSender:
     """G-Rider 자동화 메시지 발송기"""
