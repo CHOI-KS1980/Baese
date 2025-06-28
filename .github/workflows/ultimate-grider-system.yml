@@ -30,8 +30,8 @@ jobs:
       - name: 🚀 파이썬 스크립트 실행
         run: python semiauto/core/main_executor.py
         env:
-          G_ID: ${{ secrets.G_ID }}
-          G_PW: ${{ secrets.G_PW }}
+          GRIDER_ID: ${{ secrets.GRIDER_ID }}
+          GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
           KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
           KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
