@@ -493,41 +493,58 @@ class GriderDataCollector:
 
     def _parse_daily_rider_data(self, driver):
         """대시보드에서 일간 라이더 데이터를 파싱합니다."""
+        daily_data = {}
         rider_list = []
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
+            driver.get(self.dashboard_url)
+            time.sleep(2) # 페이지 렌더링을 위한 추가 대기
             wait = WebDriverWait(driver, 10)
             
-            s_daily = self.selectors.get('daily_data', {})
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_daily.get('container'))))
-            logger.info("✅ 일간 라이더 목록이 로드되었습니다.")
+            s_rider_list = self.selectors.get('daily_data', {})
+            rider_list_container = s_rider_list.get('container')
 
-            soup = BeautifulSoup(driver.page_source, 'lxml')
-            
-            rider_list_container = soup.select_one(s_daily.get('container'))
-            if not rider_list_container:
-                logger.warning(f"일간 라이더 목록 컨테이너({s_daily.get('container')})를 찾을 수 없습니다.")
-                return {'daily_riders': []}
+            if rider_list_container:
+                item_selector = s_rider_list.get('item')
+                full_item_selector = f"{rider_list_container} {item_selector}"
                 
-            rider_items = rider_list_container.select(s_daily.get('item', '.rider_item'))
-            logger.info(f"{len(rider_items)}명의 라이더 데이터를 파싱합니다.")
+                try:
+                    # 실제 데이터 항목이 로드될 때까지 기다리고, 그 결과를 직접 변수에 할당
+                    rider_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_item_selector)))
+                    logger.info("✅ 일간 라이더 목록 아이템 로드 완료.")
+                except TimeoutException:
+                    logger.warning("일간 라이더 데이터 항목을 기다렸지만 로드되지 않았습니다.")
+                    daily_data['daily_riders'] = []
+                    return daily_data
 
-            for item in rider_items:
-                def get_stat(stat_name_key):
-                    selector = s_daily.get(stat_name_key)
-                    node = item.select_one(selector) if selector else None
-                    return self._get_safe_number(node.get_text(strip=True)) if node else 0
+                logger.info(f"{len(rider_elements)}명의 라이더 데이터를 파싱합니다.")
 
-                rider_list.append({
-                    'name': (item.select_one(s_daily.get('name')) or Tag(name='span')).get_text(strip=True),
-                    '완료': get_stat('complete_count'),
-                    '거절': get_stat('reject_count'),
-                    '배차취소': get_stat('accept_cancel_count'),
-                    '배달취소': get_stat('accept_cancel_rider_fault_count'),
-                })
+                for rider_element in rider_elements:
+                    try:
+                        name = rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip()
+                        def get_stat(stat_name_key):
+                            selector = s_rider_list.get(stat_name_key)
+                            node = rider_element.select_one(selector) if selector else None
+                            return self._get_safe_number(node.get_text(strip=True)) if node else 0
+
+                        rider_list.append({
+                            'name': name,
+                            '완료': get_stat('complete_count'),
+                            '거절': get_stat('reject_count'),
+                            '배차취소': get_stat('accept_cancel_count'),
+                            '배달취소': get_stat('accept_cancel_rider_fault_count'),
+                        })
+                    except Exception as e:
+                        logger.warning(f"라이더 데이터 파싱 중 오류 발생: {e}")
+                        continue
+
+                daily_data['daily_riders'] = rider_list
+            else:
+                logger.warning(f"일간 라이더 목록 컨테이너({s_rider_list.get('container')})를 찾을 수 없습니다.")
+                daily_data['daily_riders'] = []
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
-        return {'daily_riders': rider_list}
+        return daily_data
 
     def _parse_mission_data(self, driver):
         """SLA 페이지에서 오늘 날짜에 해당하는 미션 데이터를 파싱합니다."""
@@ -545,7 +562,8 @@ class GriderDataCollector:
                 return {}
             
             # 미션 테이블의 실제 데이터 행이 로드될 때까지 대기
-            full_row_selector = f"{container_selector} {s_mission_table.get('rows')}"
+            row_selector = s_mission_table.get('rows')
+            full_row_selector = f"{container_selector} {row_selector}"
             wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_row_selector)))
 
             s_date_cell = s_mission_table.get('date_cell')
