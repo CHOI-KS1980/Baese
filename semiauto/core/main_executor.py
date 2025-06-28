@@ -439,9 +439,23 @@ class GriderDataCollector:
             
         return weekly_data
 
+    def _get_text_excluding_children(self, element):
+        """특정 웹 요소에서 자식 노드를 제외한 순수 텍스트만 추출합니다."""
+        return self.driver.execute_script(
+            "var element = arguments[0];"
+            "var text = '';"
+            "for (var i = 0; i < element.childNodes.length; i++) {"
+            "    if (element.childNodes[i].nodeType === Node.TEXT_NODE) {"
+            "        text += element.childNodes[i].textContent.trim();"
+            "    }"
+            "}"
+            "return text;",
+            element
+        )
+
     def _parse_daily_rider_data(self, driver):
-        """대시보드에서 일간 라이더 데이터를 파싱합니다. (선택자 기반)"""
-        daily_data = {}
+        """대시보드에서 일간 라이더 데이터를 파싱합니다."""
+        daily_data = {'riders': [], 'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0}
         rider_list = []
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
@@ -455,10 +469,10 @@ class GriderDataCollector:
                 try:
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
                     
-                    daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
-                    daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
-                    cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
-                    cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
+                    daily_data['total_completed'] = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete'))))
+                    daily_data['total_rejected'] = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject'))))
+                    cancel_dispatch = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel'))))
+                    cancel_delivery = self._get_safe_number(self._get_text_excluding_children(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault'))))
                     daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
                     logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
                 except Exception as e:
@@ -495,14 +509,14 @@ class GriderDataCollector:
                     
                     rider_data = {'name': name}
                     
-                    rider_data['완료'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
-                    rider_data['거절'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
-                    rider_data['배차취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
-                    rider_data['배달취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
-                    rider_data['아침점심피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
-                    rider_data['오후논피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
-                    rider_data['저녁피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
-                    rider_data['심야논피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
+                    rider_data['완료'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count'))))
+                    rider_data['거절'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count'))))
+                    rider_data['배차취소'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count'))))
+                    rider_data['배달취소'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count'))))
+                    rider_data['오전'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count'))))
+                    rider_data['오후'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count'))))
+                    rider_data['저녁'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count'))))
+                    rider_data['심야'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count'))))
 
                     total_actions = sum(v for k, v in rider_data.items() if k != 'name')
                     if total_actions > 0:
@@ -522,7 +536,7 @@ class GriderDataCollector:
                     logger.warning(f"라이더 '{name_for_log}'의 데이터 파싱 중 예외 발생: {e}", exc_info=True)
                     continue
             
-            daily_data['daily_riders'] = rider_list
+            daily_data['riders'] = rider_list
             logger.info(f"✅ {len(rider_list)}명의 활동 라이더 데이터 파싱 완료.")
 
         except TimeoutException:
@@ -530,7 +544,7 @@ class GriderDataCollector:
             logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 심각한 오류 발생: {e}", exc_info=True)
-            daily_data.setdefault('daily_riders', [])
+            daily_data.setdefault('riders', [])
         return daily_data
 
     def _parse_mission_string(self, text: str):
@@ -581,42 +595,45 @@ class GriderDataCollector:
             root = ET.fromstring(xml_content)
             
             # 'location' 태그를 직접 찾습니다. RSS 구조가 변경되어도 유연하게 대처하기 위함입니다.
-            # findall('.//location') 을 통해 전체 XML 문서에서 location 태그를 찾습니다.
-            for loc_element in root.findall('.//location'):
-                city_element = loc_element.find('city')
-                if city_element is not None and city_element.text == location:
-                    # 첫 번째 data 요소 (가장 가까운 예보)
-                    data_element = loc_element.find("./data[1]")
-                    if data_element is not None:
-                        weather_desc = data_element.find('wf').text
-                        min_temp = data_element.find('tmn').text
-                        max_temp = data_element.find('tmx').text
+            # findall('.//location') 을 통해 전체 XML 문서에서 city 이름이 일치하는 location을 찾습니다.
+            location_element = root.find(f".//location[city='{location}']")
 
-                        def get_icon(desc):
-                            if "맑음" in desc: return "☀️"
-                            if "구름많" in desc: return "☁️"
-                            if "흐림" in desc: return "🌫️"
-                            if "비" in desc: return "🌧️"
-                            if "눈" in desc: return "❄️"
-                            return "❓"
+            if location_element is None:
+                logger.warning(f"날씨 정보에서 '{location}' 지역을 찾을 수 없습니다.")
+                return None
 
-                        return {
-                            "description": weather_desc,
-                            "icon": get_icon(weather_desc),
-                            "temp_min": min_temp,
-                            "temp_max": max_temp
-                        }
-            # 서울 지역을 찾지 못한 경우
-            logger.warning(f"기상청 데이터에서 '{location}' 지역을 찾을 수 없습니다.")
+            # 해당 지역의 첫 번째 데이터(가장 가까운 예보)를 가져옵니다.
+            data_element = location_element.find('data')
+            if data_element is None:
+                logger.warning(f"'{location}' 지역의 날씨 data 요소를 찾을 수 없습니다.")
+                return None
+            
+            # 오전/오후 날씨, 최저/최고 기온 추출
+            am_weather = data_element.find('wfAm').text
+            pm_weather = data_element.find('wfPm').text
+            temp_min = data_element.find('tmn').text
+            temp_max = data_element.find('tmx').text
+
+            # 아이콘 매핑
+            icon_map = {
+                '맑음': '☀️', '구름많음': '☁️', '흐림': '🌥️',
+                '비': '🌧️', '눈': '🌨️', '소나기': '🌦️'
+            }
+            am_icon = icon_map.get(am_weather, '-')
+            pm_icon = icon_map.get(pm_weather, '-')
+
+            return {
+                'am_icon': am_icon, 'am_weather': am_weather, 'pm_icon': pm_icon, 'pm_weather': pm_weather,
+                'temp_min': temp_min, 'temp_max': temp_max
+            }
 
         except ET.ParseError as e:
-            logger.error(f"날씨 정보 XML 파싱 실패: {e}", exc_info=True)
-            # 파싱 실패 시 원본 내용을 로그로 남겨 분석을 돕습니다.
-            logger.debug(f"파싱 실패한 XML 내용:\n{response.text}")
+            logger.error(f"날씨 정보 XML 파싱 실패. 원본 내용을 로그에 기록합니다.", exc_info=True)
+            logger.error(f"XML_CONTENT_START\\n{xml_content}\\nXML_CONTENT_END")
+            return None
         except Exception as e:
-            logger.error(f"상세 날씨 정보 조회 중 알 수 없는 오류 발생: {e}", exc_info=True)
-            
-        return None
+            logger.error(f"상세 날씨 정보를 가져오는 중 오류 발생: {e}", exc_info=True)
+            return None
 
     def _perform_login(self):
         """로그인 절차를 수행하고 성공 시 드라이버를, 실패 시 None을 반환합니다."""
@@ -660,7 +677,7 @@ class GriderDataCollector:
         }
         
         try:
-            # final_data['weather_info'] = self._get_weather_info_detailed() # 날씨 조회 임시 비활성화
+            final_data['weather_info'] = self._get_weather_info_detailed() # 날씨 조회 기능 다시 활성화
             driver = self._perform_login()
             if not driver:
                 raise Exception("G라이더 로그인 실패")
@@ -678,7 +695,7 @@ class GriderDataCollector:
             }
             final_data['weekly_summary'] = weekly_and_mission_data
             final_data['mission_status'] = mission_data
-            final_data['daily_riders'] = daily_data.get('daily_riders', [])
+            final_data['daily_riders'] = daily_data.get('riders', [])
             
         except Exception as e:
             error_message = f"데이터 수집 실패: {e}"
@@ -763,99 +780,150 @@ class GriderAutoSender:
             print(text)
             print("\n---------------------------------------\n")
 
-    def format_message(self, data: dict) -> str:
-        """수집된 데이터를 기반으로 카카오톡 메시지 문자열을 생성합니다."""
+    def format_message(self, data):
+        """수집된 모든 데이터를 최종 카카오톡 메시지 형식으로 조합합니다."""
         
-        def get_acceptance_progress_bar(percentage: float) -> str:
-            """수락률에 따라 프로그레스 바 아이콘 반환"""
-            if percentage >= 98: return "🟩🟩🟩🟩🟩"
-            if percentage >= 95: return "🟨🟨🟨🟨🟨"
-            if percentage > 90:  return "🟧🟧🟧🟧🟧"
-            return "🟥🟥🟥🟥🟥"
-
-        def get_rider_progress_bar(contribution: float) -> str:
-            """기여도에 따라 프로그레스 바 아이콘 반환"""
-            bar = "▰" * int(contribution / 10)
-            return bar if bar else "▱"
-
         # 데이터 추출
-        report_date = data.get('metadata', {}).get('report_date', '날짜 없음')
-        daily = data.get('daily_summary', {})
-        weekly = data.get('weekly_summary', {})
-        mission = data.get('mission_status', {})
-        riders = data.get('daily_riders', [])
-
-        # 날짜 및 공휴일 정보
-        today_date_obj = datetime.strptime(report_date, '%Y-%m-%d')
-        day_of_week = ['월', '화', '수', '목', '금', '토', '일'][today_date_obj.weekday()]
-        is_holiday, holiday_name = holiday_checker.is_holiday_advanced(report_date)
-        date_str = f"{today_date_obj.month}/{today_date_obj.day}({day_of_week})"
-        if is_holiday:
-            date_str += f" HOLIDAY! ({holiday_name})"
-
-        # 날씨 정보
+        mission_status = data.get('mission_status', {})
+        daily_data = data.get('daily_data', {})
+        weekly_summary = data.get('weekly_summary', {})
+        daily_riders = data.get('daily_riders', [])
         weather = data.get('weather_info')
-        # weather_str = f"{weather['icon']} {weather['description']} ({weather['temp_min']}°C / {weather['temp_max']}°C)" if weather else "날씨 정보 없음"
-        weather_str = "날씨 정보 (임시 비활성화)"
 
-        # 메시지 헤더
-        header = f"📊 {date_str} - {weather_str}\n"
-        header += "==============================\n"
+        # 템플릿에 사용할 값 계산
+        mission_targets = {
+            '아침점심피크': 31, '오후논피크': 22, '저녁피크': 36, '심야논피크': 31
+        }
+        
+        # 미션 데이터 이름 매핑 (코드 키 -> 메시지 이름)
+        mission_key_map = {
+            '오전': '아침점심피크', '오후': '오후논피크',
+            '저녁': '저녁피크', '심야': '심야논피크'
+        }
+        
+        # 코드상의 키를 사용하여 mission_status에서 현재 값 가져오기
+        current_missions = {
+            '아침점심피크': mission_status.get('오전피크', 0),
+            '오후논피크': mission_status.get('오후피크', 0),
+            '저녁피크': mission_status.get('저녁피크', 0),
+            '심야논피크': mission_status.get('심야논피크', 0)
+        }
+
+        mission_strings = [
+            f"🌅 {self._format_mission_status('아침점심피크', current_missions.get('아침점심피크', 0), mission_targets['아침점심피크'])}",
+            f"🌇 {self._format_mission_status('오후논피크', current_missions.get('오후논피크', 0), mission_targets['오후논피크'])}",
+            f"🌃 {self._format_mission_status('저녁피크', current_missions.get('저녁피크', 0), mission_targets['저녁피크'])}",
+            f"🌙 {self._format_mission_status('심야논피크', current_missions.get('심야논피크', 0), mission_targets['심야논피크'])}"
+        ]
+        
+        # 부족한 미션 찾기
+        lacking_missions = [
+            f"심야 {mission_targets['심야논피크'] - current_missions['심야논피크']}건 부족"
+            for m, c in current_missions.items() if c < mission_targets.get(m, float('inf')) and m == '심야논피크'
+        ]
+        lacking_str = "⚠️ 미션 부족: " + ", ".join(lacking_missions) if lacking_missions else "✅ 모든 미션 달성!"
+
+
+        total_completed_daily = daily_data.get('total_completed', 0)
+        total_rejected_daily = daily_data.get('total_rejected', 0)
+        total_canceled_daily = daily_data.get('total_canceled', 0)
+        total_rejected_with_cancel = total_rejected_daily + total_canceled_daily
+        
+        total_for_rate_daily = total_completed_daily + total_rejected_with_cancel
+        acceptance_rate_daily = (total_completed_daily / total_for_rate_daily * 100) if total_for_rate_daily > 0 else 0
+        
+        def get_progress_bar(rate):
+            filled_count = int(rate // 10)
+            empty_count = 10 - filled_count
+            return '🟩' * filled_count + '⬜' * empty_count
+
+        daily_progress_bar = get_progress_bar(acceptance_rate_daily)
+
+        # 날씨 문자열
+        if weather:
+            weather_str = (
+                f"🌍 오늘의 날씨 (기상청)\\n"
+                f" 오전: {weather['am_icon']} {weather['temp_min']}~{weather['temp_max']}C\\n" # 온도 범위는 하루 전체로 표시
+                f" 오후: {weather['pm_icon']} {weather['temp_min']}~{weather['temp_max']}C"
+            )
+        else:
+            weather_str = "🌍 날씨 정보 없음"
+
 
         # 주간 요약
-        weekly_total_completed = weekly.get('총완료', 0)
-        weekly_total_rejected = weekly.get('총거절', 0)
-        weekly_acceptance_rate = weekly.get('수락률', 0.0)
-        
-        weekly_summary_str = (
-            f"📈 주간 요약\n"
-            f"├ 총완료: {weekly_total_completed}건 | 총거절: {weekly_total_rejected}건\n"
-            f"├ 수락률: {weekly_acceptance_rate:.2f}% {get_acceptance_progress_bar(weekly_acceptance_rate)}\n"
-            f"└ 예상점수: 총 {weekly.get('예상총점수','-')}점 (물량 {weekly.get('물량점수','-')} + 수락률 {weekly.get('수락률점수','-')})\n"
-        )
-        
-        # 미션 현황
-        delivery_mission = mission.get('delivery_mission', {})
-        safety_mission = mission.get('safety_mission', {})
-        mission_str = (
-            f"🎯 오늘의 미션\n"
-            f"├ 배달: {delivery_mission.get('current', 0)}/{delivery_mission.get('target', 0)}건 ({delivery_mission.get('score', '0')}점)\n"
-            f"└ 안전: {safety_mission.get('current', 0)}/{safety_mission.get('target', 0)}건 ({safety_mission.get('score', '0')}점)\n"
-        )
-        
-        # 일간 요약
-        daily_total = daily.get('total_completed', 0)
-        daily_rejected = daily.get('total_rejected', 0)
-        daily_canceled = daily.get('total_canceled', 0)
-        daily_acceptance_rate = (daily_total / (daily_total + daily_rejected + daily_canceled) * 100) if (daily_total + daily_rejected + daily_canceled) > 0 else 0
-        
-        daily_summary_str = (
-            f"📉 일간 요약\n"
-            f"├ 완료: {daily_total}건 | 거절: {daily_rejected}건 | 취소: {daily_canceled}건\n"
-            f"└ 수락률: {daily_acceptance_rate:.2f}%\n"
-        )
+        weekly_total = weekly_summary.get('총점', 0)
+        weekly_quantity = weekly_summary.get('물량점수', 0)
+        weekly_acceptance_score = weekly_summary.get('수락률점수', 0)
+        weekly_completed = weekly_summary.get('총완료', 0)
+        weekly_rejected_with_cancel = weekly_summary.get('총거절', 0)
+        weekly_acceptance_rate = weekly_summary.get('수락률', 0.0)
+        weekly_progress_bar = get_progress_bar(weekly_acceptance_rate)
 
-        # 라이더별 상세
-        rider_str = "👤 라이더별 상세\n"
-        if not riders:
-            rider_str += "  - 운행 중인 라이더 정보가 없습니다.\n"
-        else:
-            # 기여도 계산 및 정렬
-            for rider in riders:
-                rider['total'] = rider.get('완료', 0)
-                rider['contribution'] = (rider['total'] / daily_total * 100) if daily_total > 0 else 0
+
+        # 라이더 순위
+        rider_ranking_str = []
+        medals = ['🥇', '🥈', '🥉']
+        
+        # 운행 라이더만 필터링 및 완료 건수 기준으로 정렬
+        active_riders = [r for r in daily_riders if r['완료'] > 0]
+        sorted_riders = sorted(active_riders, key=lambda x: x['완료'], reverse=True)
+
+        for i, rider in enumerate(sorted_riders[:5]): # 상위 5명
+            name = rider['name']
+            completed = rider.get('완료', 0)
+            rejected = rider.get('거절', 0)
+            canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
             
-            sorted_riders = sorted(riders, key=lambda x: x['total'], reverse=True)
+            rider_total_for_rate = completed + rejected + canceled
+            rider_acceptance_rate = (completed / rider_total_for_rate * 100) if rider_total_for_rate > 0 else 0
+            
+            progress_bar = get_progress_bar(rider_acceptance_rate)
+            
+            # 피크타임 실적
+            peak_perf = (
+                f"🌅{rider.get(mission_key_map.get('오전'), 0)} "
+                f"🌇{rider.get(mission_key_map.get('오후'), 0)} "
+                f"🌃{rider.get(mission_key_map.get('저녁'), 0)} "
+                f"🌙{rider.get(mission_key_map.get('심야'), 0)}"
+            )
 
-            for rider in sorted_riders[:10]: # 상위 10명만 표시
-                progress_bar = get_rider_progress_bar(rider['contribution'])
-                rider_str += (
-                    f"├ {rider['name']} {rider['total']}건 ({rider['contribution']:.1f}%) {progress_bar}\n"
-                    f"|    (거절 {rider.get('거절',0)}, 배취 {rider.get('배차취소',0)}, 배달취소 {rider.get('배달취소',0)})\n"
-                )
+            rank_prefix = f"{medals[i]} " if i < 3 else f"  {i+1}. "
+            
+            rider_info = (
+                f"{rank_prefix}{name} | {progress_bar} {completed / total_completed_daily * 100 if total_completed_daily > 0 else 0:.1f}%\\n"
+                f"    총 {completed}건 ({peak_perf})\\n"
+                f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
+            )
+            rider_ranking_str.append(rider_info)
 
-        # 전체 메시지 조합
-        return f"{header}\n{weekly_summary_str}\n{mission_str}\n{daily_summary_str}\n{rider_str}"
+        rider_summary = f"🏆 라이더 순위 (운행: {len(active_riders)}명)"
+        
+        # 최종 메시지 조합
+        message_parts = [
+            "심플 배민 플러스 미션 알리미",
+            "\\n".join(mission_strings),
+            "\\n📈 금일 수행 내역",
+            f"완료: {total_completed_daily}  거절(취소포함): {total_rejected_with_cancel}",
+            f"수락률: {acceptance_rate_daily:.1f}%",
+            daily_progress_bar,
+            "\\n" + weather_str,
+            "\\n📊 이번주 미션 예상점수",
+            f"총점: {weekly_total}점 (물량:{weekly_quantity}, 수락률:{weekly_acceptance_score})",
+            f"완료: {weekly_completed}  거절(취소포함): {weekly_rejected_with_cancel}",
+            f"수락률: {weekly_acceptance_rate:.1f}%",
+            weekly_progress_bar,
+            "\\n" + rider_summary,
+            "\\n".join(rider_ranking_str),
+            "\\n" + lacking_str
+        ]
+        
+        return "\\n\\n".join(message_parts)
+
+    def _format_mission_status(self, mission_name, current, target):
+        if current >= target:
+            return f"✅ {mission_name}: {current}/{target} (달성)"
+        else:
+            return f"⚠️ {mission_name}: {current}/{target} (부족)"
 
 def load_config():
     """환경변수를 .env 파일에서 로드합니다."""
