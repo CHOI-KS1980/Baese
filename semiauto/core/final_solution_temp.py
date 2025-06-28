@@ -299,10 +299,15 @@ class KakaoSender:
             return {"error": str(e)}
 
 class GriderDataCollector:
-    """심플 배민 플러스 데이터 수집 클래스"""
+    """G라이더 데이터 수집기"""
     
     def __init__(self):
-        self.base_url = "https://grider.co.kr"  # 실제 URL로 변경 필요
+        # 웹 드라이버 경로 (GitHub Actions에서는 자동 설정)
+        self.driver_path = os.getenv('CHROME_DRIVER_PATH', '/usr/bin/chromedriver')
+        self.base_url = "https://jangboo.grider.ai"  # 실제 URL로 변경 필요
+        self.login_url = f"{self.base_url}/login"
+        self.weekly_url = f"{self.base_url}/weekly"
+        self.daily_rider_url = f"{self.base_url}/daily/rider"
         self.mission_data_cache_file = 'mission_data_cache.json'
     
     def get_grider_data(self, use_sample=False):
