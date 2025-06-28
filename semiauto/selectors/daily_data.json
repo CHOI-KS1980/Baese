@@ -1,16 +1,16 @@
 {
   "url_path": "/dashboard",
-  "container": "div.rider_list_body",
+  "container": "div.rider_list",
   "item": "div.rider_item",
-  "name": "div.rider_name > span",
+  "name": "div.rider_contents:nth-of-type(3)",
   "user_id": "div.user_id",
   "status": "span.rider_info_text",
-  "complete_count": "div.rider_data_box:nth-child(2) > div.rider_data",
-  "reject_count": "div.rider_data_box:nth-child(3) > div.rider_data",
-  "accept_cancel_count": "div.rider_data_box:nth-child(4) > div.rider_data",
-  "accept_cancel_rider_fault_count": "div.rider_data_box:nth-child(5) > div.rider_data",
-  "morning_count": "div.rider_data_box:nth-child(6) > div.rider_data",
-  "afternoon_count": "div.rider_data_box:nth-child(7) > div.rider_data",
-  "evening_count": "div.rider_data_box:nth-child(8) > div.rider_data",
-  "midnight_count": "div.rider_data_box:nth-child(9) > div.rider_data"
+  "complete_count": "div.rider_contents:nth-of-type(5)",
+  "reject_count": "div.rider_contents:nth-of-type(6)",
+  "accept_cancel_count": "div.rider_contents:nth-of-type(7)",
+  "accept_cancel_rider_fault_count": "div.rider_contents:nth-of-type(8)",
+  "morning_count": "div.rider_contents:nth-of-type(9)",
+  "afternoon_count": "div.rider_contents:nth-of-type(10)",
+  "evening_count": "div.rider_contents:nth-of-type(11)",
+  "midnight_count": "div.rider_contents:nth-of-type(12)"
 } 

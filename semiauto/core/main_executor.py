@@ -492,27 +492,74 @@ class GriderDataCollector:
         return weekly_data
 
     def _parse_daily_rider_data(self, driver):
-        """[디버깅 모드] 대시보드의 전체 HTML 소스를 출력하여 구조를 확인합니다."""
+        """대시보드에서 일간 라이더 데이터를 파싱합니다."""
         daily_data = {}
+        rider_list = []
         try:
             logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
             driver.get(self.dashboard_url)
-            
-            logger.info("디버깅 모드: 25초간 대기 후 페이지 소스를 출력합니다.")
-            time.sleep(25) # 데이터가 로드될 시간을 최대한 보장합니다.
-            
-            page_html = driver.page_source
-            logger.info("--- 페이지 소스 시작 ---")
-            print(page_html)
-            logger.info("--- 페이지 소스 끝 ---")
-            logger.info("디버깅 완료. 워크플로우가 다음 단계에서 실패하지 않도록 빈 데이터를 반환합니다.")
+            time.sleep(3) # JS 실행을 위한 최소 대기
 
+            s_rider_list = self.selectors.get('daily_data', {})
+            rider_list_container_selector = s_rider_list.get('container')
+            item_selector = s_rider_list.get('item')
+            full_item_selector = f"{rider_list_container_selector} {item_selector}"
+
+            for attempt in range(2): # 총 2번 시도
+                try:
+                    logger.info(f"데이터 수집 시도 #{attempt + 1}")
+                    wait = WebDriverWait(driver, 20)
+
+                    # 1단계: 컨테이너가 먼저 존재하는지 확인
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, rider_list_container_selector)))
+                    logger.info("✅ 라이더 목록 컨테이너 로드 완료.")
+
+                    # 2단계: 실제 데이터 항목이 나타나는지 확인
+                    rider_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, full_item_selector)))
+                    logger.info(f"✅ 일간 라이더 목록 아이템 {len(rider_elements)}개 로드 완료.")
+                    
+                    # 성공 시 루프 탈출
+                    break
+                except TimeoutException:
+                    logger.warning(f"시도 #{attempt + 1}에서 타임아웃 발생.")
+                    if attempt == 0:
+                        logger.info("페이지를 새로고침하고 다시 시도합니다.")
+                        driver.refresh()
+                        time.sleep(5) # 새로고침 후 JS 실행 대기
+                    else:
+                        logger.error("재시도 후에도 일간 라이더 데이터 항목을 로드하지 못했습니다.")
+                        daily_data['daily_riders'] = []
+                        return daily_data
+            
+            logger.info(f"{len(rider_elements)}명의 라이더 데이터를 파싱합니다.")
+
+            for rider_element in rider_elements:
+                try:
+                    def get_stat(stat_name_key):
+                        selector = s_rider_list.get(stat_name_key)
+                        if not selector: return 0
+                        node = rider_element.find_element(By.CSS_SELECTOR, selector)
+                        return self._get_safe_number(node.text.strip())
+ 
+                    rider_list.append({
+                        'name': rider_element.find_element(By.CSS_SELECTOR, s_rider_list.get('name')).text.strip(),
+                        '완료': get_stat('complete_count'),
+                        '거절': get_stat('reject_count'),
+                        '배차취소': get_stat('accept_cancel_count'),
+                        '배달취소': get_stat('accept_cancel_rider_fault_count'),
+                        '아침점심피크': get_stat('morning_count'),
+                        '오후논피크': get_stat('afternoon_count'),
+                        '저녁피크': get_stat('evening_count'),
+                        '심야논피크': get_stat('midnight_count'),
+                    })
+                except Exception as e:
+                    logger.warning(f"라이더 데이터 한 항목을 파싱하는 중 오류: {e}")
+                    continue
+
+            daily_data['daily_riders'] = rider_list
         except Exception as e:
-            logger.error(f"디버깅 중 오류 발생: {e}", exc_info=True)
-        finally:
-            # 항상 빈 리스트를 반환하여 이후 단계에서 오류가 발생하지 않도록 합니다.
-            daily_data['daily_riders'] = []
-            return daily_data
+            logger.error(f"일간 라이더 데이터 파싱 중 오류 발생: {e}", exc_info=True)
+        return daily_data
 
     def _parse_mission_string(self, text: str):
         """'47/31건 (+3점)' 형태의 문자열을 딕셔너리로 파싱합니다."""
