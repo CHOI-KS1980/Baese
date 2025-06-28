@@ -515,14 +515,23 @@ class GriderDataCollector:
         except Exception as e:
             logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
             if self.driver:
-                # 디버깅을 위해 에러 발생 시의 페이지 소스를 저장
-                debug_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'debug')
-                os.makedirs(debug_dir, exist_ok=True)
-                filename = f"collect_data_error_{get_korea_time().strftime('%Y%m%d_%H%M%S')}.html"
-                filepath = os.path.join(debug_dir, filename)
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    f.write(self.driver.page_source)
-                logger.info(f"📄 디버깅을 위해 페이지 소스를 저장했습니다: {filepath}")
+                try:
+                    # 디버깅을 위해 에러 발생 시의 페이지 소스를 저장
+                    # 경로를 실행 위치 기준으로 명확하게 변경
+                    debug_dir = os.path.join(os.getcwd(), 'debug')
+                    logger.info(f"디버그 폴더 경로: {os.path.abspath(debug_dir)}")
+                    os.makedirs(debug_dir, exist_ok=True)
+                    
+                    filename = f"collect_data_error_{get_korea_time().strftime('%Y%m%d_%H%M%S')}.html"
+                    filepath = os.path.join(debug_dir, filename)
+                    logger.info(f"디버그 파일 저장 시도: {filepath}")
+                    
+                    with open(filepath, 'w', encoding='utf-8') as f:
+                        f.write(self.driver.page_source)
+                    
+                    logger.info(f"📄 페이지 소스 저장 완료: {filepath}")
+                except Exception as save_e:
+                    logger.error(f"❌ 페이지 소스 저장 실패: {save_e}", exc_info=True)
             return {"metadata": {'error': str(e)}}
         finally:
             if self.driver:
