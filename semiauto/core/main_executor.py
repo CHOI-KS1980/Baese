@@ -533,6 +533,10 @@ class GriderDataCollector:
                             '거절': get_stat('reject_count'),
                             '배차취소': get_stat('accept_cancel_count'),
                             '배달취소': get_stat('accept_cancel_rider_fault_count'),
+                            '아침점심피크': get_stat('morning_count'),
+                            '오후논피크': get_stat('afternoon_count'),
+                            '저녁피크': get_stat('evening_count'),
+                            '심야논피크': get_stat('midnight_count'),
                         })
                     except Exception as e:
                         logger.warning(f"라이더 데이터 한 항목을 파싱하는 중 오류: {e}")
@@ -907,9 +911,17 @@ class GriderAutoSender:
                     rider_fail = rider_rejected + rider_canceled
                     rider_acceptance_rate = (rider_completed / (rider_completed + rider_fail) * 100) if (rider_completed + rider_fail) > 0 else 100.0
                     
+                    # 시간대별 실적 문자열 생성
+                    peak_emojis = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
+                    peak_counts = []
+                    for peak_name, peak_emoji in peak_emojis.items():
+                        count = rider.get(peak_name, 0)
+                        peak_counts.append(f"{peak_emoji}{count}")
+                    peak_counts_str = ' '.join(peak_counts)
+
                     rider_details = (
                         f"**{rank_icon} {rider_name}** | {get_rider_progress_bar(contribution)} {contribution:.1f}%\n"
-                        f"    총 {rider_completed}건\n"
+                        f"    총 {rider_completed}건 ({peak_counts_str})\n"
                         f"    수락률: {rider_acceptance_rate:.1f}% (거절:{rider_rejected}, 취소:{rider_canceled})"
                     )
                     ranking_list.append(rider_details)
