@@ -28,7 +28,13 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, project_root)
 
 # 이제 weather_service를 import 할 수 있습니다.
-from weather_service import WeatherService
+try:
+    from weather_service import WeatherService
+except ImportError:
+    # weather_service.py가 없는 경우를 대비한 예외 처리
+    class WeatherService:
+        def get_weather(self):
+            return {"error": "WeatherService 모듈을 찾을 수 없습니다."}
 
 
 # Selenium 명시적 대기를 위한 모듈 추가
@@ -349,10 +355,35 @@ class GriderDataCollector:
             
         except (TimeoutException, NoSuchElementException) as e:
             logger.error(f"G라이더 로그인 실패 (요소 찾기 실패 또는 타임아웃): {e}", exc_info=True)
+            self._save_page_source(driver, "login_failure")
             return False
         except Exception as e:
             logger.error(f"G라이더 로그인 중 예외 발생: {e}", exc_info=True)
+            self._save_page_source(driver, "login_exception")
             return False
+
+    def _save_page_source(self, driver, filename_prefix):
+        """디버깅을 위해 현재 페이지 소스를 파일에 저장하고 로그로도 출력합니다."""
+        try:
+            # 1. 파일에 저장
+            timestamp = datetime.now(KST).strftime("%Y%m%d_%H%M%S")
+            filename = f"{filename_prefix}_{timestamp}.html"
+            
+            debug_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'debug')
+            os.makedirs(debug_dir, exist_ok=True)
+            filepath = os.path.join(debug_dir, filename)
+            
+            page_source = driver.page_source
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(page_source)
+            logger.info(f"📄 디버깅을 위해 페이지 소스를 저장했습니다: {filepath}")
+
+            # 2. 로그로 출력
+            logger.info(f"PAGE_SOURCE_START\n{page_source}\nPAGE_SOURCE_END")
+
+        except Exception as e:
+            logger.error(f"페이지 소스 저장/로깅 실패: {e}", exc_info=True)
+
 
     def _get_today_date(self):
         """한국시간 기준 오늘 날짜를 'YYYY-MM-DD' 형식으로 반환합니다."""
@@ -392,6 +423,7 @@ class GriderDataCollector:
 
         except Exception as e:
             logger.error(f"주간 요약/통계 데이터 파싱 중 오류 발생: {e}", exc_info=True)
+            self._save_page_source(driver, "weekly_summary_parsing_error")
         
         return weekly_data
 
@@ -414,6 +446,8 @@ class GriderDataCollector:
 
             except Exception as e:
                 logger.error(f"일일 총계 파싱 실패: {e}", exc_info=True)
+                self._save_page_source(driver, "daily_total_parsing_error")
+
 
         try:
             rider_list_container_selector = s_daily.get('container')
@@ -472,10 +506,11 @@ class GriderDataCollector:
             logger.info(f"✅ {len(daily_data['riders'])}명의 활동 라이더 데이터 파싱 완료.")
 
         except TimeoutException:
-            logger.error("미션 데이터 테이블 로드 시간 초과.", exc_info=True)
-            logger.error(f"PAGE_SOURCE_START\n{driver.page_source}\nPAGE_SOURCE_END")
+            logger.error("일일 라이더 목록 로드 시간 초과.", exc_info=True)
+            self._save_page_source(driver, "daily_rider_timeout")
         except Exception as e:
             logger.error(f"일간 라이더 데이터 파싱 중 심각한 오류 발생: {e}", exc_info=True)
+            self._save_page_source(driver, "daily_rider_parsing_error")
             daily_data.setdefault('riders', [])
         return daily_data
 
@@ -490,7 +525,7 @@ class GriderDataCollector:
             logger.info(f"✅ 피크타임 미션 데이터 파싱 완료: {mission_data}")
         except Exception as e:
             logger.error(f"미션 데이터 파싱 중 예외 발생: {e}", exc_info=True)
-            logger.error(f"PAGE_SOURCE_START\\n{driver.page_source}\\nPAGE_SOURCE_END")
+            self._save_page_source(driver, "mission_data_parsing_error")
         return mission_data
 
     def _perform_login(self):
@@ -546,6 +581,8 @@ class GriderDataCollector:
             }
         except Exception as e:
             logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
+            if self.driver:
+                self._save_page_source(self.driver, "collect_all_data_exception")
             all_data['metadata']['error'] = str(e)
         finally:
             if self.driver:
