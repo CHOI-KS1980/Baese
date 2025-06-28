@@ -349,6 +349,13 @@ class GriderDataCollector:
             USER_ID = os.getenv('GRIDER_ID')
             USER_PW = os.getenv('GRIDER_PASSWORD')
             if not USER_ID or not USER_PW: raise Exception("G라이더 로그인 정보가 없습니다.")
+
+            login_url = f"{self.base_url}/login"
+            logger.info(f"로그인 페이지로 이동: {login_url}")
+            driver.get(login_url)
+
+            # ID/PW 입력 필드가 나타날 때까지 명시적으로 대기
+            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'id')))
             
             driver.find_element(By.ID, 'id').send_keys(USER_ID)
             driver.find_element(By.ID, 'password').send_keys(USER_PW)
@@ -358,7 +365,8 @@ class GriderDataCollector:
             return driver
         except Exception as e:
             logger.error(f" G라이더 로그인 실패: {e}", exc_info=True)
-            driver.quit()
+            if 'driver' in locals() and driver:
+                driver.quit()
             raise Exception("G라이더 로그인 실패")
 
     def _crawl_page(self, driver, url, wait_xpath, max_retries=3, retry_delay=5, sub_wait_xpath=None):
@@ -777,15 +785,15 @@ def load_config():
     load_dotenv(dotenv_path)
     
     config = {
-        'G_ID': os.getenv('G_ID'),
-        'G_PW': os.getenv('G_PW'),
+        'GRIDER_ID': os.getenv('GRIDER_ID'),
+        'GRIDER_PASSWORD': os.getenv('GRIDER_PASSWORD'),
         'KAKAO_REST_API_KEY': os.getenv('KAKAO_REST_API_KEY'),
         'KAKAO_REFRESH_TOKEN': os.getenv('KAKAO_REFRESH_TOKEN'),
         'KOREA_HOLIDAY_API_KEY': os.getenv('KOREA_HOLIDAY_API_KEY')
     }
     
     # 필수 설정값 확인
-    if not all([config['G_ID'], config['G_PW'], config['KAKAO_REST_API_KEY'], config['KAKAO_REFRESH_TOKEN']]):
+    if not all([config['GRIDER_ID'], config['GRIDER_PASSWORD'], config['KAKAO_REST_API_KEY'], config['KAKAO_REFRESH_TOKEN']]):
         logger.warning("필수 환경변수가 모두 설정되지 않았습니다.")
         
     return config
