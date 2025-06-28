@@ -642,9 +642,10 @@ class GriderAutoSender:
         weekly_summary_data = data.get('weekly_summary', {})
         mission_data = data.get('mission_data', {})
         riders_data = daily_data.get('riders', [])
+        daily_summary = daily_data.get('summary', {})
 
-        daily_completed = daily_data.get('total_completed', 0)
-        daily_rejected_and_canceled = daily_data.get('total_rejected', 0) + daily_data.get('total_canceled', 0)
+        daily_completed = daily_summary.get('total_completed', 0)
+        daily_rejected_and_canceled = daily_summary.get('total_rejected', 0) + daily_summary.get('total_canceled', 0)
         total_daily_for_rate = daily_completed + daily_rejected_and_canceled
         daily_acceptance_rate = (daily_completed / total_daily_for_rate * 100) if total_daily_for_rate > 0 else 0.0
         
