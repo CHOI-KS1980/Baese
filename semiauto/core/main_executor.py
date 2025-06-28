@@ -472,6 +472,16 @@ class GriderDataCollector:
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['login']['login_success_indicator'])))
             logger.info("SLA 페이지에서 로그인 상태 재확인 완료.")
             
+            # 가설: 데이터가 iframe 내에 있을 수 있음. 짧은 시간 동안 확인 후 전환 시도.
+            try:
+                iframe_wait = WebDriverWait(self.driver, 5)
+                iframe = iframe_wait.until(EC.presence_of_element_located((By.TAG_NAME, 'iframe')))
+                self.driver.switch_to.frame(iframe)
+                logger.info("✅ iframe으로 전환 성공. 내부에서 테이블 검색 시작.")
+            except TimeoutException:
+                logger.info("iframe을 찾을 수 없음. 메인 문서에서 테이블 검색 계속.")
+                pass
+            
             # 미션 테이블이 나타날 때까지 대기
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.selectors['mission_table']['container'])))
             logger.info("SLA 페이지에서 미션 테이블 확인 완료.")
@@ -480,6 +490,9 @@ class GriderDataCollector:
             soup_sla = BeautifulSoup(self.driver.page_source, 'html.parser')
             weekly_summary = self._parse_weekly_summary(soup_sla)
             mission_data = self._parse_mission_data(soup_sla)
+            
+            # 다음 페이지로 가기 전, iframe에서 빠져나옴 (안정성)
+            self.driver.switch_to.default_content()
             
             # 2. 일일 라이더 데이터 수집 from /dashboard
             dashboard_url = self.base_url + "/dashboard"
