@@ -1,332 +1,290 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
- 최종 검증된 솔루션: 카카오톡 나에게 보내기 + 수동 복사
-- 웹 크롤링  데이터 가공 (자동)
-- 카카오톡 나에게 보내기 (자동)
-- 클립보드 자동 복사 (자동)
-- 오픈채팅방 복사/붙여넣기 (수동 5초)
-"""
-
-import requests
-import json
-import time
-from datetime import datetime, timedelta, timezone
-# pyperclip은 조건부 import (GitHub Actions 환경에서는 사용 불가)
-import logging
 import os
 import re
-import pytz  # 한국시간 설정을 위해 추가
-from bs4 import BeautifulSoup, Tag
-from xml.etree import ElementTree as ET  # 한국천문연구원 API용
+import time
+import json
+from datetime import datetime, timedelta
+from pathlib import Path
+import logging
+import requests
+import xml.etree.ElementTree as ET
+
+import pytz
 from dotenv import load_dotenv
 
-# Selenium 명시적 대기를 위한 모듈 추가
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, InvalidArgumentException
 
-# selenium 등 동적으로 import 되는 모듈에 대한 Linter 경고 무시
-# pyright: reportMissingImports=false
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+    import chromedriver_autoinstaller
+    WEBDRIVER_INSTALLED = True
+except ImportError:
+    WEBDRIVER_INSTALLED = False
 
+# ==============================================================================
 # 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('grider_automation.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+# ==============================================================================
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 한국시간 설정
-KST = pytz.timezone('Asia/Seoul')
 
+# =https://www.kma.go.kr/weather/forecast/mid-term-rss3.jsp?stnId=109
+# 유틸리티 함수
+# ==============================================================================
 def get_korea_time():
-    """한국시간 기준 현재 시간 반환"""
-    return datetime.now(KST)
+    """한국 시간(KST)을 반환합니다."""
+    return datetime.now(pytz.timezone('Asia/Seoul'))
 
 class KoreaHolidayChecker:
-    """한국천문연구원 공휴일 체커"""
-    
+    """한국천문연구원 특일 정보 API를 사용하여 공휴일을 확인합니다."""
     def __init__(self):
         # 한국천문연구원 특일 정보 API
+        self.api_url = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo"
         self.api_key = os.getenv('KOREA_HOLIDAY_API_KEY')
-        self.base_url = "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService"
-        self.holidays_cache = {}
-        
-        if self.api_key:
-            logger.info(" 한국천문연구원 특일 정보 API 공휴일 체커 초기화")
-            self.load_year_holidays(datetime.now(KST).year)
+        self.holidays = {}
+        if not self.api_key:
+            logger.info("KOREA_HOLIDAY_API_KEY 환경변수가 설정되지 않음 - 기본 공휴일 사용")
         else:
-            logger.info(" KOREA_HOLIDAY_API_KEY 환경변수가 설정되지 않음 - 기본 공휴일 사용")
-    
+            logger.info("한국천문연구원 특일 정보 API 공휴일 체커 초기화")
+
+
     def get_holidays_from_api(self, year, month=None):
-        """API에서 공휴일 정보 가져오기"""
+        """API로부터 특정 연도 또는 특정 월의 공휴일 정보를 가져옵니다."""
         if not self.api_key:
             return []
-        
-        url = f"{self.base_url}/getRestDeInfo"
-        
+
         params = {
-            'serviceKey': self.api_key,
-            'pageNo': '1',
-            'numOfRows': '50',
-            'solYear': str(year)
+            'serviceKey': requests.utils.unquote(self.api_key),
+            'solYear': year,
+            'numOfRows': 100
         }
-        
         if month:
             params['solMonth'] = f"{month:02d}"
-        
-        try:
-            response = requests.get(url, params=params, timeout=10)
-            
-            if response.status_code == 200:
-                root = ET.fromstring(response.content)
-                
-                holidays = []
-                items = root.findall('.//item')
-                
-                for item in items:
-                    date_name_node = item.find('dateName')
-                    loc_date_node = item.find('locdate')
-                    is_holiday_node = item.find('isHoliday')
-                    
-                    if date_name_node is not None and loc_date_node is not None and date_name_node.text and loc_date_node.text:
-                        holiday_name = date_name_node.text
-                        holiday_date = loc_date_node.text
-                        holiday_status = is_holiday_node.text if is_holiday_node is not None and is_holiday_node.text else 'Y'
-                        
-                        if holiday_date and len(holiday_date) == 8:
-                            formatted_date = f"{holiday_date[:4]}-{holiday_date[4:6]}-{holiday_date[6:8]}"
-                            holidays.append({
-                                'date': formatted_date,
-                                'name': holiday_name,
-                                'is_holiday': holiday_status == 'Y'
-                            })
-                            logger.info(f" 공휴일 확인: {formatted_date} - {holiday_name}")
-                
-                return holidays
-                
-        except Exception as e:
-            logger.error(f" 공휴일 API 오류: {e}")
-        
-        return []
-    
-    def load_year_holidays(self, year):
-        """전체 년도 공휴일 로드"""
-        if year in self.holidays_cache:
-            return
-        
-        holidays = []
-        for month in range(1, 13):
-            month_holidays = self.get_holidays_from_api(year, month)
-            holidays.extend(month_holidays)
-        
-        self.holidays_cache[year] = holidays
-        logger.info(f" {year}년 전체월 공휴일 {len(holidays)}개 로드 완료")
-    
-    def is_holiday_advanced(self, target_date):
-        """고급 공휴일 판정"""
-        if isinstance(target_date, str):
-            target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
-        elif isinstance(target_date, datetime):
-            target_date = target_date.date()
-        
-        year = target_date.year
-        if year not in self.holidays_cache:
-            self.load_year_holidays(year)
-        
-        target_str = target_date.strftime('%Y-%m-%d')
-        
-        holidays = self.holidays_cache.get(year, [])
-        for holiday in holidays:
-            if holiday['date'] == target_str:
-                return True, holiday.get('name')
-        
-        return False, None
 
-# 전역 공휴일 체커 (한 번만 초기화)
-holiday_checker = KoreaHolidayChecker()
+        try:
+            response = requests.get(self.api_url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            root = ET.fromstring(response.content)
+            holidays = []
+            for item in root.findall('.//item'):
+                locdate_str = item.find('locdate').text
+                date_name = item.find('dateName').text
+                is_holiday = item.find('isHoliday').text == 'Y'
+                if is_holiday:
+                    holidays.append({'date': datetime.strptime(locdate_str, '%Y%m%d').date(), 'name': date_name})
+                    logger.info(f"공휴일 확인: {datetime.strptime(locdate_str, '%Y%m%d').strftime('%Y-%m-%d')} - {date_name}")
+            return holidays
+        except requests.RequestException as e:
+            logger.error(f"공휴일 API 요청 실패: {e}")
+        except ET.ParseError as e:
+            logger.error(f"공휴일 API XML 파싱 실패: {e}")
+        return []
+
+
+    def load_year_holidays(self, year):
+        """특정 연도의 모든 공휴일을 로드하고 캐싱합니다."""
+        if year in self.holidays:
+            return
+
+        all_holidays = self.get_holidays_from_api(year)
+        self.holidays[year] = {h['date']: h['name'] for h in all_holidays}
+        logger.info(f"{year}년 전체월 공휴일 {len(self.holidays[year])}개 로드 완료")
+
+
+    def is_holiday_advanced(self, target_date):
+        """주어진 날짜가 주말 또는 공휴일인지 확인합니다."""
+        year = target_date.year
+        if year not in self.holidays:
+            self.load_year_holidays(year)
+            # 다음 해 1월 초 공휴일도 미리 로드 (심야 시간 처리)
+            if target_date.month == 12:
+                self.load_year_holidays(year + 1)
+        
+        # 주말 확인 (토요일, 일요일)
+        if target_date.weekday() >= 5:
+            return True
+
+        # 공휴일 확인
+        return target_date.date() in self.holidays.get(year, {})
+
 
 class TokenManager:
-    """카카오톡 토큰 관리 클래스"""
-    
+    """카카오톡 토큰을 관리하고, 필요 시 갱신합니다."""
     def __init__(self, rest_api_key, refresh_token):
         self.rest_api_key = rest_api_key
-        self.refresh_token = refresh_token
         self.access_token = None
-        self.token_expires_at = None
-        
-        logger.info(" TokenManager 초기화 - 토큰 갱신 시도")
-        if not self.refresh_access_token():
-            logger.error(" 초기 토큰 갱신 실패")
-    
+        self.refresh_token = refresh_token
+        self.token_url = "https://kauth.kakao.com/oauth/token"
+        self.last_refreshed = None
+        self.token_file = Path(__file__).parent / 'kakao_token.json'
+        self._load_tokens_from_file()
+
     def refresh_access_token(self):
-        """액세스 토큰 갱신"""
-        url = "https://kauth.kakao.com/oauth/token"
-        data = {
+        """Refresh token을 사용하여 Access token을 갱신합니다."""
+        logger.info("TokenManager 초기화 - 토큰 갱신 시도")
+        payload = {
             'grant_type': 'refresh_token',
             'client_id': self.rest_api_key,
-            'refresh_token': self.refresh_token
+            'refresh_token': self.refresh_token,
         }
-        
         try:
-            response = requests.post(url, data=data)
-            result = response.json()
+            response = requests.post(self.token_url, data=payload, timeout=10)
+            response.raise_for_status()
+            tokens = response.json()
             
-            if 'access_token' in result:
-                self.access_token = result['access_token']
-                expires_in = result.get('expires_in', 3600)
-                self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+            self.access_token = tokens['access_token']
+            # 일부 응답에는 refresh_token이 포함되지 않을 수 있음
+            if 'refresh_token' in tokens:
+                self.refresh_token = tokens['refresh_token']
                 
-                if 'refresh_token' in result:
-                    self.refresh_token = result['refresh_token']
-                
-                self.save_tokens()
-                
-                logger.info(f" 토큰 갱신 완료: {self.access_token[:20]}...")
-                return True
-            else:
-                logger.error(f" 토큰 갱신 실패: {result}")
-                return False
-                
-        except Exception as e:
-            logger.error(f" 토큰 갱신 중 오류: {e}")
-            return False
-    
-    def get_valid_token(self):
-        """유효한 액세스 토큰 반환 (필요시 자동 갱신)"""
-        if not self.access_token or self.is_token_expired():
-            logger.info(" 토큰 갱신 시도...")
-            if not self.refresh_access_token():
-                logger.error(" 토큰 갱신 실패 - None 반환")
-                return None
-        
-        logger.info(f" 유효한 토큰 반환: {self.access_token[:20] if self.access_token else 'None'}...")
-        return self.access_token
-    
-    def is_token_expired(self):
-        """토큰 만료 여부 확인"""
-        if not self.token_expires_at:
+            self.last_refreshed = get_korea_time()
+            self._save_tokens_to_file()
+            logger.info(f"토큰 갱신 완료: {self.access_token[:20]}...")
             return True
-        return datetime.now() >= (self.token_expires_at - timedelta(minutes=30))
-    
-    def save_tokens(self):
-        """토큰을 파일에 저장"""
+        except requests.RequestException as e:
+            logger.error(f"카카오 토큰 갱신 실패: {e}")
+            return False
+
+    def get_valid_token(self):
+        """유효한 토큰을 반환합니다. 필요 시 갱신합니다."""
+        if not self.access_token or self.is_token_expired():
+            if not self.refresh_access_token():
+                return None
+        logger.info(f"유효한 토큰 반환: {self.access_token[:20]}...")
+        return self.access_token
+
+    def is_token_expired(self):
+        """토큰이 만료되었는지 확인합니다 (만료 1시간 전 갱신)."""
+        if not self.last_refreshed:
+            return True
+        return (get_korea_time() - self.last_refreshed) > timedelta(hours=5)
+
+    def _save_tokens_to_file(self):
+        """토큰 정보를 파일에 저장합니다."""
+        tokens = {
+            'access_token': self.access_token,
+            'refresh_token': self.refresh_token,
+            'last_refreshed': self.last_refreshed.isoformat() if self.last_refreshed else None
+        }
         try:
-            with open('kakao_tokens.txt', 'w') as f:
-                f.write(f"ACCESS_TOKEN={self.access_token}\n")
-                f.write(f"REFRESH_TOKEN={self.refresh_token}\n")
-                if self.token_expires_at:
-                    f.write(f"EXPIRES_AT={self.token_expires_at.isoformat()}\n")
-        except Exception as e:
-            logger.error(f" 토큰 저장 실패: {e}")
+            with self.token_file.open('w') as f:
+                json.dump(tokens, f)
+        except IOError as e:
+            logger.error(f"토큰 파일 저장 실패: {e}")
+
+    def _load_tokens_from_file(self):
+        """파일에서 토큰 정보를 불러옵니다."""
+        if not self.token_file.exists():
+            return
+        try:
+            with self.token_file.open('r') as f:
+                tokens = json.load(f)
+                self.access_token = tokens.get('access_token')
+                self.refresh_token = tokens.get('refresh_token')
+                last_refreshed_iso = tokens.get('last_refreshed')
+                if last_refreshed_iso:
+                    self.last_refreshed = datetime.fromisoformat(last_refreshed_iso)
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"토큰 파일 로드 실패: {e}")
 
 class KakaoSender:
-    """카카오톡 메시지 전송 클래스"""
-    
+    """카카오톡 '나에게 보내기' 기능을 사용하여 메시지를 전송합니다."""
     def __init__(self, access_token):
         self.access_token = access_token
-        self.base_url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
-    
-    def send_text_message(self, text, link_url=None):
-        """텍스트 메시지 전송"""
-        headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8'
+        self.send_url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+
+    def send_text_message(self, text: str, link_url: str = None):
+        """지정된 텍스트 메시지를 카카오톡으로 전송합니다."""
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        template = {
+            'object_type': 'text',
+            'text': text,
+            'link': {'web_url': link_url, 'mobile_web_url': link_url} if link_url else {},
         }
-        
-        template_object = {
-            "object_type": "text",
-            "text": text,
-            "link": {
-                "web_url": "https://www.google.com"
-            }
-        }
-        
-        data = {'template_object': json.dumps(template_object)}
         
         try:
-            response = requests.post(self.base_url, headers=headers, data=data)
+            response = requests.post(self.send_url, headers=headers, data={'template_object': json.dumps(template)}, timeout=10)
             response.raise_for_status()
-            logger.info("✅ 카카오톡 메시지 전송 성공")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"❌ 카카오톡 메시지 전송 실패: {e.response.text if e.response else e}")
-            return None
-
+            if response.json().get('result_code') == 0:
+                logger.info("✅ 카카오톡 메시지 전송 성공")
+                return True
+            else:
+                logger.error(f"카카오톡 메시지 전송 실패: {response.text}")
+                return False
+        except requests.RequestException as e:
+            logger.error(f"카카오톡 API 요청 실패: {e}")
+            return False
+            
 class GriderDataCollector:
-    """G라이더 웹사이트 데이터 수집 클래스"""
-    
+    """G-Rider 웹사이트에서 데이터를 수집하는 클래스입니다."""
     def __init__(self):
-        self.grider_id = os.getenv('GRIDER_ID')
-        self.grider_password = os.getenv('GRIDER_PASSWORD')
         self.base_url = "https://jangboo.grider.ai"
         self.dashboard_url = f"{self.base_url}/dashboard"
-        self.sla_url = f"{self.base_url}/dashboard/sla"
+        self.sla_url = f"{self.base_url}/op/sla"
+        
+        self.grider_id = os.getenv('GRIDER_ID')
+        self.grider_password = os.getenv('GRIDER_PW')
+        
         self.selectors = self._load_all_selectors()
-        
+
     def _load_all_selectors(self):
-        """selectors 폴더의 모든 .json 파일을 읽어 딕셔너리로 반환합니다."""
+        """'selectors' 디렉토리에서 모든 .json 설정 파일을 로드합니다."""
         selectors = {}
-        # 'semiauto/selectors' 디렉토리의 절대 경로를 만듭니다.
-        # 이 스크립트(main_executor.py)의 위치를 기준으로 경로를 설정합니다.
-        current_script_path = os.path.dirname(os.path.abspath(__file__))
-        selectors_dir = os.path.join(current_script_path, '..', 'selectors')
-        
-        for filename in os.listdir(selectors_dir):
-            if filename.endswith('.json'):
-                # 파일의 전체 경로를 만듭니다.
-                filepath = os.path.join(selectors_dir, filename)
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        key = filename.replace('.json', '')
-                        selectors[key] = json.load(f)
-                        logger.info(f"선택자 파일 로드 완료: {filename}")
-                except Exception as e:
-                    logger.error(f"선택자 파일 '{filename}' 로드 실패: {e}")
+        selector_dir = Path(__file__).parent.parent / 'selectors'
+        for file_path in selector_dir.glob('*.json'):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    selectors[file_path.stem] = json.load(f)
+                    logger.info(f"선택자 파일 로드 완료: {file_path.name}")
+            except (IOError, json.JSONDecodeError) as e:
+                logger.error(f"선택자 파일 '{file_path.name}' 로드 실패: {e}")
         return selectors
 
     def _get_driver(self):
-        """Selenium WebDriver 인스턴스를 반환합니다."""
-        from selenium import webdriver
-        from selenium.webdriver.chrome.service import Service as ChromeService
-        from webdriver_manager.chrome import ChromeDriverManager
-        from selenium.webdriver.chrome.options import Options
-
+        """Selenium WebDriver를 초기화하고 반환합니다."""
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36")
+        
         if not self.grider_id or not self.grider_password:
-             raise Exception("G라이더 로그인 정보가 없습니다.")
+            raise Exception("G라이더 로그인 정보가 없습니다.")
 
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-
-        try:
-            # webdriver-manager를 사용하여 ChromeDriver 자동 설치 및 로드
-            service = ChromeService(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=options)
-            driver.set_page_load_timeout(30)
-            driver.set_window_size(1920, 1080)
-            logger.info("✅ Chrome WebDriver 초기화 성공 (webdriver-manager)")
+        if WEBDRIVER_INSTALLED:
+            try:
+                # webdriver-manager 사용
+                service = ChromeService(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=options)
+                logger.info("✅ Chrome WebDriver 초기화 성공 (webdriver-manager)")
+                return driver
+            except Exception as e:
+                logger.warning(f"webdriver-manager 초기화 실패, chromedriver-autoinstaller로 재시도: {e}")
+                # chromedriver-autoinstaller로 재시도
+                chromedriver_autoinstaller.install()
+                driver = webdriver.Chrome(options=options)
+                logger.info("✅ Chrome WebDriver 초기화 성공 (chromedriver-autoinstaller)")
+                return driver
+        else:
+            # 수동 설정 (대안)
+            driver = webdriver.Chrome(options=options)
+            logger.info("✅ Chrome WebDriver 수동 초기화 성공")
             return driver
-        except Exception as e:
-            logger.error(f"❌ Chrome WebDriver 초기화 실패: {e}", exc_info=True)
-            raise
 
     def _login(self, driver):
-        """G라이더 웹사이트에 로그인합니다."""
+        """로그인 페이지에서 로그인을 수행합니다."""
+        s_login = self.selectors.get('login', {})
+        login_url = self.base_url + s_login.get('url_path', '/login')
+        
         try:
-            s_login = self.selectors.get('login', {})
-            login_url = self.base_url + s_login.get('url_path', '/')
             driver.get(login_url)
-            
-            wait = WebDriverWait(driver, 10)
+            wait = WebDriverWait(driver, 20)
             
             id_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_login.get('id_input'))))
             id_input.send_keys(self.grider_id)
@@ -475,17 +433,14 @@ class GriderDataCollector:
                     
                     rider_data = {'name': name}
                     
-                    group_selector = s_daily.get('rider_data_group')
-                    data_group = rider_element.find_element(By.CSS_SELECTOR, group_selector)
-
-                    rider_data['완료'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
-                    rider_data['거절'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
-                    rider_data['배차취소'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
-                    rider_data['배달취소'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
-                    rider_data['아침점심피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
-                    rider_data['오후논피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
-                    rider_data['저녁피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
-                    rider_data['심야논피크'] = self._get_safe_number(data_group.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
+                    rider_data['완료'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
+                    rider_data['거절'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
+                    rider_data['배차취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
+                    rider_data['배달취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
+                    rider_data['아침점심피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
+                    rider_data['오후논피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
+                    rider_data['저녁피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
+                    rider_data['심야논피크'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
 
                     total_actions = sum(v for k, v in rider_data.items() if k != 'name')
                     if total_actions > 0:
@@ -645,6 +600,7 @@ class GriderDataCollector:
                 'report_date': self._get_today_date(),
                 'error': None
             },
+            'weather_info': {},
             'daily_summary': {},
             'weekly_summary': {},
             'mission_status': {},
@@ -652,6 +608,7 @@ class GriderDataCollector:
         }
         
         try:
+            final_data['weather_info'] = self._get_weather_info_detailed()
             driver = self._perform_login()
             if not driver:
                 raise Exception("G라이더 로그인 실패")
@@ -672,216 +629,210 @@ class GriderDataCollector:
             final_data['daily_riders'] = daily_data.get('daily_riders', [])
             
         except Exception as e:
-            error_message = f"데이터 수집 실패: {e}"
-            logger.error(error_message, exc_info=True)
-            final_data['metadata']['error'] = error_message
+            final_data['metadata']['error'] = str(e)
+            logger.error(f"데이터 수집 실패: {e}", exc_info=True)
         finally:
             if driver:
                 driver.quit()
-        
         return final_data
 
+
 class GriderAutoSender:
-    """G라이더 자동화 실행 및 카카오톡 전송 클래스"""
-    
+    """수집된 데이터를 처리하고 카카오톡으로 리포트를 전송합니다."""
     def __init__(self, rest_api_key=None, refresh_token=None):
-        self.collector = GriderDataCollector()
         self.kakao_sender = None
+        self.dashboard_api_dir = Path(__file__).parent.parent / 'dashboard' / 'api'
+        
         if rest_api_key and refresh_token:
             token_manager = TokenManager(rest_api_key, refresh_token)
             access_token = token_manager.get_valid_token()
             if access_token:
                 self.kakao_sender = KakaoSender(access_token)
+        else:
+            logger.warning("카카오톡 API 키가 설정되지 않아, 콘솔에만 메시지를 출력합니다.")
 
     def save_dashboard_data(self, data: dict):
         """수집된 데이터를 JSON 파일로 저장합니다."""
-        try:
-            current_script_path = os.path.dirname(os.path.abspath(__file__))
-            # 'semiauto/dashboard/api' 디렉토리의 절대 경로
-            save_path = os.path.join(current_script_path, '..', 'dashboard', 'api', 'latest-data.json')
-            
-            # 디렉토리가 없으면 생성
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            
-            with open(save_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-            logger.info(f"대시보드 데이터 저장 완료: {save_path}")
-            
-            # 히스토리 데이터 저장
-            history_dir = os.path.join(current_script_path, '..', 'dashboard', 'api', 'history')
-            os.makedirs(history_dir, exist_ok=True)
-            history_filename = f"history-{get_korea_time().strftime('%Y-%m-%d')}.json"
-            history_filepath = os.path.join(history_dir, history_filename)
-            with open(history_filepath, 'w', encoding='utf-8') as f:
-                 json.dump(data, f, ensure_ascii=False, indent=4)
-            logger.info(f"히스토리 데이터 저장 완료: {history_filepath}")
+        self.dashboard_api_dir.mkdir(exist_ok=True)
+        history_dir = self.dashboard_api_dir / 'history'
+        history_dir.mkdir(exist_ok=True)
 
-        except Exception as e:
-            logger.error(f"대시보드 데이터 저장 실패: {e}", exc_info=True)
+        latest_data_path = self.dashboard_api_dir / 'latest-data.json'
+        history_file_path = history_dir / f"history-{data['metadata']['report_date']}.json"
+
+        try:
+            with open(latest_data_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.info(f"대시보드 데이터 저장 완료: {latest_data_path}")
+            
+            with open(history_file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.info(f"히스토리 데이터 저장 완료: {history_file_path}")
+        except IOError as e:
+            logger.error(f"데이터 파일 저장 실패: {e}")
 
     def send_report(self):
-        """데이터 수집, 메시지 포매팅 및 전송을 총괄합니다."""
-        data = self.collector.collect_all_data()
-        self.save_dashboard_data(data) # 데이터 저장
-        
-        if data['metadata']['error']:
-            error_message = f"데이터 수집 중 오류 발생: {data['metadata']['error']}"
+        """최신 데이터를 로드하고, 포맷하여 카카오톡으로 전송합니다."""
+        latest_data_path = self.dashboard_api_dir / 'latest-data.json'
+        try:
+            with open(latest_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if data['metadata'].get('error'):
+                error_message = f"데이터 수집 중 오류 발생: {data['metadata']['error']}"
+                self.send_kakao_message(error_message)
+            else:
+                formatted_message = self.format_message(data)
+                self.send_kakao_message(formatted_message)
+
+        except (IOError, json.JSONDecodeError) as e:
+            error_message = f"리포트 파일 처리 중 오류 발생: {e}"
+            logger.error(error_message)
             self.send_kakao_message(error_message)
-            return
-
-        formatted_message = self.format_message(data)
-        
-        # pyperclip을 이용한 클립보드 복사 (로컬 환경에서만)
-        if 'GITHUB_ACTIONS' not in os.environ:
-            try:
-                import pyperclip
-                pyperclip.copy(formatted_message)
-                logger.info("✅ 메시지가 클립보드에 복사되었습니다.")
-            except Exception as e:
-                logger.warning(f"클립보드 복사 실패. 'pyperclip'이 설치되지 않았을 수 있습니다: {e}")
-
-        # 카카오톡 메시지 전송
-        self.send_kakao_message(formatted_message)
 
     def send_kakao_message(self, text: str):
-        """카카오톡 메시지를 전송합니다."""
+        """메시지를 카카오톡 또는 콘솔로 전송합니다."""
         if self.kakao_sender:
             self.kakao_sender.send_text_message(text)
         else:
-            logger.warning("카카오톡 발송기(sender)가 초기화되지 않아 메시지를 전송할 수 없습니다.")
-            # 비상 플랜: 콘솔에 메시지 출력
-            print("\n--- 카카오톡 전송 메시지 (콘솔 출력) ---\n")
+            print("\n" + "--- 카카오톡 전송 메시지 (콘솔 출력) ---")
             print(text)
-            print("\n---------------------------------------\n")
+            print("---------------------------------------" + "\n")
 
     def format_message(self, data: dict) -> str:
-        """수집된 데이터를 기반으로 카카오톡 메시지 문자열을 생성합니다."""
-        
+        """데이터를 카카오톡 메시지 형식으로 변환합니다."""
         def get_acceptance_progress_bar(percentage: float) -> str:
-            """수락률에 따라 프로그레스 바 아이콘 반환"""
-            if percentage >= 98: return "🟩🟩🟩🟩🟩"
-            if percentage >= 95: return "🟨🟨🟨🟨🟨"
-            if percentage > 90:  return "🟧🟧🟧🟧🟧"
+            """수락률에 따라 진행률 막대 이모지를 반환합니다."""
+            if percentage >= 95: return "🟩🟩🟩🟩🟩"
+            if percentage >= 90: return "🟩🟩🟩🟩🟨"
+            if percentage >= 80: return "🟩🟩🟩🟨🟨"
+            if percentage >= 70: return "🟩🟩🟨🟨🟨"
+            if percentage >= 60: return "🟨🟨🟨🟨🟨"
             return "🟥🟥🟥🟥🟥"
 
         def get_rider_progress_bar(contribution: float) -> str:
-            """기여도에 따라 프로그레스 바 아이콘 반환"""
-            bar = "▰" * int(contribution / 10)
-            return bar if bar else "▱"
+            BAR_LENGTH = 5
+            filled_count = int(contribution / 100 * BAR_LENGTH)
+            return '🟩' * filled_count + '⬜' * (BAR_LENGTH - filled_count)
 
-        # 데이터 추출
-        report_date = data.get('metadata', {}).get('report_date', '날짜 없음')
-        daily = data.get('daily_summary', {})
-        weekly = data.get('weekly_summary', {})
-        mission = data.get('mission_status', {})
-        riders = data.get('daily_riders', [])
-
-        # 날짜 및 공휴일 정보
-        today_date_obj = datetime.strptime(report_date, '%Y-%m-%d')
-        day_of_week = ['월', '화', '수', '목', '금', '토', '일'][today_date_obj.weekday()]
-        is_holiday, holiday_name = holiday_checker.is_holiday_advanced(report_date)
-        date_str = f"{today_date_obj.month}/{today_date_obj.day}({day_of_week})"
-        if is_holiday:
-            date_str += f" HOLIDAY! ({holiday_name})"
-
+        report_date = data['metadata']['report_date']
+        
         # 날씨 정보
-        weather = self._get_weather_info_detailed()
+        weather = data.get('weather_info')
         weather_str = f"{weather['icon']} {weather['description']} ({weather['temp_min']}°C / {weather['temp_max']}°C)" if weather else "날씨 정보 없음"
 
-        # 메시지 헤더
-        header = f"📊 {date_str} - {weather_str}\n"
-        header += "==============================\n"
-
         # 주간 요약
-        weekly_total_completed = weekly.get('총완료', 0)
-        weekly_total_rejected = weekly.get('총거절', 0)
-        weekly_acceptance_rate = weekly.get('수락률', 0.0)
+        weekly = data['weekly_summary']
+        weekly_acceptance_rate = weekly.get('수락률', 0)
+        acceptance_bar = get_acceptance_progress_bar(weekly_acceptance_rate)
         
         weekly_summary_str = (
-            f"📈 주간 요약\n"
-            f"├ 총완료: {weekly_total_completed}건 | 총거절: {weekly_total_rejected}건\n"
-            f"├ 수락률: {weekly_acceptance_rate:.2f}% {get_acceptance_progress_bar(weekly_acceptance_rate)}\n"
-            f"└ 예상점수: 총 {weekly.get('예상총점수','-')}점 (물량 {weekly.get('물량점수','-')} + 수락률 {weekly.get('수락률점수','-')})\n"
+            f"✅ 주간 예상 총 점수: {weekly.get('예상총점수', 'N/A')}\n"
+            f"  - 물량점수: {weekly.get('물량점수', 'N/A')}\n"
+            f"  - 수락률점수: {weekly.get('수락률점수', 'N/A')}\n"
+            f"✅ 주간 실적 요약\n"
+            f"  - 총완료: {weekly.get('총완료', 0)}건, 총거절: {weekly.get('총거절', 0)}건\n"
+            f"  - 수락률: {weekly_acceptance_rate:.2f}% {acceptance_bar}"
         )
         
         # 미션 현황
+        mission = data.get('mission_status', {})
         delivery_mission = mission.get('delivery_mission', {})
         safety_mission = mission.get('safety_mission', {})
         mission_str = (
-            f"🎯 오늘의 미션\n"
-            f"├ 배달: {delivery_mission.get('current', 0)}/{delivery_mission.get('target', 0)}건 ({delivery_mission.get('score', '0')}점)\n"
-            f"└ 안전: {safety_mission.get('current', 0)}/{safety_mission.get('target', 0)}건 ({safety_mission.get('score', '0')}점)\n"
+            f"✅ 금일 미션 현황\n"
+            f"  - 배달: {delivery_mission.get('current', 0)}/{delivery_mission.get('target', 0)}건 ({delivery_mission.get('score', '0')}점)\n"
+            f"  - 안전: {safety_mission.get('current', 0)}/{safety_mission.get('target', 0)}건 ({safety_mission.get('score', '0')}점)"
         )
         
-        # 일간 요약
-        daily_total = daily.get('total_completed', 0)
-        daily_rejected = daily.get('total_rejected', 0)
-        daily_canceled = daily.get('total_canceled', 0)
-        daily_acceptance_rate = (daily_total / (daily_total + daily_rejected + daily_canceled) * 100) if (daily_total + daily_rejected + daily_canceled) > 0 else 0
+        # 일일 라이더별 실적
+        riders = sorted(data.get('daily_riders', []), key=lambda x: x.get('완료', 0), reverse=True)
+        total_completions = sum(r.get('완료', 0) for r in riders)
         
-        daily_summary_str = (
-            f"📉 일간 요약\n"
-            f"├ 완료: {daily_total}건 | 거절: {daily_rejected}건 | 취소: {daily_canceled}건\n"
-            f"└ 수락률: {daily_acceptance_rate:.2f}%\n"
-        )
-
-        # 라이더별 상세
-        rider_str = "👤 라이더별 상세\n"
+        rider_strs = ["✅ 금일 라이더별 실적 TOP 5"]
         if not riders:
-            rider_str += "  - 운행 중인 라이더 정보가 없습니다.\n"
+            rider_strs.append("  - 데이터 없음")
         else:
-            # 기여도 계산 및 정렬
-            for rider in riders:
-                rider['total'] = rider.get('완료', 0)
-                rider['contribution'] = (rider['total'] / daily_total * 100) if daily_total > 0 else 0
-            
-            sorted_riders = sorted(riders, key=lambda x: x['total'], reverse=True)
-
-            for rider in sorted_riders[:10]: # 상위 10명만 표시
-                progress_bar = get_rider_progress_bar(rider['contribution'])
-                rider_str += (
-                    f"├ {rider['name']} {rider['total']}건 ({rider['contribution']:.1f}%) {progress_bar}\n"
-                    f"|    (거절 {rider.get('거절',0)}, 배취 {rider.get('배차취소',0)}, 배달취소 {rider.get('배달취소',0)})\n"
+            for i, rider in enumerate(riders[:5]):
+                contribution = (rider.get('완료', 0) / total_completions * 100) if total_completions > 0 else 0
+                progress_bar = get_rider_progress_bar(contribution)
+                
+                # 상세 실적
+                details = (
+                    f"완료 {rider.get('완료', 0)} / 거절 {rider.get('거절', 0)} / "
+                    f"취소 {rider.get('배차취소', 0)+rider.get('배달취소', 0)}"
+                )
+                rider_strs.append(
+                    f"  {i+1}. {rider['name']}: {progress_bar} {contribution:.1f}%\n"
+                    f"     ({details})"
                 )
 
-        # 전체 메시지 조합
-        return f"{header}\n{weekly_summary_str}\n{mission_str}\n{daily_summary_str}\n{rider_str}"
+        # 메시지 조합
+        message = (
+            f"📊 G-Rider 리포트 ({report_date})\n"
+            f"{weather_str}\n\n"
+            f"{'='*15}\n"
+            f"주간 실적 요약 (SLA)\n"
+            f"{'-'*18}\n"
+            f"{weekly_summary_str}\n\n"
+            f"{'='*15}\n"
+            f"미션 현황 (SLA)\n"
+            f"{'-'*18}\n"
+            f"{mission_str}\n\n"
+            f"{'='*15}\n"
+            f"일일 실적 요약 (대시보드)\n"
+            f"{'-'*18}\n"
+            f"{rider_strs[0]}\n" + "\n".join(rider_strs[1:])
+        )
+        
+        return message
 
 def load_config():
-    """환경변수를 .env 파일에서 로드합니다."""
-    # .env 파일이 현재 작업 디렉토리에 있는지 확인
-    if os.path.exists('.env'):
-        load_dotenv()
+    """환경변수 및 .env 파일에서 설정을 로드합니다."""
+    # .env 파일이 있으면 로드
+    env_path = Path('.') / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
         logger.info(".env 파일에서 환경변수를 로드했습니다.")
-    # GitHub Actions 환경인지 확인
-    elif 'GITHUB_ACTIONS' in os.environ:
-        logger.info("GitHub Actions 환경으로 감지되었습니다. 환경변수는 Secrets를 통해 주입됩니다.")
-    else:
-        logger.warning(".env 파일이 없으며, GitHub Actions 환경이 아닙니다. 필요한 환경변수가 설정되지 않았을 수 있습니다.")
+
+    config = {
+        'GRIDER_ID': os.getenv('GRIDER_ID'),
+        'GRIDER_PW': os.getenv('GRIDER_PW'),
+        'KAKAO_REST_API_KEY': os.getenv('KAKAO_REST_API_KEY'),
+        'KAKAO_REFRESH_TOKEN': os.getenv('KAKAO_REFRESH_TOKEN'),
+        'KOREA_HOLIDAY_API_KEY': os.getenv('KOREA_HOLIDAY_API_KEY')
+    }
+    
+    # 필수 환경변수 확인
+    required_vars = ['GRIDER_ID', 'GRIDER_PW', 'KAKAO_REST_API_KEY', 'KAKAO_REFRESH_TOKEN']
+    if not all(config.get(var) for var in required_vars):
+        logger.warning("필수 환경변수가 모두 설정되지 않았습니다.")
+        
+    return config
 
 def main():
     """메인 실행 함수"""
-    logger.info("==================================================")
+    logger.info("=" * 50)
     logger.info(" G-Rider 자동화 스크립트 시작")
-    logger.info("==================================================")
-    
-    load_config()
-    
-    # 환경변수 로드 확인
-    required_vars = ['GRIDER_ID', 'GRIDER_PASSWORD', 'KAKAO_REST_API_KEY', 'KAKAO_REFRESH_TOKEN']
-    if not all(os.getenv(var) for var in required_vars):
-        logger.warning("필수 환경변수가 모두 설정되지 않았습니다.")
+    logger.info("=" * 50)
 
+    config = load_config()
+
+    # 데이터 수집
+    collector = GriderDataCollector()
+    data = collector.collect_all_data()
+    
+    # 리포트 전송
     sender = GriderAutoSender(
-        rest_api_key=os.getenv("KAKAO_REST_API_KEY"),
-        refresh_token=os.getenv("KAKAO_REFRESH_TOKEN")
+        rest_api_key=config['KAKAO_REST_API_KEY'],
+        refresh_token=config['KAKAO_REFRESH_TOKEN']
     )
+    sender.save_dashboard_data(data)
     sender.send_report()
-    
-    logger.info("==================================================")
+
+    logger.info("=" * 50)
     logger.info(" G-Rider 자동화 스크립트 종료")
-    logger.info("==================================================")
+    logger.info("=" * 50)
 
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    main()+
