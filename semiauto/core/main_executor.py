@@ -822,13 +822,14 @@ class GriderAutoSender:
         else:
             logger.info("카카오톡 리포트 전송을 요청했습니다.")
 
+    """환경변수 또는 .env 파일에서 설정 로드"""
     def format_message(self, data: dict) -> str:
         """카카오톡 전송을 위한 메시지 포맷팅"""
         
         def get_acceptance_progress_bar(percentage: float) -> str:
             if not isinstance(percentage, (int, float)) or not 0 <= percentage <= 100: 
                 return ""
-            filled_blocks = round(percentage / 10) # 8칸에서 다시 10칸으로 복원
+            filled_blocks = round(percentage / 10) # 10칸
             return '🟩' * filled_blocks + '⬜' * (10 - filled_blocks)
 
         def get_rider_progress_bar(contribution: float) -> str:
@@ -851,7 +852,7 @@ class GriderAutoSender:
         mission_details = []
         mission_alerts = [] # 미션 부족 알림 저장용
         mission_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-        mission_emojis_for_summary = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '🌙'}
+        mission_emojis_for_summary = {'아침점심피크': '🌅', '오후논피크': '🌇', '저녁피크': '🌃', '심야논피크': '��'}
         mission_short_names = {'아침점심피크': '아침점심', '오후논피크': '오후논', '저녁피크': '저녁', '심야논피크': '심야'}
         
         for mission_name in mission_order:
@@ -940,7 +941,7 @@ class GriderAutoSender:
                 rider_ranking_summary = "\n".join(ranking_list)
 
         weather_summary = data.get('weather_info', '날씨 정보 조회 불가')
-        
+
         # 특이사항 (미션 부족 알림)
         alert_summary = ""
         if mission_alerts:
@@ -956,9 +957,6 @@ class GriderAutoSender:
             alert_summary,
         ]
         return "\n\n".join(filter(None, message_parts))
-
-def load_config():
-    """환경변수 또는 .env 파일에서 설정 로드"""
     # .env 파일 경로를 스크립트 파일 기준으로 설정
     dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
     load_dotenv(dotenv_path)
