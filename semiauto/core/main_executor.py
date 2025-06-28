@@ -398,49 +398,30 @@ class GriderDataCollector:
         
         return weekly_data
 
-    def _get_text_excluding_children(self, element):
-        """특정 웹 요소에서 자식 노드를 제외한 순수 텍스트만 추출합니다."""
-        return self.driver.execute_script(
-            "var element = arguments[0];"
-            "var text = '';"
-            "for (var i = 0; i < element.childNodes.length; i++) {"
-            "    if (element.childNodes[i].nodeType === Node.TEXT_NODE) {"
-            "        text += element.childNodes[i].textContent.trim();"
-            "    }"
-            "}"
-            "return text;",
-            element
-        )
-
     def _parse_daily_rider_data(self, driver):
         """대시보드에서 일간 라이더 데이터를 파싱합니다."""
+        s_daily = self.selectors['daily_data']
+        wait = WebDriverWait(driver, 20)
         daily_data = {'riders': [], 'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0}
-        rider_list = []
+
+        # 일일 총계 파싱
+        total_container_selector = s_daily.get('daily_total_container')
+        if total_container_selector:
+            try:
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
+                
+                daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
+                daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
+                cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
+                cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
+                daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
+                logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
+
+            except Exception as e:
+                logger.error(f"일일 총계 파싱 실패: {e}", exc_info=True)
+
+        # 라이더 목록 파싱
         try:
-            logger.info("로그인 후 대시보드에서 '일간 라이더 데이터' 수집을 시작합니다.")
-            driver.get(self.dashboard_url)
-            s_daily = self.selectors.get('daily_data', {})
-            wait = WebDriverWait(driver, 20)
-
-            # 1. 일일 총계 데이터 파싱
-            total_container_selector = s_daily.get('total_container')
-            if total_container_selector:
-                try:
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, total_container_selector)))
-                    
-                    daily_data['total_completed'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_complete')).text)
-                    daily_data['total_rejected'] = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_reject')).text)
-                    cancel_dispatch = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel')).text)
-                    cancel_delivery = self._get_safe_number(driver.find_element(By.CSS_SELECTOR, s_daily.get('daily_total_accept_cancel_rider_fault')).text)
-                    daily_data['total_canceled'] = cancel_dispatch + cancel_delivery
-                    logger.info(f"✅ 일일 총계 파싱 완료: {daily_data}")
-                except Exception as e:
-                    logger.error(f"일일 총계 데이터 파싱 중 오류: {e}", exc_info=True)
-                    daily_data.update({'total_completed': 0, 'total_rejected': 0, 'total_canceled': 0})
-            else:
-                logger.warning("일일 총계 컨테이너 선택자를 찾을 수 없습니다.")
-
-            # 2. 개별 라이더 데이터 파싱
             rider_list_container_selector = s_daily.get('container')
             rider_item_selector = s_daily.get('item')
             # 컨테이너와 최소 1개의 아이템이 로드될 때까지 대기
@@ -468,18 +449,19 @@ class GriderDataCollector:
                     
                     rider_data = {'name': name}
                     
-                    rider_data['완료'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count'))))
-                    rider_data['거절'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count'))))
-                    rider_data['배차취소'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count'))))
-                    rider_data['배달취소'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count'))))
-                    rider_data['오전'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count'))))
-                    rider_data['오후'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count'))))
-                    rider_data['저녁'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count'))))
-                    rider_data['심야'] = self._get_safe_number(self._get_text_excluding_children(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count'))))
+                    rider_data['완료'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('complete_count')).text)
+                    rider_data['거절'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('reject_count')).text)
+                    rider_data['배차취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_count')).text)
+                    rider_data['배달취소'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('accept_cancel_rider_fault_count')).text)
+                    rider_data['오전'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('morning_count')).text)
+                    rider_data['오후'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('afternoon_count')).text)
+                    rider_data['저녁'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('evening_count')).text)
+                    rider_data['심야'] = self._get_safe_number(rider_element.find_element(By.CSS_SELECTOR, s_daily.get('midnight_count')).text)
 
                     total_actions = sum(v for k, v in rider_data.items() if k != 'name')
+
                     if total_actions > 0:
-                        rider_list.append(rider_data)
+                        daily_data['riders'].append(rider_data)
                     else:
                         logger.info(f"라이더 '{name}'는 실적이 없어 데이터 수집에서 제외합니다.")
 
@@ -495,8 +477,8 @@ class GriderDataCollector:
                     logger.warning(f"라이더 '{name_for_log}'의 데이터 파싱 중 예외 발생: {e}", exc_info=True)
                     continue
             
-            daily_data['riders'] = rider_list
-            logger.info(f"✅ {len(rider_list)}명의 활동 라이더 데이터 파싱 완료.")
+            daily_data['riders'] = daily_data['riders'][:5] # 상위 5명만 유지
+            logger.info(f"✅ {len(daily_data['riders'])}명의 활동 라이더 데이터 파싱 완료.")
 
         except TimeoutException:
             logger.error("미션 데이터 테이블 로드 시간 초과. 현재 페이지 소스를 로그에 기록합니다.", exc_info=True)
@@ -608,17 +590,29 @@ class GriderDataCollector:
                 driver.quit()
             return None
 
-    def _get_safe_number(self, text, to_float=False):
-        """문자열에서 숫자만 추출하여 int 또는 float로 반환합니다. '%' 등 비숫자 문자 제거."""
+    def _get_safe_number(self, text):
+        """문자열에서 숫자만 추출하여 정수로 변환합니다. 변환 실패 시 0을 반환합니다."""
         if not isinstance(text, str):
-            return float(text) if to_float else int(text)
+            return 0
         
-        # 정규표현식을 사용하여 숫자(소수점 포함) 부분만 추출
-        match = re.search(r'[-+]?\d*\.?\d+', text.strip())
-        if match:
-            num_str = match.group(0)
-            return float(num_str) if to_float else int(float(num_str)) # float으로 먼저 변환하여 소수점 있는 정수 처리
-        return 0.0 if to_float else 0
+        text = text.strip()
+        # 'N/A', '-', 등 숫자 변환이 불가능한 경우를 처리
+        if text in ['N/A', '-', '']:
+            return 0
+            
+        # '점', '건', '회' 등 단위 제거
+        text = text.replace('점', '').replace('건', '').replace('회', '')
+        
+        # 정규표현식을 사용하여 숫자 부분만 추출 (소수점도 고려)
+        numbers = re.findall(r'[-+]?\d*\.\d+|\d+', text)
+        
+        if numbers:
+            try:
+                # 첫 번째로 찾은 숫자를 정수로 변환
+                return int(float(numbers[0]))
+            except (ValueError, IndexError):
+                return 0
+        return 0
 
     def collect_all_data(self):
         """모든 데이터를 수집하고 종합하여 반환합니다."""
@@ -642,9 +636,13 @@ class GriderDataCollector:
             final_data['weekly_summary'] = weekly_and_mission_data
             final_data['mission_status'] = mission_data
             final_data['daily_riders'] = daily_data.get('riders', [])
+            final_data['metadata']['error'] = None # 성공 시 에러 없음을 명시적으로 기록
             
         except Exception as e:
             logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
+            if 'metadata' not in final_data:
+                final_data['metadata'] = {}
+            final_data['metadata']['error'] = str(e) # 실패 시 에러 기록
         finally:
             if self.driver:
                 self.driver.quit()
@@ -695,38 +693,17 @@ class GriderAutoSender:
         data = self.collector.collect_all_data()
         self.save_dashboard_data(data) # 데이터 저장
         
-        if data['metadata']['error']:
-            error_message = f"데이터 수집 중 오류 발생: {data['metadata']['error']}"
-            self.send_kakao_message(error_message)
+        if data.get('metadata', {}).get('error'):
+            logger.error(f"데이터 수집 중 오류가 발생하여 리포트를 전송하지 않습니다: {data['metadata']['error']}")
+            # 필요시 오류 상황을 알리는 메시지를 보낼 수도 있음
+            # self.kakao_manager.send_message("자동화 스크립트 실행 중 오류가 발생했습니다.")
             return
-
-        formatted_message = self.format_message(data)
         
-        # pyperclip을 이용한 클립보드 복사 (로컬 환경에서만)
-        if 'GITHUB_ACTIONS' not in os.environ:
-            try:
-                import pyperclip
-                pyperclip.copy(formatted_message)
-                logger.info("✅ 메시지가 클립보드에 복사되었습니다.")
-            except Exception as e:
-                logger.warning(f"클립보드 복사 실패. 'pyperclip'이 설치되지 않았을 수 있습니다: {e}")
-
-        # 카카오톡 메시지 전송
-        self.send_kakao_message(formatted_message)
-
-    def send_kakao_message(self, text: str):
-        """카카오톡 메시지를 전송합니다."""
-        if self.kakao_sender:
-            self.kakao_sender.send_text_message(text)
-        else:
-            logger.warning("카카오톡 발송기(sender)가 초기화되지 않아 메시지를 전송할 수 없습니다.")
-            # 비상 플랜: 콘솔에 메시지 출력
-            print("\n--- 카카오톡 전송 메시지 (콘솔 출력) ---\n")
-            print(text)
-            print("\n---------------------------------------\n")
+        message = self.format_message(data)
+        self.kakao_sender.send_text_message(message)
 
     def format_message(self, data):
-        """수집된 모든 데이터를 최종 카카오톡 메시지 형식으로 조합합니다."""
+        """데이터를 카카오톡 메시지 형식으로 변환합니다."""
         
         # 데이터 추출
         mission_status = data.get('mission_status', {})
