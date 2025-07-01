@@ -21,6 +21,8 @@ from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 from dotenv import load_dotenv
 import sys
 from bs4 import BeautifulSoup
+from weather_service import WeatherService
+from .selectors_manager import GriderSelectorsManager
 
 # 프로젝트 루트를 Python 경로에 추가하여 weather_service 모듈 임포트 허용
 # 이 스크립트(main_executor.py)는 semiauto/core/ 안에 있으므로,
@@ -665,13 +667,18 @@ class GriderAutoSender:
     """G라이더 자동화 실행 및 카카오톡 전송 클래스"""
     
     def __init__(self, rest_api_key=None, refresh_token=None):
-        self.collector = GriderDataCollector()
-        self.kakao_sender = None
-        if rest_api_key and refresh_token:
-            tm = TokenManager(rest_api_key, refresh_token)
-            token = tm.get_valid_token()
-            if token: self.kakao_sender = KakaoSender(token)
-        self.weather_service = KMAWeatherService()
+        self.refresh_token = refresh_token or os.getenv("KAKAO_REFRESH_TOKEN")
+        self.data_collector = GriderDataCollector()
+        
+        # 날씨 서비스 초기화 (더 안정적인 OpenWeatherMap 사용)
+        self.weather_service = WeatherService()
+        
+        if not self.rest_api_key or not self.refresh_token:
+            raise ValueError("Kakao API 키와 리프레시 토큰이 필요합니다.")
+        
+        tm = TokenManager(rest_api_key, self.refresh_token)
+        token = tm.get_valid_token()
+        if token: self.kakao_sender = KakaoSender(token)
         
         # 피크타임 목표치 설정 (환경변수에서 읽거나 기본값 사용)
         self.peak_targets = {
@@ -704,7 +711,7 @@ class GriderAutoSender:
             logger.error(f"대시보드 데이터 저장 실패: {e}", exc_info=True)
 
     def send_report(self):
-        data = self.collector.collect_all_data()
+        data = self.data_collector.collect_all_data()
         if data.get('metadata', {}).get('error'):
             logger.error(f"데이터 수집 실패로 리포트 전송 안함: {data['metadata']['error']}")
             return False
@@ -833,7 +840,7 @@ class GriderAutoSender:
             f"{separator}"
             f"📊 이번주 미션 예상점수\n"
             f"총점: {weekly_summary_data.get('총점', 0)}점 (물량:{weekly_summary_data.get('물량점수', 0)}, 수락률:{weekly_summary_data.get('수락률점수', 0)})\n"
-            f"{weekly_details_str}"
+            f"(상세내역은 앱에서 확인해주세요)"
             f"{separator}"
             f"{rider_str}"
             f"{separator}"
@@ -843,29 +850,15 @@ class GriderAutoSender:
         return msg
 
     def _get_improved_weather_summary(self):
-        """개선된 날씨 요약 정보"""
+        """개선된 날씨 요약 정보 (OpenWeatherMap 기반)"""
         try:
+            # WeatherService의 get_weather_summary는 이미 잘 포맷팅된 문자열을 반환
             summary = self.weather_service.get_weather_summary()
-            
-            # 성공적으로 데이터를 받은 경우
-            if isinstance(summary, dict) and 'forecast' in summary:
-                forecast = summary.get('forecast', [])
-                if forecast and len(forecast) > 0:
-                    current = forecast[0]
-                    temp = current.get('temperature', 'N/A')
-                    desc = current.get('description', '정보없음')
-                    return f"🌍 안산 날씨: {desc} {temp}°C"
-            
-            # 문자열 형태로 받은 경우 (기상청 데이터)
-            elif isinstance(summary, str):
-                return summary
-            
-            # 기본값 반환
-            return "🌍 안산 날씨: 정보 조회 중"
+            return summary
             
         except Exception as e:
             logger.warning(f"날씨 정보 조회 실패: {e}")
-            return "🌍 안산 날씨: 조회 실패"
+            return "🌍 날씨 정보 조회에 실패했습니다."
 
     def _calculate_rider_contributions(self, riders_data, peak_times, current_hour):
         """라이더별 기여도 계산 (상대적 기여도로 전체 합 100%)"""
@@ -959,8 +952,8 @@ class GriderAutoSender:
             rejected = rider['rejected']
             canceled = rider['canceled']
             
-            # 기여도 기반 진행률 바 생성 (🟩 형식, 최대 10개)
-            bar_len = 10
+            # 기여도 기반 진행률 바 생성 (🟩 형식, 최대 5칸)
+            bar_len = 5
             if max_contribution > 0:
                 progress_ratio = contribution / max_contribution
             else:
