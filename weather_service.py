@@ -65,6 +65,8 @@ class WeatherService:
                 data = response.json()
                 return self._format_hourly_forecast(data, hours)
             else:
+                error_msg = f"시간별 예보 조회 API 실패. Status: {response.status_code}, Response: {response.text}"
+                print(error_msg)
                 return None
                 
         except Exception as e:

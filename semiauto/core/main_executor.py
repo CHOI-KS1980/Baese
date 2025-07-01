@@ -600,6 +600,13 @@ class GriderDataCollector:
             except Exception as save_e:
                 logger.error(f"❌ SLA 페이지 소스 저장 실패: {save_e}")
             
+            # 주간 요약 데이터가 완전히 로드될 때까지 명시적으로 대기
+            s_weekly = self.selectors.get('weekly_summary', {})
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_weekly['summary']['total_score'])))
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_weekly['stats']['acceptance_rate'])))
+            logger.info("✅ 주간 요약 데이터 표시 확인 완료.")
+            time.sleep(1) # 최종 렌더링을 위한 짧은 대기
+
             weekly_summary = self._parse_weekly_summary(soup_sla)
             mission_result = self._parse_mission_data(soup_sla)
             mission_data = mission_result.get("data", {})
@@ -681,7 +688,7 @@ class GriderAutoSender:
         # 피크타임 목표치 설정 (환경변수에서 읽거나 기본값 사용)
         self.peak_targets = {
             '아침점심피크': int(os.getenv('MORNING_TARGET', '20')),
-            '오후논피크': int(os.getenv('AFTERNOON_TARGET', '200')), 
+            '오후논피크': int(os.getenv('AFTERNOON_TARGET', '20')), 
             '저녁피크': int(os.getenv('EVENING_TARGET', '25')),
             '심야논피크': int(os.getenv('MIDNIGHT_TARGET', '20'))
         }
