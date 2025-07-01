@@ -392,13 +392,21 @@ class GriderDataCollector:
             data['총점'] = self._get_safe_number(soup.select_one(s['summary']['total_score']).text)
             data['물량점수'] = self._get_safe_number(soup.select_one(s['summary']['quantity_score']).text)
             data['수락률점수'] = self._get_safe_number(soup.select_one(s['summary']['acceptance_score']).text)
-            data['총완료'] = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
-            data['총거절및취소'] = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
             
-            rate_text = soup.select_one(s['stats']['acceptance_rate']).text
-            data['수락률'] = float(re.search(r'\d+\.?\d*', rate_text).group())
+            # 주간 데이터 상세 계산
+            completed = self._get_safe_number(soup.select_one(s['stats']['total_completed']).text)
+            rejected = self._get_safe_number(soup.select_one(s['stats']['total_rejected']).text)
+            accept_canceled = self._get_safe_number(soup.select_one(s['stats']['accept_canceled']).text)
+            delivery_canceled = self._get_safe_number(soup.select_one(s['stats']['delivery_canceled']).text)
+
+            total_rejected_canceled = rejected + accept_canceled + delivery_canceled
+            total_attempts = completed + total_rejected_canceled
             
-            logger.info(f"✅ 주간 요약 파싱 완료: {data}")
+            data['총완료'] = completed
+            data['총거절및취소'] = total_rejected_canceled
+            data['수락률'] = (completed / total_attempts * 100) if total_attempts > 0 else 100.0
+
+            logger.info(f"✅ 주간 요약 파싱 및 계산 완료: {data}")
         except Exception as e:
             logger.error(f"주간 요약 파싱 실패: {e}")
             # 기본값으로 설정
@@ -586,6 +594,7 @@ class GriderDataCollector:
             logger.info("SLA 페이지에서 미션 테이블 확인 완료.")
             time.sleep(3) # 데이터 로딩을 위한 추가 대기
             
+            # 모든 대기가 끝난 후, 최종 페이지 소스로 다시 파싱
             soup_sla = BeautifulSoup(self.driver.page_source, 'html.parser')
             
             # 디버깅용: SLA 페이지 소스 저장
@@ -603,8 +612,10 @@ class GriderDataCollector:
             # 주간 요약 데이터가 완전히 로드될 때까지 명시적으로 대기
             s_weekly = self.selectors.get('weekly_summary', {})
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_weekly['summary']['total_score'])))
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_weekly['stats']['total_completed'])))
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_weekly['stats']['total_rejected'])))
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, s_weekly['stats']['acceptance_rate'])))
-            logger.info("✅ 주간 요약 데이터 표시 확인 완료.")
+            logger.info("✅ 주간 요약 데이터의 모든 요소 표시 확인 완료.")
             time.sleep(1) # 최종 렌더링을 위한 짧은 대기
 
             weekly_summary = self._parse_weekly_summary(soup_sla)
