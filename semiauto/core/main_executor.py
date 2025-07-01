@@ -810,7 +810,7 @@ class GriderAutoSender:
                 peak_details = f"🌅{rider.get('아침점심피크',0)} 🌇{rider.get('오후논피크',0)} 🌃{rider.get('저녁피크',0)} 🌙{rider.get('심야논피크',0)}"
                 
                 rider_info = (
-                    f"**{medals[i]} {name}** | {bar} {complete}건\n"
+                    f"{medals[i]} {name} | {bar} {complete}건\n"
                     f"    ({peak_details})\n"
                     f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
                 )
@@ -836,7 +836,7 @@ class GriderAutoSender:
                 peak_details = f"🌅{rider.get('아침점심피크',0)} 🌇{rider.get('오후논피크',0)} 🌃{rider.get('저녁피크',0)} 🌙{rider.get('심야논피크',0)}"
                 
                 rider_info = (
-                    f"  **{i}. {name}** | {bar} {complete}건\n"
+                    f"  {i}. {name} | {bar} {complete}건\n"
                     f"    ({peak_details})\n"
                     f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
                 )
