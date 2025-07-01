@@ -661,16 +661,18 @@ class GriderDataCollector:
 class GriderAutoSender:
     """모든 로직을 통합하고 최종 메시지를 전송하는 메인 클래스"""
       
-    def __init__(self, weather_service, rest_api_key=None, refresh_token=None):
-        self.rest_api_key = rest_api_key or os.getenv("KAKAO_REST_API_KEY")
-        self.refresh_token = refresh_token or os.getenv("KAKAO_REFRESH_TOKEN")
+    def __init__(self, weather_service, rest_api_key, refresh_token):
+        # 이제 키는 생성자를 통해 명시적으로 주입받습니다.
+        self.rest_api_key = rest_api_key
+        self.refresh_token = refresh_token
         self.data_collector = GriderDataCollector()
         
         # 날씨 서비스 초기화 (외부에서 주입받음)
         self.weather_service = weather_service
         
         if not self.rest_api_key or not self.refresh_token:
-            raise ValueError("Kakao API 키와 리프레시 토큰이 필요합니다.")
+            # 이 오류는 run_sender.py에서 먼저 확인하므로, 여기서는 간단한 확인만 수행합니다.
+            raise ValueError("GriderAutoSender 초기화 실패: API 키와 토큰이 필요합니다.")
         
         tm = TokenManager(self.rest_api_key, self.refresh_token)
         token = tm.get_valid_token()

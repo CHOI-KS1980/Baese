@@ -37,14 +37,34 @@ def main():
     logging.info("="*50)
     
     try:
+        # --- 필수 환경변수 확인 ---
+        rest_api_key = os.getenv("KAKAO_REST_API_KEY")
+        refresh_token = os.getenv("KAKAO_REFRESH_TOKEN")
+
+        error_messages = []
+        if not rest_api_key:
+            error_messages.append("- KAKAO_REST_API_KEY 가 설정되지 않았습니다.")
+        if not refresh_token:
+            error_messages.append("- KAKAO_REFRESH_TOKEN 이 설정되지 않았습니다.")
+
+        if error_messages:
+            full_error_message = (
+                "스크립트 실행에 필요한 환경변수가 누락되었습니다.\n"
+                "GitHub 저장소의 [Settings] > [Secrets and variables] > [Actions] 로 이동하여,\n"
+                "다음 Repository secrets가 올바르게 설정되었는지 확인해주세요:\n"
+                + "\n".join(error_messages)
+            )
+            raise ValueError(full_error_message)
+        # -------------------------
+
         # 1. 날씨 서비스 객체 생성
         weather_service_instance = WeatherService()
 
-        # 2. GriderAutoSender에 날씨 서비스 객체 주입
+        # 2. GriderAutoSender에 날씨 서비스 객체와 키 주입
         executor = GriderAutoSender(
             weather_service=weather_service_instance,
-            rest_api_key=os.getenv("KAKAO_REST_API_KEY"),
-            refresh_token=os.getenv("KAKAO_REFRESH_TOKEN")
+            rest_api_key=rest_api_key,
+            refresh_token=refresh_token
         )
         success = executor.send_report()
         
