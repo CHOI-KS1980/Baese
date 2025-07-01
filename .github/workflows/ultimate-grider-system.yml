@@ -21,14 +21,8 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      # 한국시간 설정 강제
+      # 작업 레벨에서는 전체에 적용될 시간대만 설정
       TZ: 'Asia/Seoul'
-      GRIDER_ID: ${{ secrets.GRIDER_ID }}
-      GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
-      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-      KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-      KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
-      KMA_API_KEY: ${{ secrets.KMA_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -52,9 +46,13 @@ jobs:
       - name: Run automation script
         id: run-script
         env:
-          LOGIN_ID: ${{ secrets.GRIDER_ID }}
-          LOGIN_PW: ${{ secrets.GRIDER_PW }}
+          # 스크립트 실행에 필요한 모든 환경 변수를 이 단계에서 명시적으로 선언합니다.
+          GRIDER_ID: ${{ secrets.GRIDER_ID }}
+          GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          KOREA_HOLIDAY_API_KEY: ${{ secrets.KOREA_HOLIDAY_API_KEY }}
         run: |
           echo "스크립트 실행 시작 시간 (한국시간): $(date)"
           python run_sender.py
