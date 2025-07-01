@@ -1,0 +1,11 @@
+{
+    "metadata": {
+        "report_date": "2025-06-28",
+        "error": "데이터 수집 실패: G라이더 로그인 실패"
+    },
+    "weather_info": null,
+    "daily_summary": {},
+    "weekly_summary": {},
+    "mission_status": {},
+    "daily_riders": []
+}
