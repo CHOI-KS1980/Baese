@@ -733,116 +733,98 @@ class GriderAutoSender:
         # 현재 한국시간
         current_time = get_korea_time()
         current_hour = current_time.hour
-
-        # 데이터 신선도 확인
+        
+        # 1. 헤더 (데이터 신선도 포함)
         mission_actual_date = metadata.get('mission_actual_date')
         is_today_data = metadata.get('is_today_data', False)
-        data_warning = ""
-        
-        if mission_actual_date:
-            if is_today_data:
-                data_warning = f"✅ 오늘({mission_actual_date}) 데이터"
-            else:
-                data_warning = f"⚠️ 주의: {mission_actual_date} 데이터 (어제 데이터일 수 있음)"
-        else:
-            data_warning = "⚠️ 데이터 날짜 확인 필요"
+        data_freshness_str = "✅ 오늘 데이터" if is_today_data and mission_actual_date else f"⚠️ 어제({mission_actual_date}) 데이터"
+        header = f"📊 심플 배민 플러스 미션 알리미\n{data_freshness_str}\n"
 
-        # 1. 헤더
-        header = f"📊 심플 배민 플러스 미션 알리미\n{data_warning}\n"
-
-        # 2. 피크타임 미션 현황 (시간대별 표시 - 시작된 미션만)
+        # 2. 피크타임 미션 현황 (시간대별 표시, 목표 달성 여부)
         peak_times = {
-            '아침점심피크': {'start': 10, 'end': 14, 'emoji': '🌅'},
-            '오후논피크': {'start': 14, 'end': 17, 'emoji': '🌞'}, 
-            '저녁피크': {'start': 17, 'end': 21, 'emoji': '🌆'},
-            '심야논피크': {'start': 21, 'end': 24, 'emoji': '🌙'}
+            '아침점심피크': {'start': 10, 'emoji': '🌅'},
+            '오후논피크': {'start': 14, 'emoji': '🌇'},
+            '저녁피크': {'start': 17, 'emoji': '🌃'},
+            '심야논피크': {'start': 21, 'emoji': '🌙'}
         }
         
-        visible_missions = []
-        total_visible_deliveries = 0
+        mission_statuses = []
+        shortage_summary = []
+        for mission_name, info in peak_times.items():
+            if current_hour >= info['start'] or current_hour >= 21: # 21시 이후 전체 표시
+                completed = mission_data.get(mission_name, 0)
+                target = self.peak_targets.get(mission_name, 0)
+                status_icon = "✅" if completed >= target else "❌"
+                
+                if completed >= target:
+                    status_text = f"({completed}/{target}) {status_icon} (달성)"
+                else:
+                    shortage = target - completed
+                    status_text = f"({completed}/{target}) {status_icon} ({shortage}건 부족)"
+                    shortage_summary.append(f"{info['emoji']}{shortage}건")
+                    
+                mission_statuses.append(f"{info['emoji']} {mission_name}: {status_text}")
         
-        for mission_name, time_info in peak_times.items():
-            # 미션이 시작되었거나 진행 중인 경우만 표시
-            if current_hour >= time_info['start'] or current_hour >= 21:  # 21시 이후는 모든 미션 표시
-                count = mission_data.get(mission_name, 0)
-                visible_missions.append(f" {time_info['emoji']} {mission_name}: {count}건")
-                total_visible_deliveries += count
-        
-        if visible_missions:
-            mission_status_str = f"📈 피크타임 총 {total_visible_deliveries}건 완료\n" + "\n".join(visible_missions)
-        else:
-            mission_status_str = "📈 아직 시작된 피크타임 미션이 없습니다"
+        mission_status_str = "\n".join(mission_statuses) if mission_statuses else "📈 아직 시작된 피크타임 미션이 없습니다."
 
         # 3. 금일 수행 내역 (일일 데이터 기반)
         daily_summary = daily_data.get('summary', {})
         daily_completed = daily_summary.get('total_completed', 0)
-        daily_rejected = daily_summary.get('total_rejected', 0) 
-        daily_canceled = daily_summary.get('total_canceled', 0)
-        daily_total_rejected_canceled = daily_rejected + daily_canceled
+        daily_total_rejected_canceled = daily_summary.get('total_rejected', 0) + daily_summary.get('total_canceled', 0)
         daily_total_attempts = daily_completed + daily_total_rejected_canceled
         daily_acceptance_rate = (daily_completed / daily_total_attempts * 100) if daily_total_attempts > 0 else 100.0
         
         def create_acceptance_bar(rate):
-            filled = int(round(rate / 10))  # 10% 단위로 채움
+            filled = int(round(rate / 10))
             return '🟩' * filled + '⬜' * (10 - filled) if filled < 10 else '🟩' * 10
         
         daily_acceptance_bar = create_acceptance_bar(daily_acceptance_rate)
-
-        # 4. 날씨 정보 개선
-        weather_summary = self._get_improved_weather_summary()
-
-        # 5. 이번주 미션 예상점수 (주간 데이터 기반) - 데이터 검증
-        weekly_total_completed = weekly_summary_data.get('총완료', 0)
-        weekly_total_rejected_canceled = weekly_summary_data.get('총거절및취소', 0)
-        weekly_acceptance_rate = weekly_summary_data.get('수락률', 0.0)
-        
-        # 데이터 신뢰성 검증 (총점이 있지만 완료/거절 데이터가 없거나 부정확한 경우)
-        total_score = weekly_summary_data.get('총점', 0)
-        data_seems_reliable = (
-            total_score > 0 and  # 총점이 있고
-            weekly_total_completed > 0 and  # 완료건수가 있고
-            (weekly_total_completed + weekly_total_rejected_canceled) > 0  # 전체 시도가 있는 경우
-        )
-        
-        if data_seems_reliable:
-            weekly_acceptance_bar = create_acceptance_bar(weekly_acceptance_rate)
-            weekly_details_str = (
-                f"완료: {weekly_total_completed}  거절(취소포함): {weekly_total_rejected_canceled}\n"
-                f"수락률: {weekly_acceptance_rate:.1f}%\n"
-                f"{weekly_acceptance_bar}"
-            )
-        else:
-            # 정확한 데이터가 없는 경우 안내 메시지
-            weekly_details_str = (
-                f"⚠️ 완료/거절 건수: 정확한 데이터 확인 필요\n"
-                f"⚠️ 수락률: 주간 데이터 집계 중"
-            )
-
-        # 6. 라이더별 기여도 계산 및 순위 (개선된 로직)
-        rider_contributions = self._calculate_rider_contributions(riders_data, peak_times, current_hour)
-        rider_str = self._format_rider_rankings(rider_contributions)
-
-        # 최종 메시지 조합
-        separator = "\n\n"
-        
-        msg = (
-            f"{header}"
-            f"{mission_status_str}"
-            f"{separator}"
+        daily_summary_str = (
             f"📈 금일 수행 내역\n"
             f"완료: {daily_completed}  거절(취소포함): {daily_total_rejected_canceled}\n"
             f"수락률: {daily_acceptance_rate:.1f}%\n"
             f"{daily_acceptance_bar}"
+        )
+
+        # 4. 날씨 정보
+        weather_summary = self._get_improved_weather_summary()
+
+        # 5. 이번주 미션 예상점수 (주간 데이터 기반) - 다시 표시
+        weekly_total_completed = weekly_summary_data.get('총완료', 0)
+        weekly_total_rejected_canceled = weekly_summary_data.get('총거절및취소', 0)
+        weekly_acceptance_rate = weekly_summary_data.get('수락률', 0.0)
+        weekly_acceptance_bar = create_acceptance_bar(weekly_acceptance_rate)
+        
+        weekly_summary_str = (
+            f"📊 이번주 미션 예상점수\n"
+            f"총점: {weekly_summary_data.get('총점', 0)}점 (물량:{weekly_summary_data.get('물량점수', 0)}, 수락률:{weekly_summary_data.get('수락률점수', 0)})\n"
+            f"완료: {weekly_total_completed}  거절(취소포함): {weekly_total_rejected_canceled}\n"
+            f"수락률: {weekly_acceptance_rate:.1f}%\n"
+            f"{weekly_acceptance_bar}"
+        )
+
+        # 6. 라이더별 기여도 순위
+        rider_contributions = self._calculate_rider_contributions(riders_data, peak_times, current_hour)
+        rider_str = self._format_rider_rankings(rider_contributions)
+
+        # 7. 푸터 (미션 부족 요약)
+        footer_str = f"⚠️ 미션 부족: {' '.join(shortage_summary)}" if shortage_summary else "🎉 모든 미션 달성!"
+
+        # 최종 메시지 조합
+        separator = "\n\n"
+        msg = (
+            f"{header}"
+            f"{mission_status_str}"
+            f"{separator}"
+            f"{daily_summary_str}"
             f"{separator}"
             f"{weather_summary}"
             f"{separator}"
-            f"📊 이번주 미션 예상점수\n"
-            f"총점: {weekly_summary_data.get('총점', 0)}점 (물량:{weekly_summary_data.get('물량점수', 0)}, 수락률:{weekly_summary_data.get('수락률점수', 0)})\n"
-            f"(상세내역은 앱에서 확인해주세요)"
+            f"{weekly_summary_str}"
             f"{separator}"
             f"{rider_str}"
             f"{separator}"
-            f"총 {total_visible_deliveries}건의 피크타임 배달을 완료했습니다."
+            f"{footer_str}"
         )
 
         return msg
@@ -930,7 +912,7 @@ class GriderAutoSender:
         return sorted(rider_contributions, key=lambda x: x['contribution'], reverse=True)
 
     def _format_rider_rankings(self, rider_contributions):
-        """라이더 순위 포맷팅 (기여도 기반)"""
+        """라이더 순위 포맷팅 (기여도 기반, 완료 건수 별도 라인)"""
         if not rider_contributions:
             return "운행 중인 라이더 정보가 없습니다."
         
@@ -970,8 +952,8 @@ class GriderAutoSender:
                 rank_display = f"  {i+1}."
             
             rider_info = (
-                f"{rank_display} {name} | {bar} {contribution:.1f}% ({completed}건)\n"
-                f"    ({peak_details})\n"
+                f"{rank_display} {name} | {bar} {contribution:.1f}%\n"
+                f"    총 {completed}건 ({peak_details})\n"
                 f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
             )
             rider_parts.append(rider_info)

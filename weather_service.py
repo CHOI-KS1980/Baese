@@ -135,25 +135,46 @@ class WeatherService:
         return emoji_map.get(icon_code, '🌤️')
     
     def get_weather_summary(self):
-        """날씨 요약 정보 (카카오톡 메시지용)"""
-        current = self.get_current_weather()
-        hourly = self.get_hourly_forecast(4)  # 4시간 예보
+        """날씨 요약 정보 (오전/오후 요약 형식)"""
+        hourly_forecast = self.get_hourly_forecast(hours=8) # 24시간(8*3) 데이터 가져오기
         
-        if not current:
+        if not hourly_forecast:
             return "⚠️ 날씨 정보를 가져올 수 없습니다."
-        
-        # 현재 날씨
-        summary = f"🌍 **{current['location']} 날씨**\n"
-        summary += f"\n🕐 **현재 날씨**\n"
-        summary += f"{current['icon']}  {current['temperature']}°C ({current['description']})\n"
-        summary += f"💨 바람: {current['wind_speed']}km/h | 💧 습도: {current['humidity']}%\n"
-        
-        # 시간별 예보
-        if hourly:
-            summary += f"\n⏰ **시간별 예보**\n"
-            for forecast in hourly:
-                rain_info = f"({forecast['rain_probability']}%)" if forecast['rain_probability'] > 0 else ""
-                summary += f"{forecast['time']}: {forecast['icon']}  {forecast['temperature']}°C {rain_info}\n"
+            
+        now = get_korea_time()
+        morning_forecasts = []
+        afternoon_forecasts = []
+
+        for forecast in hourly_forecast:
+            forecast_time = datetime.strptime(forecast['time'], '%H시').replace(year=now.year, month=now.month, day=now.day)
+            
+            # 오전 (6시 ~ 12시), 오후 (12시 ~ 18시)
+            if 6 <= forecast_time.hour < 12:
+                morning_forecasts.append(forecast)
+            elif 12 <= forecast_time.hour < 18:
+                afternoon_forecasts.append(forecast)
+
+        def format_period_summary(period_name, forecasts):
+            if not forecasts:
+                return f" {period_name}: 정보 없음"
+
+            temps = [f['temperature'] for f in forecasts]
+            min_temp, max_temp = min(temps), max(temps)
+            
+            # 가장 빈번한 날씨 아이콘 선택
+            icons = [f['icon'] for f in forecasts]
+            icon = max(set(icons), key=icons.count) if icons else '🌤️'
+            
+            if min_temp == max_temp:
+                temp_range = f"{min_temp}°C"
+            else:
+                temp_range = f"{min_temp}~{max_temp}°C"
+                
+            return f" {period_name}: {icon} {temp_range}"
+
+        summary = "🌍 오늘의 날씨\n"
+        summary += format_period_summary("오전", morning_forecasts) + "\n"
+        summary += format_period_summary("오후", afternoon_forecasts)
         
         return summary
 
