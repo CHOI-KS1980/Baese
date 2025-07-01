@@ -11,6 +11,7 @@ sys.path.insert(0, project_root)
 # -------------------------
 
 from semiauto.core.main_executor import GriderAutoSender, KSTFormatter, get_korea_time
+from weather_service import WeatherService
 
 def setup_logging():
     """로그 설정"""
@@ -36,7 +37,12 @@ def main():
     logging.info("="*50)
     
     try:
+        # 1. 날씨 서비스 객체 생성
+        weather_service_instance = WeatherService()
+
+        # 2. GriderAutoSender에 날씨 서비스 객체 주입
         executor = GriderAutoSender(
+            weather_service=weather_service_instance,
             rest_api_key=os.getenv("KAKAO_REST_API_KEY"),
             refresh_token=os.getenv("KAKAO_REFRESH_TOKEN")
         )

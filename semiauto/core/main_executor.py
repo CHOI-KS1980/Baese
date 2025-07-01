@@ -21,14 +21,10 @@ from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 from dotenv import load_dotenv
 import sys
 from bs4 import BeautifulSoup
-from weather_service import WeatherService
 from .selectors_manager import GriderSelectorsManager
 
 # 프로젝트 루트를 Python 경로에 추가하여 weather_service 모듈 임포트 허용
-# 이 스크립트(main_executor.py)는 semiauto/core/ 안에 있으므로,
-# 프로젝트 루트(Baese/)로 가려면 세 번 상위 디렉토리로 이동해야 합니다.
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # 이제 weather_service를 import 할 수 있습니다.
 try:
@@ -664,19 +660,20 @@ class GriderDataCollector:
                 self.driver.quit()
 
 class GriderAutoSender:
-    """G라이더 자동화 실행 및 카카오톡 전송 클래스"""
-    
-    def __init__(self, rest_api_key=None, refresh_token=None):
+    """모든 로직을 통합하고 최종 메시지를 전송하는 메인 클래스"""
+      
+    def __init__(self, weather_service, rest_api_key=None, refresh_token=None):
+        self.rest_api_key = rest_api_key or os.getenv("KAKAO_REST_API_KEY")
         self.refresh_token = refresh_token or os.getenv("KAKAO_REFRESH_TOKEN")
         self.data_collector = GriderDataCollector()
         
-        # 날씨 서비스 초기화 (더 안정적인 OpenWeatherMap 사용)
-        self.weather_service = WeatherService()
+        # 날씨 서비스 초기화 (외부에서 주입받음)
+        self.weather_service = weather_service
         
         if not self.rest_api_key or not self.refresh_token:
             raise ValueError("Kakao API 키와 리프레시 토큰이 필요합니다.")
         
-        tm = TokenManager(rest_api_key, self.refresh_token)
+        tm = TokenManager(self.rest_api_key, self.refresh_token)
         token = tm.get_valid_token()
         if token: self.kakao_sender = KakaoSender(token)
         
@@ -850,7 +847,7 @@ class GriderAutoSender:
         return msg
 
     def _get_improved_weather_summary(self):
-        """개선된 날씨 요약 정보 (OpenWeatherMap 기반)"""
+        """개선된 날씨 요약 정보 (주입된 weather_service 사용)"""
         try:
             # WeatherService의 get_weather_summary는 이미 잘 포맷팅된 문자열을 반환
             summary = self.weather_service.get_weather_summary()
