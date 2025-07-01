@@ -54,8 +54,6 @@ jobs:
         env:
           LOGIN_ID: ${{ secrets.GRIDER_ID }}
           LOGIN_PW: ${{ secrets.GRIDER_PW }}
-          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY_SEMI_AUTO }}
-          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN_SEMI_AUTO }}
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
         run: |
           echo "스크립트 실행 시작 시간 (한국시간): $(date)"
