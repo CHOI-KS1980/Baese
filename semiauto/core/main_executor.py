@@ -387,11 +387,55 @@ class GriderDataCollector:
     def _parse_mission_data(self, soup):
         s = self.selectors.get('mission_table', {})
         missions = {}
+        actual_data_date = None  # 실제 크롤링한 데이터의 날짜
+        
         try:
-            # 새로운 구조로 파싱: 가장 최근 highlight된 행에서 피크타임 데이터 추출
+            # 오늘 날짜 구하기 (한국시간 기준)
+            today_str = get_korea_time().strftime('%Y-%m-%d')
+            today_short = get_korea_time().strftime('%m-%d')  # MM-DD 형식
+            today_short_alt = get_korea_time().strftime('%m/%d')  # MM/DD 형식
+            
+            logger.info(f"🔍 오늘 날짜로 찾기: {today_str} (또는 {today_short}, {today_short_alt})")
+            
             container = soup.select_one(s['container'])
             if container:
-                today_row = container.select_one(s['today_row'])
+                # 먼저 실제 오늘 날짜가 포함된 행을 찾기 시도
+                today_row = None
+                all_rows = container.select('tr')
+                
+                for row in all_rows:
+                    row_text = row.get_text()
+                    # 다양한 날짜 형식으로 오늘 날짜 확인
+                    if (today_str in row_text or 
+                        today_short in row_text or 
+                        today_short_alt in row_text):
+                        today_row = row
+                        actual_data_date = today_str  # 오늘 날짜 데이터 확인
+                        logger.info(f"✅ 오늘 날짜 행 발견: {row_text[:100]}...")
+                        break
+                
+                # 오늘 날짜 행을 찾지 못한 경우, 기존 방식 사용하되 경고 표시
+                if not today_row:
+                    today_row = container.select_one(s['today_row'])
+                    if today_row:
+                        # 실제 크롤링한 행의 날짜 추출 시도
+                        row_text = today_row.get_text()
+                        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', row_text)
+                        if not date_match:
+                            date_match = re.search(r'(\d{2}-\d{2})', row_text)
+                            if date_match:
+                                actual_data_date = f"{get_korea_time().year}-{date_match.group(1)}"
+                            else:
+                                actual_data_date = "날짜 불명"
+                        else:
+                            actual_data_date = date_match.group(1)
+                            
+                        logger.warning(f"⚠️ 오늘 날짜 행을 찾지 못해 마지막 하이라이트 행 사용: {row_text[:100]}...")
+                        logger.warning(f"⚠️ 크롤링한 데이터 날짜: {actual_data_date}")
+                        logger.warning(f"⚠️ 이 데이터는 어제 또는 과거 데이터일 수 있습니다!")
+                    else:
+                        logger.error("❌ 오늘 날짜 행과 하이라이트 행 모두 찾지 못함")
+                
                 if today_row:
                     for peak_name, cell_selector in s['peak_cells'].items():
                         cell = today_row.select_one(cell_selector)
@@ -401,14 +445,17 @@ class GriderDataCollector:
                             if match:
                                 missions[peak_name] = int(match.group(1))
                 else:
-                    logger.warning("오늘 날짜의 highlight 행을 찾을 수 없습니다.")
+                    logger.warning("오늘 날짜의 데이터 행을 찾을 수 없습니다.")
             else:
                 logger.warning("미션 테이블 컨테이너를 찾을 수 없습니다.")
                 
             logger.info(f"✅ 미션 데이터 파싱 완료: {missions}")
+            logger.info(f"📅 실제 크롤링한 데이터 날짜: {actual_data_date}")
+            
         except Exception as e:
             logger.error(f"미션 데이터 파싱 실패: {e}")
-        return missions
+            
+        return {"data": missions, "actual_date": actual_data_date}
 
     def _parse_daily_data(self, soup):
         s = self.selectors.get('daily_data', {})
@@ -533,7 +580,9 @@ class GriderDataCollector:
                 logger.error(f"❌ SLA 페이지 소스 저장 실패: {save_e}")
             
             weekly_summary = self._parse_weekly_summary(soup_sla)
-            mission_data = self._parse_mission_data(soup_sla)
+            mission_result = self._parse_mission_data(soup_sla)
+            mission_data = mission_result.get("data", {})
+            mission_actual_date = mission_result.get("actual_date")
             
             # 다음 페이지로 가기 전, iframe에서 빠져나옴 (안정성)
             self.driver.switch_to.default_content()
@@ -554,7 +603,14 @@ class GriderDataCollector:
                 "weekly_summary": weekly_summary,
                 "mission_data": mission_data,
                 "daily_data": daily_data,
-                "metadata": {'report_date': get_korea_time().strftime('%Y-%m-%d')}
+                "metadata": {
+                    'report_date': get_korea_time().strftime('%Y-%m-%d'),
+                    'collection_time': get_korea_time().strftime('%Y-%m-%d %H:%M:%S'),
+                    'timezone': 'Asia/Seoul',
+                    'mission_actual_date': mission_actual_date,
+                    'is_today_data': mission_actual_date == get_korea_time().strftime('%Y-%m-%d'),
+                    'data_freshness_warning': f'미션 데이터 실제 날짜: {mission_actual_date}' if mission_actual_date else '데이터 날짜 확인 필요'
+                }
             }
         except Exception as e:
             logger.error(f"전체 데이터 수집 프로세스 실패: {e}", exc_info=True)
@@ -641,8 +697,22 @@ class GriderAutoSender:
         daily_data = data.get('daily_data', {})
         weekly_summary_data = data.get('weekly_summary', {})
         mission_data = data.get('mission_data', {})
+        metadata = data.get('metadata', {})
         riders_data = daily_data.get('riders', [])
         daily_summary = daily_data.get('summary', {})
+
+        # 데이터 신선도 확인
+        mission_actual_date = metadata.get('mission_actual_date')
+        is_today_data = metadata.get('is_today_data', False)
+        data_warning = ""
+        
+        if mission_actual_date:
+            if is_today_data:
+                data_warning = f"✅ 오늘({mission_actual_date}) 데이터"
+            else:
+                data_warning = f"⚠️ 주의: {mission_actual_date} 데이터 (어제 데이터일 수 있음)"
+        else:
+            data_warning = "⚠️ 데이터 날짜 확인 필요"
 
         daily_completed = daily_summary.get('total_completed', 0)
         daily_rejected_and_canceled = daily_summary.get('total_rejected', 0) + daily_summary.get('total_canceled', 0)
@@ -657,6 +727,7 @@ class GriderAutoSender:
         mission_shortage_summary = self._format_mission_shortage_summary(mission_data)
 
         return template.format(
+            data_warning=data_warning,
             mission_summary=mission_summary,
             daily_completed=daily_completed,
             daily_rejected_and_canceled=daily_rejected_and_canceled,
