@@ -21,7 +21,6 @@ from xml.etree import ElementTree as ET  # 한국천문연구원 API용
 from dotenv import load_dotenv
 import sys
 from bs4 import BeautifulSoup
-from .selectors_manager import GriderSelectorsManager
 
 # 프로젝트 루트를 Python 경로에 추가하여 weather_service 모듈 임포트 허용
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
