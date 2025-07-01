@@ -8,18 +8,21 @@ on:
   workflow_dispatch:
   schedule:
     # --- 한국시간(KST) 기준 스케줄 ---
-    # Github Actions의 부하를 피해 정시 실행률을 높이기 위해 2분씩 늦춰서 설정합니다.
+    # GitHub Actions cron은 UTC 기준이므로 한국시간(UTC+9)에서 9시간을 뺀 시간으로 설정
+    # 한국시간 기준 실행 시간:
     # 1. 피크 타임 (15분 간격): 점심(10-13시), 저녁(17-20시)
-    # UTC: 점심(1-4시), 저녁(8-11시) => 매 시 2분, 17분, 32분, 47분에 실행
+    # UTC로 변환: 점심(1-4시), 저녁(8-11시) => 매 시 2분, 17분, 32분, 47분에 실행
     - cron: '2,17,32,47 1,2,3,4,8,9,10,11 * * *'
     # 2. 논피크 타임 (30분 간격): 그 외 시간대 (14-16시, 21-23시)
-    # UTC: 5-7시, 12-14시 => 매 시 2분, 32분에 실행
+    # UTC로 변환: 5-7시, 12-14시 => 매 시 2분, 32분에 실행
     - cron: '2,32 5,6,7,12,13,14 * * *'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
+      # 한국시간 설정 강제
+      TZ: 'Asia/Seoul'
       GRIDER_ID: ${{ secrets.GRIDER_ID }}
       GRIDER_PASSWORD: ${{ secrets.GRIDER_PASSWORD }}
       KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
@@ -29,6 +32,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: 🕘 한국시간 설정 및 확인
+        run: |
+          echo "시스템 기본 시간대: $(date)"
+          export TZ='Asia/Seoul'
+          echo "한국시간 설정 후: $(date)"
+          echo "TZ=$TZ" >> $GITHUB_ENV
 
       - name: Python 설치
         uses: actions/setup-python@v5
@@ -42,6 +52,7 @@ jobs:
       - name: G-Rider 자동화 스크립트 실행
         id: run-script
         run: |
+          echo "스크립트 실행 시작 시간 (한국시간): $(date)"
           python semiauto/core/main_executor.py
 
       - name: 디버그 아티팩트 업로드 (실패 시)
@@ -70,9 +81,11 @@ jobs:
           path: './semiauto/dashboard'
 
   deploy:
-    name: �� 대시보드 배포
+    name: 🚀 대시보드 배포
     needs: build-and-deploy
     runs-on: ubuntu-latest
+    env:
+      TZ: 'Asia/Seoul'
     permissions:
       pages: write
       id-token: write

@@ -47,16 +47,40 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 # selenium 등 동적으로 import 되는 모듈에 대한 Linter 경고 무시
 # pyright: reportMissingImports=false
 
+# 한국시간 로깅을 위한 커스텀 포맷터
+class KSTFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        # 한국시간으로 변환
+        kt = get_korea_time()
+        if datefmt:
+            return kt.strftime(datefmt)
+        else:
+            return kt.strftime('%Y-%m-%d %H:%M:%S KST')
+
 # 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('grider_automation.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# 기존 핸들러 제거
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+# 파일 핸들러
+file_handler = logging.FileHandler('grider_automation.log', encoding='utf-8')
+file_handler.setLevel(logging.INFO)
+
+# 콘솔 핸들러
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+
+# 한국시간 포맷터 적용
+formatter = KSTFormatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+# 핸들러 추가
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 # 한국시간 설정
 KST = pytz.timezone('Asia/Seoul')
@@ -184,7 +208,7 @@ class TokenManager:
             if 'access_token' in result:
                 self.access_token = result['access_token']
                 expires_in = result.get('expires_in', 3600)
-                self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                self.token_expires_at = get_korea_time() + timedelta(seconds=expires_in)
                 
                 if 'refresh_token' in result:
                     self.refresh_token = result['refresh_token']
@@ -213,10 +237,10 @@ class TokenManager:
         return self.access_token
     
     def is_token_expired(self):
-        """토큰 만료 여부 확인"""
+        """토큰 만료 여부 확인 (30분 여유시간 포함)"""
         if not self.token_expires_at:
             return True
-        return datetime.now() >= (self.token_expires_at - timedelta(minutes=30))
+        return get_korea_time() >= (self.token_expires_at - timedelta(minutes=30))
     
     def save_tokens(self):
         """토큰을 파일에 저장"""

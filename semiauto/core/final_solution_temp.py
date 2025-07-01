@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 # 한국시간 설정
 KST = pytz.timezone('Asia/Seoul')
 
+def get_korea_time():
+    """한국시간 기준 현재 시간 반환"""
+    return datetime.now(KST)
+
 class KoreaHolidayChecker:
     """한국천문연구원 공휴일 체커"""
     
@@ -171,7 +175,7 @@ class TokenManager:
             if 'access_token' in result:
                 self.access_token = result['access_token']
                 # 액세스 토큰은 6시간 유효
-                self.token_expires_at = datetime.now() + timedelta(hours=6)
+                self.token_expires_at = get_korea_time() + timedelta(hours=6)
                 
                 # 새로운 리프레시 토큰이 있으면 업데이트
                 if 'refresh_token' in result:
@@ -207,7 +211,7 @@ class TokenManager:
             return True
         
         # 만료 30분 전에 미리 갱신
-        return datetime.now() >= (self.token_expires_at - timedelta(minutes=30))
+        return get_korea_time() >= (self.token_expires_at - timedelta(minutes=30))
     
     def save_tokens(self):
         """토큰을 파일에 저장"""

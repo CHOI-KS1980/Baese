@@ -4,8 +4,16 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 import urllib.parse
+import pytz
 
 load_dotenv()
+
+# 한국시간 설정
+KST = pytz.timezone('Asia/Seoul')
+
+def get_korea_time():
+    """한국시간 기준 현재 시간 반환"""
+    return datetime.now(KST)
 
 class WeatherService:
     def __init__(self):
@@ -76,7 +84,7 @@ class WeatherService:
                 'visibility': data.get('visibility', 0) // 1000,  # m를 km로 변환
                 'pressure': data['main']['pressure'],
                 'icon': self._get_weather_emoji(data['weather'][0]['icon']),
-                'time': datetime.now().strftime('%H:%M')
+                'time': get_korea_time().strftime('%H:%M')
             }
             return weather
         except Exception as e:
@@ -88,7 +96,7 @@ class WeatherService:
         try:
             forecasts = []
             for i, item in enumerate(data['list'][:hours]):
-                forecast_time = datetime.fromtimestamp(item['dt'])
+                forecast_time = datetime.fromtimestamp(item['dt'], KST)
                 forecast = {
                     'time': forecast_time.strftime('%H시'),
                     'temperature': round(item['main']['temp']),
@@ -164,7 +172,7 @@ class KMAWeatherService:
     def get_weather_forecast(self):
         """기상청 단기예보 조회"""
         try:
-            now = datetime.now()
+            now = get_korea_time()
             base_date = now.strftime('%Y%m%d')
             base_time = self._get_base_time(now)
             
@@ -234,7 +242,9 @@ class KMAWeatherService:
         
         for key, data in list(weather_data.items())[:6]:  # 6시간 예보
             date_str, time_str = key.split('_')
+            # datetime.strptime으로 파싱한 후 한국시간으로 설정
             time_obj = datetime.strptime(f"{date_str}{time_str}", '%Y%m%d%H%M')
+            time_obj = KST.localize(time_obj)
             
             weather_info = {
                 'time': time_obj.strftime('%H시'),
