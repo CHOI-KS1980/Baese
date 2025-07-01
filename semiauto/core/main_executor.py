@@ -786,9 +786,32 @@ class GriderAutoSender:
         # 4. 날씨 정보 개선
         weather_summary = self._get_improved_weather_summary()
 
-        # 5. 이번주 미션 예상점수 (주간 데이터 기반)
+        # 5. 이번주 미션 예상점수 (주간 데이터 기반) - 데이터 검증
+        weekly_total_completed = weekly_summary_data.get('총완료', 0)
+        weekly_total_rejected_canceled = weekly_summary_data.get('총거절및취소', 0)
         weekly_acceptance_rate = weekly_summary_data.get('수락률', 0.0)
-        weekly_acceptance_bar = create_acceptance_bar(weekly_acceptance_rate)
+        
+        # 데이터 신뢰성 검증 (총점이 있지만 완료/거절 데이터가 없거나 부정확한 경우)
+        total_score = weekly_summary_data.get('총점', 0)
+        data_seems_reliable = (
+            total_score > 0 and  # 총점이 있고
+            weekly_total_completed > 0 and  # 완료건수가 있고
+            (weekly_total_completed + weekly_total_rejected_canceled) > 0  # 전체 시도가 있는 경우
+        )
+        
+        if data_seems_reliable:
+            weekly_acceptance_bar = create_acceptance_bar(weekly_acceptance_rate)
+            weekly_details_str = (
+                f"완료: {weekly_total_completed}  거절(취소포함): {weekly_total_rejected_canceled}\n"
+                f"수락률: {weekly_acceptance_rate:.1f}%\n"
+                f"{weekly_acceptance_bar}"
+            )
+        else:
+            # 정확한 데이터가 없는 경우 안내 메시지
+            weekly_details_str = (
+                f"⚠️ 완료/거절 건수: 정확한 데이터 확인 필요\n"
+                f"⚠️ 수락률: 주간 데이터 집계 중"
+            )
 
         # 6. 라이더별 기여도 계산 및 순위 (개선된 로직)
         rider_contributions = self._calculate_rider_contributions(riders_data, peak_times, current_hour)
@@ -810,9 +833,7 @@ class GriderAutoSender:
             f"{separator}"
             f"📊 이번주 미션 예상점수\n"
             f"총점: {weekly_summary_data.get('총점', 0)}점 (물량:{weekly_summary_data.get('물량점수', 0)}, 수락률:{weekly_summary_data.get('수락률점수', 0)})\n"
-            f"완료: {weekly_summary_data.get('총완료', 0)}  거절(취소포함): {weekly_summary_data.get('총거절및취소', 0)}\n"
-            f"수락률: {weekly_acceptance_rate:.1f}%\n"
-            f"{weekly_acceptance_bar}"
+            f"{weekly_details_str}"
             f"{separator}"
             f"{rider_str}"
             f"{separator}"
@@ -847,7 +868,7 @@ class GriderAutoSender:
             return "🌍 안산 날씨: 조회 실패"
 
     def _calculate_rider_contributions(self, riders_data, peak_times, current_hour):
-        """라이더별 기여도 계산 (각 미션별 가중치 적용)"""
+        """라이더별 기여도 계산 (상대적 기여도로 전체 합 100%)"""
         rider_contributions = []
         
         # 미션별 가중치 (시간대별 중요도)
@@ -858,16 +879,17 @@ class GriderAutoSender:
             '심야논피크': 1.0    # 심야 기본
         }
         
+        total_all_weighted_score = 0  # 전체 라이더 가중 점수 합
+        
+        # 1단계: 각 라이더의 가중 점수 계산
         for rider in riders_data:
             if rider.get('완료', 0) == 0:
                 continue
                 
             name = rider.get('name', '이름없음')
             
-            # 각 미션별 기여도 계산
-            mission_contributions = {}
+            # 각 미션별 가중 점수 계산
             total_weighted_score = 0
-            total_possible_score = 0
             
             for mission_name, weight in mission_weights.items():
                 completed = rider.get(mission_name, 0)
@@ -876,17 +898,9 @@ class GriderAutoSender:
                 time_info = peak_times.get(mission_name, {})
                 if current_hour >= time_info.get('start', 0) or current_hour >= 21:
                     # 기여도 = (완료건수 * 가중치)
-                    contribution = completed * weight
-                    mission_contributions[mission_name] = contribution
-                    total_weighted_score += contribution
-                    total_possible_score += weight * 10  # 가정: 각 미션 최대 10건
+                    weighted_score = completed * weight
+                    total_weighted_score += weighted_score
             
-            # 전체 기여도 계산 (4개 미션 평균)
-            if total_possible_score > 0:
-                overall_contribution = (total_weighted_score / total_possible_score) * 100
-            else:
-                overall_contribution = 0
-                
             # 수락률 계산
             rejected = rider.get('거절', 0)
             canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
@@ -895,7 +909,8 @@ class GriderAutoSender:
             
             rider_contributions.append({
                 'name': name,
-                'contribution': overall_contribution,
+                'weighted_score': total_weighted_score,  # 절대 점수
+                'contribution': 0,  # 상대적 기여도는 2단계에서 계산
                 'completed': rider.get('완료', 0),
                 'acceptance_rate': acceptance_rate,
                 'rejected': rejected,
@@ -907,6 +922,18 @@ class GriderAutoSender:
                     '심야논피크': rider.get('심야논피크', 0)
                 }
             })
+            
+            total_all_weighted_score += total_weighted_score
+        
+        # 2단계: 상대적 기여도 계산 (전체 합이 100%가 되도록)
+        if total_all_weighted_score > 0:
+            for rider in rider_contributions:
+                rider['contribution'] = (rider['weighted_score'] / total_all_weighted_score) * 100
+        else:
+            # 모든 라이더가 0점인 경우 균등 분배
+            equal_contribution = 100.0 / len(rider_contributions) if rider_contributions else 0
+            for rider in rider_contributions:
+                rider['contribution'] = equal_contribution
         
         # 기여도 순으로 정렬
         return sorted(rider_contributions, key=lambda x: x['contribution'], reverse=True)
