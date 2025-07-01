@@ -984,21 +984,5 @@ class GriderAutoSender:
         
         return "\n".join(rider_parts)
 
-def main():
-    load_dotenv()
-    logging.info("="*50 + "\n G-Rider 자동화 스크립트 시작\n" + "="*50)
-    
-    executor = GriderAutoSender(
-        rest_api_key=os.getenv("KAKAO_REST_API_KEY"),
-        refresh_token=os.getenv("KAKAO_REFRESH_TOKEN")
-    )
-    success = executor.send_report()
-    
-    logging.info("="*50 + "\n G-Rider 자동화 스크립트 종료\n" + "="*50)
-
-    if not success:
-        logging.error("스크립트 실행 중 오류가 발생하여 실패로 종료합니다.")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main() 
+# 이 파일이 직접 실행될 때의 로직은 별도의 실행 스크립트로 분리합니다.
+# (예: run_sender.py) 
