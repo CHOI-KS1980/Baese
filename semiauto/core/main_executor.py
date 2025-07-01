@@ -718,12 +718,16 @@ class GriderAutoSender:
             return False
 
     def format_message(self, data):
-        """메시지를 장부 형식에 맞춰 포맷팅"""
+        """메시지를 장부 형식에 맞춰 포맷팅 (개선된 버전)"""
         daily_data = data.get('daily_data', {})
         weekly_summary_data = data.get('weekly_summary', {})
         mission_data = data.get('mission_data', {})
         metadata = data.get('metadata', {})
         riders_data = daily_data.get('riders', [])
+
+        # 현재 한국시간
+        current_time = get_korea_time()
+        current_hour = current_time.hour
 
         # 데이터 신선도 확인
         mission_actual_date = metadata.get('mission_actual_date')
@@ -741,126 +745,65 @@ class GriderAutoSender:
         # 1. 헤더
         header = f"📊 심플 배민 플러스 미션 알리미\n{data_warning}\n"
 
-        # 2. 피크타임 미션 현황 (완료 건수 표시)
-        total_peak_deliveries = sum(mission_data.values()) if mission_data else 0
-        mission_summary = f"📈 피크타임 총 {total_peak_deliveries}건 완료"
-        
-        peak_order = ['아침점심피크', '오후논피크', '저녁피크', '심야논피크']
-        peak_emojis = {
-            '아침점심피크': '🌅', 
-            '오후논피크': '🌞', 
-            '저녁피크': '🌆', 
-            '심야논피크': '🌙'
+        # 2. 피크타임 미션 현황 (시간대별 표시 - 시작된 미션만)
+        peak_times = {
+            '아침점심피크': {'start': 10, 'end': 14, 'emoji': '🌅'},
+            '오후논피크': {'start': 14, 'end': 17, 'emoji': '🌞'}, 
+            '저녁피크': {'start': 17, 'end': 21, 'emoji': '🌆'},
+            '심야논피크': {'start': 21, 'end': 24, 'emoji': '🌙'}
         }
         
-        mission_details = []
-        for key in peak_order:
-            count = mission_data.get(key, 0)
-            mission_details.append(f" {peak_emojis.get(key, '')} {key}: {count}건")
+        visible_missions = []
+        total_visible_deliveries = 0
         
-        mission_status_str = mission_summary + "\n" + "\n".join(mission_details)
-
-        # 3. 날씨 정보
-        weather_summary = self._format_weather_summary()
-
-        # 4. 종합 정보 (주간 데이터 기반)
-        summary_str = (
-            f'총점: {weekly_summary_data.get("총점", 0)}점 (물량:{weekly_summary_data.get("물량점수", 0)}, 수락률:{weekly_summary_data.get("수락률점수", 0)})\n'
-            f'수락률: {weekly_summary_data.get("수락률", 0.0):.1f}% | 완료: {weekly_summary_data.get("총완료", 0)} | 거절: {weekly_summary_data.get("총거절및취소", 0)}'
-        )
+        for mission_name, time_info in peak_times.items():
+            # 미션이 시작되었거나 진행 중인 경우만 표시
+            if current_hour >= time_info['start'] or current_hour >= 21:  # 21시 이후는 모든 미션 표시
+                count = mission_data.get(mission_name, 0)
+                visible_missions.append(f" {time_info['emoji']} {mission_name}: {count}건")
+                total_visible_deliveries += count
         
-        # 5. 라이더별 기여도 (일일 데이터 기반)
-        rider_parts = []
+        if visible_missions:
+            mission_status_str = f"📈 피크타임 총 {total_visible_deliveries}건 완료\n" + "\n".join(visible_missions)
+        else:
+            mission_status_str = "📈 아직 시작된 피크타임 미션이 없습니다"
+
+        # 3. 금일 수행 내역 (일일 데이터 기반)
+        daily_summary = daily_data.get('summary', {})
+        daily_completed = daily_summary.get('total_completed', 0)
+        daily_rejected = daily_summary.get('total_rejected', 0) 
+        daily_canceled = daily_summary.get('total_canceled', 0)
+        daily_total_rejected_canceled = daily_rejected + daily_canceled
+        daily_total_attempts = daily_completed + daily_total_rejected_canceled
+        daily_acceptance_rate = (daily_completed / daily_total_attempts * 100) if daily_total_attempts > 0 else 100.0
         
-        # 라이더들을 완료 건수 기준으로 정렬
-        sorted_riders = sorted(
-            [r for r in riders_data if r.get('완료', 0) > 0], 
-            key=lambda x: x.get('완료', 0), 
-            reverse=True
-        )
-        
-        top_riders = sorted_riders[:3]
-        other_riders = sorted_riders[3:]
-        
-        # 최고 완료 건수 (진행률 바 계산용)
-        max_complete = top_riders[0].get('완료', 1) if top_riders else 1
-
-        # TOP 3 라이더
-        if top_riders:
-            rider_parts.append(f"🏆 라이더 순위 (운행: {len(sorted_riders)}명)")
-            medals = ['🥇', '🥈', '🥉']
-            
-            for i, rider in enumerate(top_riders):
-                name = rider.get('name', '이름없음')
-                complete = rider.get('완료', 0)
-                
-                # 진행률 바 생성 (🟩 형식, 최대 10개)
-                bar_len = 10
-                progress_ratio = complete / max_complete if max_complete > 0 else 0
-                filled = int(round(progress_ratio * bar_len))
-                bar = '🟩' * filled + '⬜' * (bar_len - filled) if filled < bar_len else '🟩' * bar_len
-                
-                # 수락률 계산
-                rejected = rider.get('거절', 0)
-                canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
-                total_attempts = complete + rejected + canceled
-                acceptance_rate = (complete / total_attempts * 100) if total_attempts > 0 else 100.0
-                
-                # 피크별 상세 정보 (이모지 형식)
-                peak_details = f"🌅{rider.get('아침점심피크',0)} 🌇{rider.get('오후논피크',0)} 🌃{rider.get('저녁피크',0)} 🌙{rider.get('심야논피크',0)}"
-                
-                rider_info = (
-                    f"{medals[i]} {name} | {bar} {complete}건\n"
-                    f"    ({peak_details})\n"
-                    f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
-                )
-                rider_parts.append(rider_info)
-
-        # 기타 라이더
-        if other_riders:
-            rider_parts.append("")  # 빈 줄 추가
-            
-            for i, rider in enumerate(other_riders, 4):
-                name = rider.get('name', '이름없음')
-                complete = rider.get('완료', 0)
-                rejected = rider.get('거절', 0)
-                canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
-                total_attempts = complete + rejected + canceled
-                acceptance_rate = (complete / total_attempts * 100) if total_attempts > 0 else 100.0
-                
-                # 진행률 바 생성
-                progress_ratio = complete / max_complete if max_complete > 0 else 0
-                filled = int(round(progress_ratio * 10))
-                bar = '🟩' * filled + '⬜' * (10 - filled) if filled < 10 else '🟩' * 10
-                
-                peak_details = f"🌅{rider.get('아침점심피크',0)} 🌇{rider.get('오후논피크',0)} 🌃{rider.get('저녁피크',0)} 🌙{rider.get('심야논피크',0)}"
-                
-                rider_info = (
-                    f"  {i}. {name} | {bar} {complete}건\n"
-                    f"    ({peak_details})\n"
-                    f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
-                )
-                rider_parts.append(rider_info)
-
-        rider_str = "\n".join(rider_parts)
-
-        # 수락률 바 생성 함수
         def create_acceptance_bar(rate):
             filled = int(round(rate / 10))  # 10% 단위로 채움
             return '🟩' * filled + '⬜' * (10 - filled) if filled < 10 else '🟩' * 10
         
+        daily_acceptance_bar = create_acceptance_bar(daily_acceptance_rate)
+
+        # 4. 날씨 정보 개선
+        weather_summary = self._get_improved_weather_summary()
+
+        # 5. 이번주 미션 예상점수 (주간 데이터 기반)
+        weekly_acceptance_rate = weekly_summary_data.get('수락률', 0.0)
+        weekly_acceptance_bar = create_acceptance_bar(weekly_acceptance_rate)
+
+        # 6. 라이더별 기여도 계산 및 순위 (개선된 로직)
+        rider_contributions = self._calculate_rider_contributions(riders_data, peak_times, current_hour)
+        rider_str = self._format_rider_rankings(rider_contributions)
+
         # 최종 메시지 조합
         separator = "\n\n"
-        daily_acceptance_bar = create_acceptance_bar(weekly_summary_data.get('수락률', 0.0))
-        weekly_acceptance_bar = create_acceptance_bar(weekly_summary_data.get('수락률', 0.0))
         
         msg = (
             f"{header}"
             f"{mission_status_str}"
             f"{separator}"
             f"📈 금일 수행 내역\n"
-            f"완료: {weekly_summary_data.get('총완료', 0)}  거절(취소포함): {weekly_summary_data.get('총거절및취소', 0)}\n"
-            f"수락률: {weekly_summary_data.get('수락률', 0.0):.1f}%\n"
+            f"완료: {daily_completed}  거절(취소포함): {daily_total_rejected_canceled}\n"
+            f"수락률: {daily_acceptance_rate:.1f}%\n"
             f"{daily_acceptance_bar}"
             f"{separator}"
             f"{weather_summary}"
@@ -868,42 +811,158 @@ class GriderAutoSender:
             f"📊 이번주 미션 예상점수\n"
             f"총점: {weekly_summary_data.get('총점', 0)}점 (물량:{weekly_summary_data.get('물량점수', 0)}, 수락률:{weekly_summary_data.get('수락률점수', 0)})\n"
             f"완료: {weekly_summary_data.get('총완료', 0)}  거절(취소포함): {weekly_summary_data.get('총거절및취소', 0)}\n"
-            f"수락률: {weekly_summary_data.get('수락률', 0.0):.1f}%\n"
+            f"수락률: {weekly_acceptance_rate:.1f}%\n"
             f"{weekly_acceptance_bar}"
             f"{separator}"
             f"{rider_str}"
             f"{separator}"
-            f"총 {total_peak_deliveries}건의 피크타임 배달을 완료했습니다."
+            f"총 {total_visible_deliveries}건의 피크타임 배달을 완료했습니다."
         )
 
         return msg
 
-    def _format_weather_summary(self):
-        """날씨 요약 정보 (간단한 형식)"""
+    def _get_improved_weather_summary(self):
+        """개선된 날씨 요약 정보"""
         try:
             summary = self.weather_service.get_weather_summary()
             
-            # 에러 처리 - dictionary 확인
-            if not isinstance(summary, dict) or "error" in summary: 
-                return "🌍 날씨 정보 (조회 실패)"
-
-            # 기상청 데이터가 있는 경우 그대로 반환 (이미 적절한 형식)
-            if isinstance(summary, str) and "안산" in summary:
+            # 성공적으로 데이터를 받은 경우
+            if isinstance(summary, dict) and 'forecast' in summary:
+                forecast = summary.get('forecast', [])
+                if forecast and len(forecast) > 0:
+                    current = forecast[0]
+                    temp = current.get('temperature', 'N/A')
+                    desc = current.get('description', '정보없음')
+                    return f"🌍 안산 날씨: {desc} {temp}°C"
+            
+            # 문자열 형태로 받은 경우 (기상청 데이터)
+            elif isinstance(summary, str):
                 return summary
             
-            # forecast 키가 있고 리스트인지 확인 (OpenWeatherMap 형식)
-            forecast = summary.get('forecast', [])
-            if isinstance(forecast, list) and forecast:
-                current_temp = forecast[0].get('temperature', 'N/A') if forecast else 'N/A'
-                current_desc = forecast[0].get('description', '맑음') if forecast else '맑음'
-                return f"🌍 안산 날씨: {current_desc} {current_temp}°C"
-            
-            # 기본 날씨 정보 반환
-            return "🌍 날씨 정보 (조회 실패)"
+            # 기본값 반환
+            return "🌍 안산 날씨: 정보 조회 중"
             
         except Exception as e:
-            logger.warning(f"날씨 요약 생성 실패: {e}")
-            return "🌍 날씨 정보 (조회 실패)"
+            logger.warning(f"날씨 정보 조회 실패: {e}")
+            return "🌍 안산 날씨: 조회 실패"
+
+    def _calculate_rider_contributions(self, riders_data, peak_times, current_hour):
+        """라이더별 기여도 계산 (각 미션별 가중치 적용)"""
+        rider_contributions = []
+        
+        # 미션별 가중치 (시간대별 중요도)
+        mission_weights = {
+            '아침점심피크': 1.2,  # 아침점심 중요도 높음
+            '오후논피크': 0.8,   # 오후 상대적으로 낮음
+            '저녁피크': 1.3,     # 저녁 가장 중요
+            '심야논피크': 1.0    # 심야 기본
+        }
+        
+        for rider in riders_data:
+            if rider.get('완료', 0) == 0:
+                continue
+                
+            name = rider.get('name', '이름없음')
+            
+            # 각 미션별 기여도 계산
+            mission_contributions = {}
+            total_weighted_score = 0
+            total_possible_score = 0
+            
+            for mission_name, weight in mission_weights.items():
+                completed = rider.get(mission_name, 0)
+                
+                # 해당 시간대가 시작되었을 때만 계산에 포함
+                time_info = peak_times.get(mission_name, {})
+                if current_hour >= time_info.get('start', 0) or current_hour >= 21:
+                    # 기여도 = (완료건수 * 가중치)
+                    contribution = completed * weight
+                    mission_contributions[mission_name] = contribution
+                    total_weighted_score += contribution
+                    total_possible_score += weight * 10  # 가정: 각 미션 최대 10건
+            
+            # 전체 기여도 계산 (4개 미션 평균)
+            if total_possible_score > 0:
+                overall_contribution = (total_weighted_score / total_possible_score) * 100
+            else:
+                overall_contribution = 0
+                
+            # 수락률 계산
+            rejected = rider.get('거절', 0)
+            canceled = rider.get('배차취소', 0) + rider.get('배달취소', 0)
+            total_attempts = rider.get('완료', 0) + rejected + canceled
+            acceptance_rate = (rider.get('완료', 0) / total_attempts * 100) if total_attempts > 0 else 100.0
+            
+            rider_contributions.append({
+                'name': name,
+                'contribution': overall_contribution,
+                'completed': rider.get('완료', 0),
+                'acceptance_rate': acceptance_rate,
+                'rejected': rejected,
+                'canceled': canceled,
+                'mission_details': {
+                    '아침점심피크': rider.get('아침점심피크', 0),
+                    '오후논피크': rider.get('오후논피크', 0),
+                    '저녁피크': rider.get('저녁피크', 0),
+                    '심야논피크': rider.get('심야논피크', 0)
+                }
+            })
+        
+        # 기여도 순으로 정렬
+        return sorted(rider_contributions, key=lambda x: x['contribution'], reverse=True)
+
+    def _format_rider_rankings(self, rider_contributions):
+        """라이더 순위 포맷팅 (기여도 기반)"""
+        if not rider_contributions:
+            return "운행 중인 라이더 정보가 없습니다."
+        
+        rider_parts = []
+        rider_parts.append(f"🏆 라이더 순위 (운행: {len(rider_contributions)}명)")
+        
+        medals = ['🥇', '🥈', '🥉']
+        
+        # 최고 기여도 (진행률 바 계산용)
+        max_contribution = rider_contributions[0]['contribution'] if rider_contributions else 1
+        
+        for i, rider in enumerate(rider_contributions):
+            name = rider['name']
+            contribution = rider['contribution']
+            completed = rider['completed']
+            acceptance_rate = rider['acceptance_rate']
+            rejected = rider['rejected']
+            canceled = rider['canceled']
+            
+            # 기여도 기반 진행률 바 생성 (🟩 형식, 최대 10개)
+            bar_len = 10
+            if max_contribution > 0:
+                progress_ratio = contribution / max_contribution
+            else:
+                progress_ratio = 0
+            filled = int(round(progress_ratio * bar_len))
+            bar = '🟩' * filled + '⬜' * (bar_len - filled) if filled < bar_len else '🟩' * bar_len
+            
+            # 피크별 상세 정보 (이모지 형식)
+            details = rider['mission_details']
+            peak_details = f"🌅{details['아침점심피크']} 🌇{details['오후논피크']} 🌃{details['저녁피크']} 🌙{details['심야논피크']}"
+            
+            # 메달 또는 순위 표시
+            if i < 3:
+                rank_display = medals[i]
+            else:
+                rank_display = f"  {i+1}."
+            
+            rider_info = (
+                f"{rank_display} {name} | {bar} {contribution:.1f}% ({completed}건)\n"
+                f"    ({peak_details})\n"
+                f"    수락률: {acceptance_rate:.1f}% (거절:{rejected}, 취소:{canceled})"
+            )
+            rider_parts.append(rider_info)
+            
+            # TOP 3와 나머지 사이에 빈 줄 추가
+            if i == 2 and len(rider_contributions) > 3:
+                rider_parts.append("")
+        
+        return "\n".join(rider_parts)
 
 def main():
     load_dotenv()
