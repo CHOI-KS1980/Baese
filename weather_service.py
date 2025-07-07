@@ -60,18 +60,19 @@ class WeatherService:
                 'lang': 'kr'
             }
             
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                return self._format_hourly_forecast(data, hours)
+                return {"success": True, "data": self._format_hourly_forecast(data, hours)}
             else:
-                error_msg = f"시간별 예보 조회 API 실패. Status: {response.status_code}, Response: {response.text}"
-                print(error_msg)
-                return None
+                error_details = f"Status: {response.status_code}, Response: {response.text}"
+                print(f"시간별 예보 조회 API 실패. {error_details}")
+                # API 서버의 응답을 그대로 반환하여 원인 파악을 돕습니다.
+                return {"success": False, "error": f"날씨 API 호출에 실패했습니다. (응답: {response.text})"}
                 
         except Exception as e:
             print(f"시간별 예보 조회 실패: {e}")
-            return None
+            return {"success": False, "error": f"날씨 정보 조회 중 시스템 예외가 발생했습니다: {e}"}
     
     def _format_current_weather(self, data):
         """현재 날씨 데이터 포맷팅"""
@@ -138,10 +139,15 @@ class WeatherService:
     
     def get_weather_summary(self):
         """날씨 요약 정보 (오전/오후 요약 형식)"""
-        hourly_forecast = self.get_hourly_forecast(hours=8) # 24시간(8*3) 데이터 가져오기
+        result = self.get_hourly_forecast(hours=8) # 24시간(8*3) 데이터 가져오기
         
+        if not result.get("success"):
+            error_message = result.get('error', '알 수 없는 오류로 날씨 정보를 가져올 수 없습니다.')
+            return f"⚠️ {error_message}"
+        
+        hourly_forecast = result.get("data", [])
         if not hourly_forecast:
-            return "⚠️ 날씨 정보를 가져올 수 없습니다."
+            return "⚠️ 날씨 예보 데이터가 비어있어 요약할 수 없습니다."
             
         now = get_korea_time()
         morning_forecasts = []
