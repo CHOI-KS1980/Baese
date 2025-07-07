@@ -933,16 +933,19 @@ class GriderAutoSender:
         """라이더 순위 포맷팅 (기여도 기반, 완료 건수 별도 라인)"""
         if not rider_contributions:
             return "운행 중인 라이더 정보가 없습니다."
-        
+
         rider_parts = []
         rider_parts.append(f"🏆 라이더 순위 (운행: {len(rider_contributions)}명)")
         
         medals = ['🥇', '🥈', '🥉']
-        
+
+        # 상위 5명만 선택하여 순회
+        top_5_riders = rider_contributions[:5]
+
         # 최고 기여도 (진행률 바 계산용)
-        max_contribution = rider_contributions[0]['contribution'] if rider_contributions else 1
+        max_contribution = top_5_riders[0]['contribution'] if top_5_riders else 1
         
-        for i, rider in enumerate(rider_contributions):
+        for i, rider in enumerate(top_5_riders):
             name = rider['name']
             contribution = rider['contribution']
             completed = rider['completed']
@@ -977,10 +980,18 @@ class GriderAutoSender:
             rider_parts.append(rider_info)
             
             # TOP 3와 나머지 사이에 빈 줄 추가
-            if i == 2 and len(rider_contributions) > 3:
+            if i == 2 and len(top_5_riders) > 3:
                 rider_parts.append("")
         
+        # 전체 라이더 수가 5명을 초과하는 경우, 요약 정보 추가
+        if len(rider_contributions) > 5:
+            rider_parts.append(f"\n... (전체 {len(rider_contributions)}명 중 상위 5명)")
+            
         return "\n".join(rider_parts)
+
+    def _get_peak_time_status(self, data):
+        """피크타임 진행상황 문자열 생성"""
+        # ... existing code ...
 
 # 이 파일이 직접 실행될 때의 로직은 별도의 실행 스크립트로 분리합니다.
 # (예: run_sender.py) 
